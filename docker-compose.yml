@@ -11,14 +11,11 @@ services:
                 condition: service_healthy
             redis:
                 condition: service_started
-        ports:
-            - 80:80
-        links:
-            - mongo
-            - redis
-        stop_grace_period: 60s
+        expose:
+            - 80
+        stop_grace_period: 30s
         volumes:
-            - ~/sharelatex_data:/var/lib/overleaf
+            - ./sharelatex_data:/var/lib/overleaf
             ########################################################################
             ####  Server Pro: Uncomment the following line to mount the docker  ####
             ####             socket, required for Sibling Containers to work    ####
@@ -26,7 +23,7 @@ services:
             # - /var/run/docker.sock:/var/run/docker.sock
         environment:
 
-            OVERLEAF_APP_NAME: Overleaf Community Edition
+            OVERLEAF_APP_NAME: ${OVERLEAF_APP_NAME}
 
             OVERLEAF_MONGO_URL: mongodb://mongo/sharelatex
 
@@ -50,10 +47,10 @@ services:
             ## Set for SSL via nginx-proxy
             #VIRTUAL_HOST: 103.112.212.22
 
-            # OVERLEAF_SITE_URL: http://overleaf.example.com
-            # OVERLEAF_NAV_TITLE: Overleaf Community Edition
+            OVERLEAF_SITE_URL: ${OVERLEAF_SITE_URL}
+            OVERLEAF_NAV_TITLE: ${OVERLEAF_NAV_TITLE}
             # OVERLEAF_HEADER_IMAGE_URL: http://example.com/mylogo.png
-            # OVERLEAF_ADMIN_EMAIL: support@it.com
+            OVERLEAF_ADMIN_EMAIL: ${OVERLEAF_ADMIN_EMAIL}
 
             # OVERLEAF_LEFT_FOOTER: '[{"text": "Another page I want to link to can be found <a href=\"here\">here</a>"} ]'
             # OVERLEAF_RIGHT_FOOTER: '[{"text": "Hello I am on the Right"} ]'
@@ -103,6 +100,9 @@ services:
 
 
             # OVERLEAF_PROXY_LEARN: "true"
+        networks:
+            network_npm:
+            network_overleaf:
 
     mongo:
         restart: always
@@ -111,12 +111,15 @@ services:
         expose:
             - 27017
         volumes:
-            - ~/mongo_data:/data/db
+            - ./mongo_data:/data/db
         healthcheck:
             test: echo 'db.stats().ok' | mongo localhost:27017/test --quiet
             interval: 10s
             timeout: 10s
             retries: 5
+        command: "--replSet overleaf"
+        networks:
+            network_overleaf:
 
     redis:
         restart: always
@@ -125,26 +128,12 @@ services:
         expose:
             - 6379
         volumes:
-            - ~/redis_data:/data
+            - ./redis_data:/data
+        networks:
+            network_overleaf:
 
-    # ldap:
-    #    restart: always
-    #    image: rroemhild/test-openldap
-    #    container_name: ldap
-    #    expose:
-    #        - 389
-
-    # See https://github.com/jwilder/nginx-proxy for documentation on how to configure the nginx-proxy container,
-    # and https://github.com/overleaf/overleaf/wiki/HTTPS-reverse-proxy-using-Nginx for an example of some recommended
-    # settings. We recommend using a properly managed nginx instance outside of the Overleaf Server Pro setup,
-    # but the example here can be used if you'd prefer to run everything with docker-compose
-
-    # nginx-proxy:
-    #     image: jwilder/nginx-proxy
-    #     container_name: nginx-proxy
-    #     ports:
-    #       #- "80:80"
-    #       - "443:443"
-    #     volumes:
-    #       - /var/run/docker.sock:/tmp/docker.sock:ro
-    #       - /home/overleaf/tmp:/etc/nginx/certs
+networks:
+    network_npm:
+        external: true
+    network_overleaf:
+        name: network_overleaf
