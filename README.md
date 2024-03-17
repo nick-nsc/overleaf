@@ -1,3 +1,30 @@
+# Updated in this fork:
+
+This fork exists to tackle the problems described in [https://github.com/overleaf/overleaf/issues/1188](https://github.com/overleaf/overleaf/issues/1188).
+
+1. Clone this repository
+2. Run make with Makefile in server-ce/ to build the latest Docker image
+3. Customized docker-compose.yml for hosting with Nginx Proxy Manager
+4. Initiate the mongodb overleaf replica
+
+```bash
+docker compose up -d mongo
+
+docker compose exec -T mongo sh -c '
+    while ! mongo --eval "db.version()" > /dev/null; do
+      echo "Waiting for Mongo..."
+      sleep 1
+    done
+    mongo --eval "rs.initiate({ _id: \"overleaf\", members: [ { _id: 0, host: \"mongo:27017\" } ] })" > /dev/null'
+```
+
+Then start the application:
+
+```bash
+docker compose up -d
+```
+
+
 <h1 align="center">
   <br>
   <a href="https://www.overleaf.com"><img src="doc/logo.png" alt="Overleaf" width="300"></a>
