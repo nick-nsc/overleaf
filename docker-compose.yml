@@ -4,14 +4,12 @@ services:
         restart: unless-stopped
         # Server Pro users:
         # image: quay.io/sharelatex/sharelatex-pro
-        image: sharelatex/sharelatex
+        image: sharelatex/sharelatex:main
         depends_on:
             mongo:
                 condition: service_healthy
             redis:
                 condition: service_started
-        ports:
-            - 80:80
         stop_grace_period: 30s
         volumes:
             - ./sharelatex_data:/var/lib/overleaf
@@ -105,7 +103,6 @@ services:
     mongo:
         restart: unless-stopped
         image: mongo:5.0
-        command: '--replSet overleaf'
         volumes:
             - ./mongo_data:/data/db
             - ./mongodb-init-replica-set.js:/docker-entrypoint-initdb.d/mongodb-init-replica-set.js
