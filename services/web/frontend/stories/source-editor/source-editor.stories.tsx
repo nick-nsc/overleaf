@@ -4,6 +4,8 @@ import { useScope } from '../hooks/use-scope'
 import { useMeta } from '../hooks/use-meta'
 import { FC } from 'react'
 import { FileTreePathContext } from '@/features/file-tree/contexts/file-tree-path'
+import RangesTracker from '@overleaf/ranges-tracker'
+import { bsVersionDecorator } from '../../../.storybook/utils/with-bootstrap-switcher'
 
 const FileTreePathProvider: FC = ({ children }) => (
   <FileTreePathContext.Provider
@@ -39,6 +41,9 @@ export default {
       </div>
     ),
   ],
+  argTypes: {
+    ...bsVersionDecorator.argTypes,
+  },
 }
 
 const settings = {
@@ -66,6 +71,7 @@ const permissions = {
 }
 
 export const Latex = (args: any, { globals: { theme } }: any) => {
+  // FIXME: useScope has no effect
   useScope({
     editor: {
       sharejs_doc: mockDoc(content.tex, changes.tex),
@@ -143,7 +149,6 @@ export const Visual = (args: any, { globals: { theme } }: any) => {
   useMeta({
     'ol-showSymbolPalette': true,
     'ol-mathJaxPath': 'https://unpkg.com/mathjax@3.2.2/es5/tex-svg-full.js',
-    'ol-inactiveTutorials': ['table-generator-promotion'],
     'ol-project_id': '63e21c07946dd8c76505f85a',
   })
 
@@ -167,7 +172,7 @@ export const Bibtex = (args: any, { globals: { theme } }: any) => {
   return <SourceEditor />
 }
 
-const MAX_DOC_LENGTH = 2 * 1024 * 1024 // window.maxDocLength
+const MAX_DOC_LENGTH = 2 * 1024 * 1024 // ol-maxDocLength
 
 const mockDoc = (content: string, changes: Array<Record<string, any>> = []) => {
   const mockShareJSDoc = {
@@ -205,10 +210,22 @@ const mockDoc = (content: string, changes: Array<Record<string, any>> = []) => {
     off: () => {
       // Do nothing
     },
-    ranges: {
-      changes,
-      comments: [],
+    setTrackChangesIdSeeds: () => {
+      // Do nothing
     },
+    setTrackingChanges: () => {
+      // Do nothing
+    },
+    getTrackingChanges: () => {
+      return true
+    },
+    getInflightOp: () => {
+      return null
+    },
+    getPendingOp: () => {
+      return null
+    },
+    ranges: new RangesTracker(changes, []),
   }
 }
 

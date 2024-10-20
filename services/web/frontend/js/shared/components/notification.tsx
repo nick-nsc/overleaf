@@ -1,3 +1,5 @@
+// to be kept in sync with app/views/_mixins/notification.pug
+
 import classNames from 'classnames'
 import React, { ReactElement, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -14,8 +16,8 @@ export type NotificationProps = {
   action?: React.ReactElement
   ariaLive?: 'polite' | 'off' | 'assertive'
   className?: string
-  content: React.ReactElement | string
-  customIcon?: React.ReactElement
+  content: React.ReactNode
+  customIcon?: React.ReactElement | null
   disclaimer?: React.ReactElement | string
   isDismissible?: boolean
   isActionBelowContent?: boolean
@@ -78,6 +80,8 @@ function Notification({
     if (onDismiss) onDismiss()
   }
 
+  // return null
+
   if (!show) {
     return null
   }
@@ -89,7 +93,9 @@ function Notification({
       role="alert"
       id={id}
     >
-      <NotificationIcon notificationType={type} customIcon={customIcon} />
+      {customIcon !== null && (
+        <NotificationIcon notificationType={type} customIcon={customIcon} />
+      )}
 
       <div className="notification-content-and-cta">
         <div className="notification-content">

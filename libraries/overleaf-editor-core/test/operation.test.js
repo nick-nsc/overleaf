@@ -98,7 +98,9 @@ describe('Operation', function () {
           const file = this.snapshot.getFile(pathname)
           expect(file.getContent()).to.equal(expectedFile.content)
           expect(file.getMetadata()).to.eql(expectedFile.metadata)
-          expect(file.getComments()).to.deep.equal(expectedFile.comments)
+          expect(file.getComments().toRaw()).to.deep.equal(
+            expectedFile.comments
+          )
         })
         return this
       },
@@ -817,7 +819,6 @@ describe('Operation', function () {
                     length: 1,
                   },
                 ],
-                resolved: false,
               },
             ],
           },
@@ -849,9 +850,7 @@ describe('Operation', function () {
           foo: {
             content: 'xyz',
             metadata: {},
-            comments: [
-              { id: '1', ranges: [{ pos: 3, length: 1 }], resolved: false },
-            ],
+            comments: [{ id: '1', ranges: [{ pos: 3, length: 1 }] }],
           },
         })
         .expectSymmetry()
@@ -884,9 +883,7 @@ describe('Operation', function () {
           foo: {
             content: 'xyz',
             metadata: {},
-            comments: [
-              { id: '1', ranges: [{ pos: 0, length: 4 }], resolved: false },
-            ],
+            comments: [{ id: '1', ranges: [{ pos: 0, length: 4 }] }],
           },
         })
         .expectSymmetry()
@@ -1068,9 +1065,7 @@ describe('Operation', function () {
           foo: {
             content: 'xyz',
             metadata: {},
-            comments: [
-              { id: '1', ranges: [{ pos: 0, length: 3 }], resolved: false },
-            ],
+            comments: [{ id: '1', ranges: [{ pos: 0, length: 3 }] }],
           },
         })
         .expectSymmetry()

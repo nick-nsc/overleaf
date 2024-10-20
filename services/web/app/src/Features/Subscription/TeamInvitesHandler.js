@@ -3,7 +3,7 @@ const crypto = require('crypto')
 
 const settings = require('@overleaf/settings')
 const Modules = require('../../infrastructure/Modules')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 
 const { Subscription } = require('../../models/Subscription')
 const { SSOConfig } = require('../../models/SSOConfig')
@@ -124,9 +124,8 @@ async function revokeInvite(teamManagerId, subscription, email) {
 // email is in Subscription.invited_emails when they join. We'll remove this
 // after a short while.
 async function createTeamInvitesForLegacyInvitedEmail(email) {
-  const teams = await SubscriptionLocator.promises.getGroupsWithEmailInvite(
-    email
-  )
+  const teams =
+    await SubscriptionLocator.promises.getGroupsWithEmailInvite(email)
   return Promise.all(
     teams.map(team => createInvite(team.admin_id, team, email))
   )

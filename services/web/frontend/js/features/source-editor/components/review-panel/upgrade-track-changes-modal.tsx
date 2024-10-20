@@ -6,6 +6,7 @@ import { useProjectContext } from '../../../../shared/context/project-context'
 import { useUserContext } from '../../../../shared/context/user-context'
 import { startFreeTrial, upgradePlan } from '../../../../main/account-upgrade'
 import { memo } from 'react'
+import { useFeatureFlag } from '@/shared/context/split-test-context'
 
 type UpgradeTrackChangesModalProps = {
   show: boolean
@@ -19,6 +20,8 @@ function UpgradeTrackChangesModal({
   const { t } = useTranslation()
   const project = useProjectContext()
   const user = useUserContext()
+
+  const hasNewPaywallCta = useFeatureFlag('paywall-cta')
 
   return (
     <AccessibleModal show={show} onHide={() => setShow(false)}>
@@ -42,7 +45,6 @@ function UpgradeTrackChangesModal({
         <h4 className="teaser-title">
           {t('see_changes_in_your_documents_live')}
         </h4>
-        <p className="small">{t('refresh_page_after_starting_free_trial')}</p>
         <Row>
           <Col md={10} mdOffset={1}>
             <ul className="list-unstyled">
@@ -58,6 +60,9 @@ function UpgradeTrackChangesModal({
             </ul>
           </Col>
         </Row>
+        <p className="small">
+          {t('already_subscribed_try_refreshing_the_page')}
+        </p>
         {project.owner && (
           <Row className="text-center">
             {project.owner._id === user.id ? (
@@ -67,7 +72,9 @@ function UpgradeTrackChangesModal({
                   className="btn-primary"
                   onClick={() => startFreeTrial('track-changes')}
                 >
-                  {t('try_it_for_free')}
+                  {hasNewPaywallCta
+                    ? t('get_track_changes')
+                    : t('try_it_for_free')}
                 </Button>
               ) : (
                 <Button

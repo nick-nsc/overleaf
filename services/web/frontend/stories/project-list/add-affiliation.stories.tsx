@@ -2,10 +2,11 @@ import AddAffiliation from '../../js/features/project-list/components/add-affili
 import { ProjectListProvider } from '../../js/features/project-list/context/project-list-context'
 import useFetchMock from '../hooks/use-fetch-mock'
 import { projectsData } from '../../../test/frontend/features/project-list/fixtures/projects-data'
+import getMeta from '@/utils/meta'
+import { bsVersionDecorator } from '../../../.storybook/utils/with-bootstrap-switcher'
 
 export const Add = (args: any) => {
-  window.metaAttributesCache = new Map()
-  window.metaAttributesCache.set('ol-ExposedSettings', {
+  Object.assign(getMeta('ol-ExposedSettings'), {
     isOverleaf: true,
   })
   window.metaAttributesCache.set('ol-userAffiliations', [])
@@ -26,4 +27,7 @@ export const Add = (args: any) => {
 export default {
   title: 'Project List / Affiliation',
   component: AddAffiliation,
+  argTypes: {
+    ...bsVersionDecorator.argTypes,
+  },
 }

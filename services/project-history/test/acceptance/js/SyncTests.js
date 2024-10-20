@@ -10,9 +10,9 @@ const { ObjectId } = mongodb
 
 const EMPTY_FILE_HASH = 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391'
 
-const MockHistoryStore = () => nock('http://localhost:3100')
-const MockFileStore = () => nock('http://localhost:3009')
-const MockWeb = () => nock('http://localhost:3000')
+const MockHistoryStore = () => nock('http://127.0.0.1:3100')
+const MockFileStore = () => nock('http://127.0.0.1:3009')
+const MockWeb = () => nock('http://127.0.0.1:3000')
 
 describe('Syncing with web and doc-updater', function () {
   const historyId = new ObjectId().toString()
@@ -68,7 +68,7 @@ describe('Syncing with web and doc-updater', function () {
       it('404s if project-history is not enabled', function (done) {
         request.post(
           {
-            url: `http://localhost:3054/project/${this.project_id}/resync`,
+            url: `http://127.0.0.1:3054/project/${this.project_id}/resync`,
           },
           (error, res, body) => {
             if (error) {
@@ -162,7 +162,7 @@ describe('Syncing with web and doc-updater', function () {
             ],
             error => {
               if (error) {
-                throw error
+                return done(error)
               }
               assert(
                 createBlob.isDone(),
@@ -244,7 +244,7 @@ describe('Syncing with web and doc-updater', function () {
                       {
                         file: this.file_id,
                         path: '/test.png',
-                        url: `http://localhost:3009/project/${this.project_id}/file/${this.file_id}`,
+                        url: `http://127.0.0.1:3009/project/${this.project_id}/file/${this.file_id}`,
                       },
                       { path: '/persistedFile' },
                     ],
@@ -360,7 +360,7 @@ describe('Syncing with web and doc-updater', function () {
       })
 
       describe("when a doc's contents is not up to date", function () {
-        it('should send test updates to the history store', function (done) {
+        beforeEach(function () {
           MockHistoryStore()
             .get(`/api/projects/${historyId}/latest/history`)
             .reply(200, {
@@ -385,7 +385,9 @@ describe('Syncing with web and doc-updater', function () {
               `/api/projects/${historyId}/blobs/0a207c060e61f3b88eaee0a8cd0696f46fb155eb`
             )
             .reply(200, 'a\nb')
+        })
 
+        it('should send test updates to the history store', function (done) {
           const addFile = MockHistoryStore()
             .post(`/api/projects/${historyId}/legacy_changes`, body => {
               expect(body).to.deep.equal([
@@ -457,31 +459,6 @@ describe('Syncing with web and doc-updater', function () {
         })
 
         it('should strip non-BMP characters in updates before sending to the history store', function (done) {
-          MockHistoryStore()
-            .get(`/api/projects/${historyId}/latest/history`)
-            .reply(200, {
-              chunk: {
-                history: {
-                  snapshot: {
-                    files: {
-                      'main.tex': {
-                        hash: '0a207c060e61f3b88eaee0a8cd0696f46fb155eb',
-                        stringLength: 3,
-                      },
-                    },
-                  },
-                  changes: [],
-                },
-                startVersion: 0,
-              },
-            })
-
-          MockHistoryStore()
-            .get(
-              `/api/projects/${historyId}/blobs/0a207c060e61f3b88eaee0a8cd0696f46fb155eb`
-            )
-            .reply(200, 'a\nb')
-
           const addFile = MockHistoryStore()
             .post(`/api/projects/${historyId}/legacy_changes`, body => {
               expect(body).to.deep.equal([
@@ -545,6 +522,97 @@ describe('Syncing with web and doc-updater', function () {
               }
               assert(
                 addFile.isDone(),
+                `/api/projects/${historyId}/changes should have been called`
+              )
+              done()
+            }
+          )
+        })
+
+        it('should fix comments in the history store', function (done) {
+          const commentId = 'comment-id'
+          const addComment = MockHistoryStore()
+            .post(`/api/projects/${historyId}/legacy_changes`, body => {
+              expect(body).to.deep.equal([
+                {
+                  v2Authors: [],
+                  authors: [],
+                  timestamp: this.timestamp.toJSON(),
+                  operations: [
+                    {
+                      pathname: 'main.tex',
+                      commentId,
+                      ranges: [{ pos: 1, length: 10 }],
+                    },
+                  ],
+                  origin: { kind: 'test-origin' },
+                },
+              ])
+              return true
+            })
+            .query({ end_version: 0 })
+            .reply(204)
+
+          async.series(
+            [
+              cb => {
+                ProjectHistoryClient.resyncHistory(this.project_id, cb)
+              },
+              cb => {
+                const update = {
+                  projectHistoryId: historyId,
+                  resyncProjectStructure: {
+                    docs: [{ path: '/main.tex' }],
+                    files: [],
+                  },
+                  meta: {
+                    ts: this.timestamp,
+                  },
+                }
+                ProjectHistoryClient.pushRawUpdate(this.project_id, update, cb)
+              },
+              cb => {
+                const update = {
+                  path: '/main.tex',
+                  projectHistoryId: historyId,
+                  resyncDocContent: {
+                    content: 'a\nb',
+                    ranges: {
+                      comments: [
+                        {
+                          id: commentId,
+                          op: {
+                            c: 'a',
+                            p: 0,
+                            hpos: 1,
+                            hlen: 10,
+                            t: commentId,
+                          },
+                          meta: {
+                            user_id: 'user-id',
+                            ts: this.timestamp,
+                          },
+                        },
+                      ],
+                    },
+                  },
+                  doc: this.doc_id,
+                  meta: {
+                    ts: this.timestamp,
+                  },
+                }
+                ProjectHistoryClient.pushRawUpdate(this.project_id, update, cb)
+              },
+              cb => {
+                ProjectHistoryClient.flushProject(this.project_id, cb)
+              },
+            ],
+            error => {
+              if (error) {
+                return done(error)
+              }
+              assert(
+                addComment.isDone(),
                 `/api/projects/${historyId}/changes should have been called`
               )
               done()

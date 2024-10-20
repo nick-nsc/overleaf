@@ -2,6 +2,10 @@ import { useState, useEffect, forwardRef } from 'react'
 import { useCombobox } from 'downshift'
 import classnames from 'classnames'
 import { escapeRegExp } from 'lodash'
+import { bsVersion } from '@/features/utils/bootstrap-5'
+import OLFormControl from '@/features/ui/components/ol/ol-form-control'
+import { DropdownItem } from '@/features/ui/components/bootstrap-5/dropdown-menu'
+import BootstrapVersionSwitcher from '@/features/ui/components/bootstrap-5/bootstrap-version-switcher'
 
 type DownshiftInputProps = {
   highlightMatches?: boolean
@@ -75,21 +79,33 @@ function Downshift({
     )
   }
 
+  const shouldOpen = isOpen && inputItems.length
+
   return (
     <div
       className={classnames(
-        'ui-select-container ui-select-bootstrap dropdown',
-        {
-          open: isOpen && inputItems.length,
-        }
+        'dropdown',
+        bsVersion({
+          bs5: 'd-block',
+          bs3: classnames('ui-select-container ui-select-bootstrap', {
+            open: shouldOpen,
+          }),
+        })
       )}
     >
       <div {...getComboboxProps()}>
         {/* eslint-disable-next-line jsx-a11y/label-has-for */}
-        <label {...getLabelProps()} className={showLabel ? '' : 'sr-only'}>
+        <label
+          {...getLabelProps()}
+          className={
+            showLabel
+              ? ''
+              : bsVersion({ bs5: 'visually-hidden', bs3: 'sr-only' })
+          }
+        >
           {label}
         </label>
-        <input
+        <OLFormControl
           {...getInputProps({
             onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
               setValue(event.target.value)
@@ -101,36 +117,68 @@ function Downshift({
             },
             ref: inputRef,
           })}
-          className="form-control"
-          type="text"
           placeholder={placeholder}
           disabled={disabled}
         />
       </div>
       <ul
         {...getMenuProps()}
-        className="ui-select-choices ui-select-choices-content ui-select-dropdown dropdown-menu"
+        className={classnames(
+          'dropdown-menu',
+          bsVersion({
+            bs5: classnames('select-dropdown-menu', { show: shouldOpen }),
+            bs3: 'ui-select-choices ui-select-choices-content ui-select-dropdown',
+          })
+        )}
       >
         {showSuggestedText && inputItems.length && (
-          <li className="ui-select-title">{itemsTitle}</li>
+          <BootstrapVersionSwitcher
+            bs3={<li className="ui-select-title">{itemsTitle}</li>}
+            bs5={
+              <li>
+                <DropdownItem as="span" role={undefined} disabled>
+                  {itemsTitle}
+                </DropdownItem>
+              </li>
+            }
+          />
         )}
         {inputItems.map((item, index) => (
+          // eslint-disable-next-line jsx-a11y/role-supports-aria-props
           <li
-            className="ui-select-choices-group"
+            className={bsVersion({ bs3: 'ui-select-choices-group' })}
             key={`${item}${index}`}
             {...getItemProps({ item, index })}
+            aria-selected={selectedItem === item}
           >
-            <div
-              className={classnames('ui-select-choices-row', {
-                active: selectedItem === item,
-                'ui-select-choices-row--highlighted':
-                  highlightedIndex === index,
-              })}
-            >
-              <span className="ui-select-choices-row-inner">
-                <span>{highlightMatchedCharacters(item, inputValue)}</span>
-              </span>
-            </div>
+            <BootstrapVersionSwitcher
+              bs3={
+                <div
+                  className={classnames('ui-select-choices-row', {
+                    active: selectedItem === item,
+                    'ui-select-choices-row--highlighted':
+                      highlightedIndex === index,
+                  })}
+                >
+                  <span className="ui-select-choices-row-inner">
+                    <span>{highlightMatchedCharacters(item, inputValue)}</span>
+                  </span>
+                </div>
+              }
+              bs5={
+                <DropdownItem
+                  as="span"
+                  role={undefined}
+                  className={classnames({
+                    active: selectedItem === item,
+                    'dropdown-item-highlighted': highlightedIndex === index,
+                  })}
+                  trailingIcon={selectedItem === item ? 'check' : undefined}
+                >
+                  {highlightMatchedCharacters(item, inputValue)}
+                </DropdownItem>
+              }
+            />
           </li>
         ))}
       </ul>

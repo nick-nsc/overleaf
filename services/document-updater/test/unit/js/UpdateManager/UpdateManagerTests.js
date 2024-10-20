@@ -344,7 +344,7 @@ describe('UpdateManager', function () {
         appliedOps: this.appliedOps,
       })
       this.RedisManager.promises.updateDocument.resolves()
-      this.UpdateManager.promises._addMetadataToHistoryUpdates = sinon.stub()
+      this.UpdateManager.promises._adjustHistoryUpdatesMetadata = sinon.stub()
     })
 
     describe('normally', function () {
@@ -395,7 +395,7 @@ describe('UpdateManager', function () {
       })
 
       it('should add metadata to the ops', function () {
-        this.UpdateManager.promises._addMetadataToHistoryUpdates.should.have.been.calledWith(
+        this.UpdateManager.promises._adjustHistoryUpdatesMetadata.should.have.been.calledWith(
           this.historyUpdates,
           this.pathname,
           this.projectHistoryId,
@@ -523,10 +523,10 @@ describe('UpdateManager', function () {
     })
   })
 
-  describe('_addMetadataToHistoryUpdates', function () {
-    it('should add projectHistoryId, pathname and doc_length metadata to the ops', function () {
-      const lines = ['some', 'test', 'data']
-      const historyUpdates = [
+  describe('_adjustHistoryUpdatesMetadata', function () {
+    beforeEach(function () {
+      this.lines = ['some', 'test', 'data']
+      this.historyUpdates = [
         {
           v: 42,
           op: [
@@ -540,7 +540,11 @@ describe('UpdateManager', function () {
           op: [
             { d: 'qux', p: 4 },
             { i: 'bazbaz', p: 14 },
-            { d: 'bong', p: 28, u: true },
+            {
+              d: 'bong',
+              p: 28,
+              trackedChanges: [{ type: 'insert', offset: 0, length: 4 }],
+            },
           ],
           meta: {
             tc: 'tracking-info',
@@ -552,21 +556,85 @@ describe('UpdateManager', function () {
         },
         { v: 49, op: [{ i: 'penguin', p: 18 }] },
       ]
-      const ranges = {
+      this.ranges = {
         changes: [
           { op: { d: 'bingbong', p: 12 } },
           { op: { i: 'test', p: 5 } },
         ],
       }
-      this.UpdateManager._addMetadataToHistoryUpdates(
-        historyUpdates,
+    })
+
+    it('should add projectHistoryId, pathname and doc_length metadata to the ops', function () {
+      this.UpdateManager._adjustHistoryUpdatesMetadata(
+        this.historyUpdates,
         this.pathname,
         this.projectHistoryId,
-        lines,
-        ranges,
+        this.lines,
+        this.ranges,
+        false
+      )
+      this.historyUpdates.should.deep.equal([
+        {
+          projectHistoryId: this.projectHistoryId,
+          v: 42,
+          op: [
+            { i: 'bing', p: 12, trackedDeleteRejection: true },
+            { i: 'foo', p: 4 },
+            { i: 'bar', p: 6 },
+          ],
+          meta: {
+            pathname: this.pathname,
+            doc_length: 14,
+          },
+        },
+        {
+          projectHistoryId: this.projectHistoryId,
+          v: 45,
+          op: [
+            { d: 'qux', p: 4 },
+            { i: 'bazbaz', p: 14 },
+            {
+              d: 'bong',
+              p: 28,
+              trackedChanges: [{ type: 'insert', offset: 0, length: 4 }],
+            },
+          ],
+          meta: {
+            pathname: this.pathname,
+            doc_length: 24, // 14 + 'bing' + 'foo' + 'bar'
+          },
+        },
+        {
+          projectHistoryId: this.projectHistoryId,
+          v: 47,
+          op: [{ d: 'so', p: 0 }],
+          meta: {
+            pathname: this.pathname,
+            doc_length: 23, // 24 - 'qux' + 'bazbaz' - 'bong'
+          },
+        },
+        {
+          projectHistoryId: this.projectHistoryId,
+          v: 49,
+          op: [{ i: 'penguin', p: 18 }],
+          meta: {
+            pathname: this.pathname,
+            doc_length: 21, // 23 - 'so'
+          },
+        },
+      ])
+    })
+
+    it('should add additional metadata when ranges support is enabled', function () {
+      this.UpdateManager._adjustHistoryUpdatesMetadata(
+        this.historyUpdates,
+        this.pathname,
+        this.projectHistoryId,
+        this.lines,
+        this.ranges,
         true
       )
-      historyUpdates.should.deep.equal([
+      this.historyUpdates.should.deep.equal([
         {
           projectHistoryId: this.projectHistoryId,
           v: 42,
@@ -587,7 +655,11 @@ describe('UpdateManager', function () {
           op: [
             { d: 'qux', p: 4 },
             { i: 'bazbaz', p: 14 },
-            { d: 'bong', p: 28, u: true },
+            {
+              d: 'bong',
+              p: 28,
+              trackedChanges: [{ type: 'insert', offset: 0, length: 4 }],
+            },
           ],
           meta: {
             pathname: this.pathname,
@@ -618,16 +690,36 @@ describe('UpdateManager', function () {
         },
       ])
     })
+
+    it('should calculate the right doc length for an empty document', function () {
+      this.historyUpdates = [{ v: 42, op: [{ i: 'foobar', p: 0 }] }]
+      this.UpdateManager._adjustHistoryUpdatesMetadata(
+        this.historyUpdates,
+        this.pathname,
+        this.projectHistoryId,
+        [],
+        {},
+        false
+      )
+      this.historyUpdates.should.deep.equal([
+        {
+          projectHistoryId: this.projectHistoryId,
+          v: 42,
+          op: [{ i: 'foobar', p: 0 }],
+          meta: {
+            pathname: this.pathname,
+            doc_length: 0,
+          },
+        },
+      ])
+    })
   })
 
   describe('lockUpdatesAndDo', function () {
     beforeEach(function () {
-      this.method = sinon
-        .stub()
-        .yields(null, this.response_arg1, this.response_arg2)
+      this.methodResult = 'method result'
+      this.method = sinon.stub().resolves(this.methodResult)
       this.arg1 = 'argument 1'
-      this.response_arg1 = 'response argument 1'
-      this.response_arg2 = 'response argument 2'
     })
 
     describe('successfully', function () {
@@ -666,10 +758,7 @@ describe('UpdateManager', function () {
       })
 
       it('should return the method response arguments', function () {
-        expect(this.response).to.deep.equal([
-          this.response_arg1,
-          this.response_arg2,
-        ])
+        expect(this.response).to.equal(this.methodResult)
       })
 
       it('should release the lock', function () {
@@ -714,7 +803,7 @@ describe('UpdateManager', function () {
         this.UpdateManager.promises.processOutstandingUpdates = sinon
           .stub()
           .resolves()
-        this.method = sinon.stub().yields(this.error)
+        this.method = sinon.stub().rejects(this.error)
         await expect(
           this.UpdateManager.promises.lockUpdatesAndDo(
             this.method,

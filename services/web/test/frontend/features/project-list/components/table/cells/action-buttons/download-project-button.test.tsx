@@ -12,6 +12,7 @@ describe('<DownloadProjectButton />', function () {
     assignStub = sinon.stub()
     this.locationStub = sinon.stub(useLocationModule, 'useLocation').returns({
       assign: assignStub,
+      replace: sinon.stub(),
       reload: sinon.stub(),
     })
     render(<DownloadProjectButtonTooltip project={projectsData[0]} />)
@@ -22,13 +23,15 @@ describe('<DownloadProjectButton />', function () {
   })
 
   it('renders tooltip for button', function () {
-    const btn = screen.getByLabelText('Download .zip file')
+    const btn = screen.getByRole('button', { name: 'Download .zip file' })
     fireEvent.mouseOver(btn)
     screen.getByRole('tooltip', { name: 'Download .zip file' })
   })
 
   it('downloads the project when clicked', async function () {
-    const btn = screen.getByLabelText('Download .zip file') as HTMLButtonElement
+    const btn = screen.getByRole('button', {
+      name: 'Download .zip file',
+    }) as HTMLButtonElement
     fireEvent.click(btn)
 
     await waitFor(() => {

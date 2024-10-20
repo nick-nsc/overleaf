@@ -8,18 +8,15 @@ const CommentList = require('./comment_list')
 const TrackedChangeList = require('./tracked_change_list')
 
 /**
- * @typedef {import("../types").StringFileRawData} StringFileRawData
- * @typedef {import("../operation/edit_operation")} EditOperation
- * @typedef {import("../types").BlobStore} BlobStore
- * @typedef {import("../types").CommentsListRawData} CommentsListRawData
- * @typedef {import("../types").TrackedChangeRawData} TrackedChangeRawData
- * @typedef {import('../types').RangesBlob} RangesBlob
+ * @import { StringFileRawData, RawFileData, BlobStore, CommentRawData } from "../types"
+ * @import { TrackedChangeRawData, RangesBlob } from "../types"
+ * @import EditOperation from "../operation/edit_operation"
  */
 
 class StringFileData extends FileData {
   /**
    * @param {string} content
-   * @param {CommentsListRawData} [rawComments]
+   * @param {CommentRawData[]} [rawComments]
    * @param {TrackedChangeRawData[]} [rawTrackedChanges]
    */
   constructor(content, rawComments = [], rawTrackedChanges = []) {
@@ -47,11 +44,11 @@ class StringFileData extends FileData {
    * @returns {StringFileRawData}
    */
   toRaw() {
+    /** @type StringFileRawData */
     const raw = { content: this.content }
 
-    const comments = this.getComments()
-    if (comments.length) {
-      raw.comments = comments
+    if (this.comments.length) {
+      raw.comments = this.comments.toRaw()
     }
 
     if (this.trackedChanges.length) {
@@ -74,7 +71,7 @@ class StringFileData extends FileData {
     let content = ''
     let cursor = 0
     if (opts.filterTrackedDeletes) {
-      for (const tc of this.trackedChanges.trackedChanges) {
+      for (const tc of this.trackedChanges.asSorted()) {
         if (tc.tracking.type !== 'delete') {
           continue
         }
@@ -110,7 +107,12 @@ class StringFileData extends FileData {
 
   /** @inheritdoc */
   getComments() {
-    return this.comments.getComments()
+    return this.comments
+  }
+
+  /** @inheritdoc */
+  getTrackedChanges() {
+    return this.trackedChanges
   }
 
   /**
@@ -129,18 +131,23 @@ class StringFileData extends FileData {
   /**
    * @inheritdoc
    * @param {BlobStore} blobStore
+   * @return {Promise<RawFileData>}
    */
   async store(blobStore) {
     const blob = await blobStore.putString(this.content)
     if (this.comments.comments.size || this.trackedChanges.length) {
       /** @type {RangesBlob} */
       const ranges = {
-        comments: this.getComments(),
+        comments: this.getComments().toRaw(),
         trackedChanges: this.trackedChanges.toRaw(),
       }
       const rangesBlob = await blobStore.putObject(ranges)
+      // TODO(das7pad): Provide interface that guarantees hash exists?
+      // @ts-ignore
       return { hash: blob.getHash(), rangesHash: rangesBlob.getHash() }
     }
+    // TODO(das7pad): Provide interface that guarantees hash exists?
+    // @ts-ignore
     return { hash: blob.getHash() }
   }
 }

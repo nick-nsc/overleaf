@@ -1,3 +1,4 @@
+import '../../../../helpers/bootstrap-3'
 import type { PropsWithChildren } from 'react'
 import sinon from 'sinon'
 import DropdownButton from '@/features/group-management/components/members-table/dropdown-button'
@@ -23,8 +24,9 @@ function mountDropDownComponent(user: User, subscriptionId: string) {
       <DropdownButton
         user={user}
         openOffboardingModalForUser={sinon.stub()}
+        openUnlinkUserModal={sinon.stub()}
         groupId={subscriptionId}
-        setManagedUserAlert={sinon.stub()}
+        setGroupUserAlert={sinon.stub()}
       />
     </Wrapper>
   )
@@ -314,6 +316,7 @@ describe('DropdownButton', function () {
 
         cy.findByTestId('resend-managed-user-invite-action').should('not.exist')
         cy.findByTestId('resend-sso-link-invite-action').should('not.exist')
+        cy.findByTestId('unlink-user-action').should('not.exist')
         cy.findByTestId('no-actions-available').should('not.exist')
       })
     })
@@ -422,6 +425,7 @@ describe('DropdownButton', function () {
 
         cy.findByTestId('resend-managed-user-invite-action').should('not.exist')
         cy.findByTestId('resend-sso-link-invite-action').should('not.exist')
+        cy.findByTestId('unlink-user-action').should('not.exist')
         cy.findByTestId('no-actions-available').should('not.exist')
       })
     })
@@ -468,6 +472,7 @@ describe('DropdownButton', function () {
           'be.visible'
         )
         cy.findByTestId('remove-user-action').should('be.visible')
+        cy.findByTestId('unlink-user-action').should('be.visible')
 
         cy.findByTestId('resend-sso-link-invite-action').should('not.exist')
       })
@@ -512,6 +517,7 @@ describe('DropdownButton', function () {
         cy.findByTestId('resend-sso-link-invite-action').should('be.visible')
 
         cy.findByTestId('no-actions-available').should('not.exist')
+        cy.findByTestId('unlink-user-action').should('not.exist')
       })
     })
 
@@ -557,6 +563,7 @@ describe('DropdownButton', function () {
           'be.visible'
         )
         cy.findByTestId('remove-user-action').should('be.visible')
+        cy.findByTestId('unlink-user-action').should('be.visible')
 
         cy.findByTestId('delete-user-action').should('not.exist')
         cy.findByTestId('resend-sso-link-invite-action').should('not.exist')
@@ -779,11 +786,12 @@ describe('DropdownButton', function () {
         cy.get(`.action-btn`).should('exist')
       })
 
-      it('should show no actions when dropdown button is clicked', function () {
+      it('should show no actions except to unlink when dropdown button is clicked', function () {
         cy.get('.action-btn').click()
 
-        cy.findByTestId('no-actions-available').should('exist')
+        cy.findByTestId('unlink-user-action').should('exist')
 
+        cy.findByTestId('no-actions-available').should('not.exist')
         cy.findByTestId('delete-user-action').should('not.exist')
         cy.findByTestId('remove-user-action').should('not.exist')
         cy.findByTestId('resend-managed-user-invite-action').should('not.exist')

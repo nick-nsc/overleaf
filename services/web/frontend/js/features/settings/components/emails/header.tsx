@@ -1,26 +1,51 @@
 import { useTranslation } from 'react-i18next'
-import { Row, Col } from 'react-bootstrap'
 import EmailCell from './cell'
+import OLCol from '@/features/ui/components/ol/ol-col'
+import OLRow from '@/features/ui/components/ol/ol-row'
+import classnames from 'classnames'
+import { bsVersion } from '@/features/utils/bootstrap-5'
 
 function Header() {
   const { t } = useTranslation()
 
   return (
     <>
-      <Row>
-        <Col md={4} className="hidden-xs">
+      <OLRow>
+        <OLCol
+          lg={4}
+          className={bsVersion({
+            bs5: 'd-none d-sm-block',
+            bs3: 'hidden-xs',
+          })}
+        >
           <EmailCell>
             <strong>{t('email')}</strong>
           </EmailCell>
-        </Col>
-        <Col md={8} className="hidden-xs">
+        </OLCol>
+        <OLCol
+          lg={8}
+          className={bsVersion({
+            bs5: 'd-none d-sm-block',
+            bs3: 'hidden-xs',
+          })}
+        >
           <EmailCell>
             <strong>{t('institution_and_role')}</strong>
           </EmailCell>
-        </Col>
-      </Row>
-      <div className="hidden-xs horizontal-divider" />
-      <div className="hidden-xs horizontal-divider" />
+        </OLCol>
+      </OLRow>
+      <div
+        className={classnames(
+          bsVersion({ bs5: 'd-none d-sm-block', bs3: 'hidden-xs' }),
+          'horizontal-divider'
+        )}
+      />
+      <div
+        className={classnames(
+          bsVersion({ bs5: 'd-none d-sm-block', bs3: 'hidden-xs' }),
+          'horizontal-divider'
+        )}
+      />
     </>
   )
 }

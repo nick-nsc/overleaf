@@ -1,19 +1,19 @@
 import PropTypes from 'prop-types'
-import classNames from 'classnames'
 import { useTranslation } from 'react-i18next'
 import Icon from '../../../shared/components/icon'
+import MaterialIcon from '@/shared/components/material-icon'
+import BootstrapVersionSwitcher from '@/features/ui/components/bootstrap-5/bootstrap-version-switcher'
 
-function HistoryToggleButton({ historyIsOpen, onClick }) {
+function HistoryToggleButton({ onClick }) {
   const { t } = useTranslation()
-
-  const classes = classNames('btn', 'btn-full-height', {
-    active: historyIsOpen,
-  })
 
   return (
     <div className="toolbar-item">
-      <button className={classes} onClick={onClick}>
-        <Icon type="history" fw />
+      <button type="button" className="btn btn-full-height" onClick={onClick}>
+        <BootstrapVersionSwitcher
+          bs3={<Icon type="history" fw />}
+          bs5={<MaterialIcon type="history" className="align-middle" />}
+        />
         <p className="toolbar-label">{t('history')}</p>
       </button>
     </div>
@@ -21,7 +21,6 @@ function HistoryToggleButton({ historyIsOpen, onClick }) {
 }
 
 HistoryToggleButton.propTypes = {
-  historyIsOpen: PropTypes.bool,
   onClick: PropTypes.func.isRequired,
 }
 

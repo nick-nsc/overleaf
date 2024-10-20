@@ -234,7 +234,7 @@ templates.confirmEmail = ctaTemplate({
   },
   secondaryMessage() {
     return [
-      'If you did not request this, please let us know at <a href="mailto:support@overleaf.com">support@overleaf.com</a>.',
+      `If you did not request this, please let us know at <a href="mailto:${settings.adminEmail}">${settings.adminEmail}</a>.`,
       `If you have any questions or trouble confirming your email address, please get in touch with our support team at ${settings.adminEmail}.`,
     ]
   },
@@ -257,10 +257,12 @@ templates.confirmCode = NoCTAEmailTemplate({
     return 'Confirm your email address'
   },
   message(opts, isPlainText) {
-    const msg = [
-      `Welcome to Overleaf! We're so glad you joined us.`,
-      'Use this 6-digit confirmation code to finish your setup.',
-    ]
+    const msg = opts.isSecondary
+      ? ['Use this 6-digit code to confirm your email address.']
+      : [
+          `Welcome to Overleaf! We're so glad you joined us.`,
+          'Use this 6-digit confirmation code to finish your setup.',
+        ]
 
     if (isPlainText && opts.confirmCode) {
       msg.push(opts.confirmCode)
@@ -527,8 +529,8 @@ templates.groupSSOReauthenticate = ctaTemplate({
     return [
       `Hi,
       <div>
-      Single sign-on for your Overleaf group has been updated. 
-      This means you need to reauthenticate your Overleaf account with your group’s SSO provider. 
+      Single sign-on for your Overleaf group has been updated.
+      This means you need to reauthenticate your Overleaf account with your group’s SSO provider.
       </div>
       `,
     ]
@@ -549,27 +551,37 @@ templates.groupSSOReauthenticate = ctaTemplate({
 
 templates.groupSSODisabled = ctaTemplate({
   subject(opts) {
-    return `Action required: Set your Overleaf password`
+    if (opts.userIsManaged) {
+      return `Action required: Set your Overleaf password`
+    } else {
+      return 'A change to your Overleaf login options'
+    }
   },
   title(opts) {
     return `Single sign-on disabled`
   },
-  message(opts) {
-    return [
-      `Hi,
-      <div>
-        Your group administrator has disabled single sign-on for your group.
-      </div>
-      </br>
-      <div>
-        <strong>What does this mean for you?</strong>
-      </div>
-      </br>
-      <div>
-        You now need an email address and password to sign in to your Overleaf account.
-      </div>
-      `,
+  message(opts, isPlainText) {
+    const loginUrl = `${settings.siteUrl}/login`
+    let whatDoesThisMeanExplanation = [
+      `You can still log in to Overleaf using one of our other <a href="${loginUrl}" style="color: #0F7A06; text-decoration: none;">login options</a> or with your email address and password.`,
+      `If you don't have a password, you can set one now.`,
     ]
+    if (opts.userIsManaged) {
+      whatDoesThisMeanExplanation = [
+        'You now need an email address and password to sign in to your Overleaf account.',
+      ]
+    }
+
+    const message = [
+      'Your group administrator has disabled single sign-on for your group.',
+      '<br/>',
+      '<b>What does this mean for you?</b>',
+      ...whatDoesThisMeanExplanation,
+    ]
+
+    return message.map(m => {
+      return EmailMessageHelper.cleanHTML(m, isPlainText)
+    })
   },
   secondaryMessage(opts) {
     return [``]
@@ -579,9 +591,6 @@ templates.groupSSODisabled = ctaTemplate({
   },
   ctaText(opts) {
     return 'Set your new password'
-  },
-  greeting() {
-    return ''
   },
 })
 

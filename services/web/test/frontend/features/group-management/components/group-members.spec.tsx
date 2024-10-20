@@ -1,3 +1,4 @@
+import '../../../helpers/bootstrap-3'
 import GroupMembers from '@/features/group-management/components/group-members'
 import { GroupMembersProvider } from '@/features/group-management/context/group-members-context'
 import { User } from '../../../../../types/group-management/user'
@@ -61,14 +62,17 @@ describe('GroupMembers', function () {
           cy.contains('john.doe@test.com')
           cy.contains('John Doe')
           cy.contains('15th Jan 2023')
-          cy.get('.badge-new-comment').contains('Pending invite')
+          cy.findByTestId('badge-pending-invite').should(
+            'have.text',
+            'Pending invite'
+          )
         })
 
         cy.get('tr:nth-child(2)').within(() => {
           cy.contains('bobby.lapointe@test.com')
           cy.contains('Bobby Lapointe')
           cy.contains('2nd Jan 2023')
-          cy.get('.badge-new-comment').should('not.exist')
+          cy.findByTestId('badge-pending-invite').should('not.exist')
         })
       })
     })
@@ -91,7 +95,10 @@ describe('GroupMembers', function () {
         cy.get('tr:nth-child(3)').within(() => {
           cy.contains('someone.else@test.com')
           cy.contains('N/A')
-          cy.get('.badge-new-comment').contains('Pending invite')
+          cy.findByTestId('badge-pending-invite').should(
+            'have.text',
+            'Pending invite'
+          )
         })
       })
     })
@@ -212,7 +219,6 @@ describe('GroupMembers', function () {
 
     beforeEach(function () {
       cy.window().then(win => {
-        win.metaAttributesCache = new Map()
         win.metaAttributesCache.set('ol-users', [
           JOHN_DOE,
           BOBBY_LAPOINTE,
@@ -236,10 +242,10 @@ describe('GroupMembers', function () {
           cy.contains('John Doe')
           cy.contains('15th Jan 2023')
           cy.get('.sr-only').contains('Pending invite')
-          cy.get('.badge-new-comment').contains('Pending invite')
-          cy.get(`.security-state-invite-pending`).should('exist')
-
-          cy.get('.badge-new-comment').contains('Pending invite')
+          cy.findByTestId('badge-pending-invite').should(
+            'have.text',
+            'Pending invite'
+          )
           cy.get(`.security-state-invite-pending`).should('exist')
         })
 
@@ -247,7 +253,7 @@ describe('GroupMembers', function () {
           cy.contains('bobby.lapointe@test.com')
           cy.contains('Bobby Lapointe')
           cy.contains('2nd Jan 2023')
-          cy.get('.badge-new-comment').should('not.exist')
+          cy.findByTestId('badge-pending-invite').should('not.exist')
           cy.get('.sr-only').contains('Not managed')
         })
 
@@ -255,7 +261,7 @@ describe('GroupMembers', function () {
           cy.contains('claire.jennings@test.com')
           cy.contains('Claire Jennings')
           cy.contains('3rd Jan 2023')
-          cy.get('.badge-new-comment').should('not.exist')
+          cy.findByTestId('badge-pending-invite').should('not.exist')
           cy.get('.sr-only').contains('Managed')
         })
       })
@@ -280,7 +286,10 @@ describe('GroupMembers', function () {
           cy.contains('someone.else@test.com')
           cy.contains('N/A')
           cy.get('.sr-only').contains('Pending invite')
-          cy.get('.badge-new-comment').contains('Pending invite')
+          cy.findByTestId('badge-pending-invite').should(
+            'have.text',
+            'Pending invite'
+          )
           cy.get(`.security-state-invite-pending`).should('exist')
         })
       })
@@ -418,7 +427,6 @@ describe('GroupMembers', function () {
 
     beforeEach(function () {
       cy.window().then(win => {
-        win.metaAttributesCache = new Map()
         win.metaAttributesCache.set('ol-users', [
           JOHN_DOE,
           BOBBY_LAPOINTE,

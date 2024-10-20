@@ -1,16 +1,14 @@
+import '../../../helpers/bootstrap-3'
 import { mockScope } from '../helpers/mock-scope'
 import { EditorProviders } from '../../../helpers/editor-providers'
 import CodemirrorEditor from '../../../../../frontend/js/features/source-editor/components/codemirror-editor'
-import { FC } from 'react'
-
-const Container: FC = ({ children }) => (
-  <div style={{ width: 785, height: 785 }}>{children}</div>
-)
+import { TestContainer } from '../helpers/test-container'
 
 describe('<CodeMirrorEditor/> tooltips in Visual mode', function () {
   beforeEach(function () {
     window.metaAttributesCache.set('ol-preventCompileOnLoad', true)
     cy.interceptMathJax()
+    cy.interceptMetadata()
     cy.interceptEvents()
     cy.interceptSpelling()
 
@@ -18,11 +16,11 @@ describe('<CodeMirrorEditor/> tooltips in Visual mode', function () {
     scope.editor.showVisual = true
 
     cy.mount(
-      <Container>
+      <TestContainer>
         <EditorProviders scope={scope}>
           <CodemirrorEditor />
         </EditorProviders>
-      </Container>
+      </TestContainer>
     )
 
     // wait for the content to be parsed and revealed
@@ -46,8 +44,8 @@ describe('<CodeMirrorEditor/> tooltips in Visual mode', function () {
       })
       cy.findByRole('button', { name: 'Go to page' }).click()
       cy.get('@open-window').should(
-        'have.been.calledOnceWithExactly',
-        'https://example.com/foo',
+        'have.been.calledWithMatch',
+        Cypress.sinon.match.has('href', 'https://example.com/foo'),
         '_blank'
       )
       cy.findByRole('button', { name: 'Remove link' }).click()
@@ -66,8 +64,8 @@ describe('<CodeMirrorEditor/> tooltips in Visual mode', function () {
       })
       cy.findByRole('button', { name: 'Go to page' }).click()
       cy.get('@open-window').should(
-        'have.been.calledOnceWithExactly',
-        'https://example.com',
+        'have.been.calledWithMatch',
+        Cypress.sinon.match.has('href', 'https://example.com/'),
         '_blank'
       )
     })

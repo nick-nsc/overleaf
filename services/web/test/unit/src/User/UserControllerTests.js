@@ -91,7 +91,7 @@ describe('UserController', function () {
     this.UserSessionsManager = {
       promises: {
         getAllUserSessions: sinon.stub().resolves(),
-        revokeAllUserSessions: sinon.stub().resolves(),
+        removeSessionsFromRedis: sinon.stub().resolves(),
         untrackSession: sinon.stub().resolves(),
       },
     }
@@ -133,6 +133,14 @@ describe('UserController', function () {
       promises: { expireAllTokensForUser: sinon.stub().resolves() },
     }
 
+    this.Modules = {
+      promises: {
+        hooks: {
+          fire: sinon.stub().resolves(),
+        },
+      },
+    }
+
     this.UserController = SandboxedModule.require(modulePath, {
       requires: {
         '../Helpers/UrlHelper': this.UrlHelper,
@@ -156,6 +164,7 @@ describe('UserController', function () {
         '../Security/OneTimeTokenHandler': this.OneTimeTokenHandler,
         '../../infrastructure/RequestContentTypeDetection':
           this.RequestContentTypeDetection,
+        '../../infrastructure/Modules': this.Modules,
       },
     })
 
@@ -178,7 +187,9 @@ describe('UserController', function () {
       this.SessionManager.getLoggedInUserId = sinon
         .stub()
         .returns(this.user._id)
-      this.AuthenticationManager.promises.authenticate.resolves(this.user)
+      this.AuthenticationManager.promises.authenticate.resolves({
+        user: this.user,
+      })
     })
 
     it('should send 200', function (done) {
@@ -207,6 +218,17 @@ describe('UserController', function () {
         this.UserDeleter.promises.deleteUser.should.have.been.calledOnce
         this.UserDeleter.promises.deleteUser.should.have.been.calledWith(
           this.user._id
+        )
+        done()
+      }
+      this.UserController.tryDeleteUser(this.req, this.res, this.next)
+    })
+
+    it('should call hook to try to delete v1 account', function (done) {
+      this.res.sendStatus = code => {
+        expect(this.Modules.promises.hooks.fire).to.have.been.calledWith(
+          'tryDeleteV1Account',
+          this.user
         )
         done()
       }
@@ -246,7 +268,9 @@ describe('UserController', function () {
 
     describe('when authenticate does not produce a user', function () {
       beforeEach(function () {
-        this.AuthenticationManager.promises.authenticate.resolves(null)
+        this.AuthenticationManager.promises.authenticate.resolves({
+          user: null,
+        })
       })
 
       it('should return 403', function (done) {
@@ -599,9 +623,9 @@ describe('UserController', function () {
 
   describe('clearSessions', function () {
     describe('success', function () {
-      it('should call revokeAllUserSessions', function (done) {
+      it('should call removeSessionsFromRedis', function (done) {
         this.res.sendStatus.callsFake(() => {
-          this.UserSessionsManager.promises.revokeAllUserSessions.should.have
+          this.UserSessionsManager.promises.removeSessionsFromRedis.should.have
             .been.calledOnce
           done()
         })
@@ -658,9 +682,9 @@ describe('UserController', function () {
         })
       })
 
-      describe('when revokeAllUserSessions produces an error', function () {
+      describe('when removeSessionsFromRedis produces an error', function () {
         it('should call next with an error', function (done) {
-          this.UserSessionsManager.promises.revokeAllUserSessions.rejects(
+          this.UserSessionsManager.promises.removeSessionsFromRedis.rejects(
             new Error('woops')
           )
           this.UserController.clearSessions(this.req, this.res, error => {
@@ -696,7 +720,9 @@ describe('UserController', function () {
   describe('changePassword', function () {
     describe('success', function () {
       beforeEach(function () {
-        this.AuthenticationManager.promises.authenticate.resolves(this.user)
+        this.AuthenticationManager.promises.authenticate.resolves({
+          user: this.user,
+        })
         this.AuthenticationManager.promises.setUserPassword.resolves()
         this.req.body = {
           newPassword1: 'newpass',
@@ -759,7 +785,7 @@ describe('UserController', function () {
 
     describe('errors', function () {
       it('should check the old password is the current one at the moment', function (done) {
-        this.AuthenticationManager.promises.authenticate.resolves()
+        this.AuthenticationManager.promises.authenticate.resolves({})
         this.req.body = { currentPassword: 'oldpasshere' }
         this.HttpErrorHandler.badRequest.callsFake(() => {
           expect(this.HttpErrorHandler.badRequest).to.have.been.calledWith(
@@ -780,7 +806,9 @@ describe('UserController', function () {
       })
 
       it('it should not set the new password if they do not match', function (done) {
-        this.AuthenticationManager.promises.authenticate.resolves({})
+        this.AuthenticationManager.promises.authenticate.resolves({
+          user: this.user,
+        })
         this.req.body = {
           newPassword1: '1',
           newPassword2: '2',
@@ -813,7 +841,9 @@ describe('UserController', function () {
           message
         )
         this.AuthenticationManager.promises.setUserPassword.rejects(err)
-        this.AuthenticationManager.promises.authenticate.resolves({})
+        this.AuthenticationManager.promises.authenticate.resolves({
+          user: this.user,
+        })
         this.req.body = {
           newPassword1: 'newpass',
           newPassword2: 'newpass',
@@ -831,7 +861,9 @@ describe('UserController', function () {
       describe('UserAuditLogHandler error', function () {
         it('should return error and not update password', function (done) {
           this.UserAuditLogHandler.promises.addEntry.rejects(new Error('oops'))
-          this.AuthenticationManager.promises.authenticate.resolves(this.user)
+          this.AuthenticationManager.promises.authenticate.resolves({
+            user: this.user,
+          })
           this.AuthenticationManager.promises.setUserPassword.resolves()
           this.req.body = {
             newPassword1: 'newpass',
@@ -851,7 +883,9 @@ describe('UserController', function () {
       describe('EmailHandler error', function () {
         const anError = new Error('oops')
         beforeEach(function () {
-          this.AuthenticationManager.promises.authenticate.resolves(this.user)
+          this.AuthenticationManager.promises.authenticate.resolves({
+            user: this.user,
+          })
           this.AuthenticationManager.promises.setUserPassword.resolves()
           this.req.body = {
             newPassword1: 'newpass',
@@ -859,6 +893,7 @@ describe('UserController', function () {
           }
           this.EmailHandler.promises.sendEmail.rejects(anError)
         })
+
         it('should not return error but should log it', function (done) {
           this.res.json.callsFake(result => {
             expect(result.message.type).to.equal('success')
@@ -887,16 +922,19 @@ describe('UserController', function () {
           this.next
         )
       })
+
       it('should not run affiliation check', function () {
         expect(this.UserGetter.promises.getUser).to.not.have.been.called
         expect(this.UserUpdater.promises.confirmEmail).to.not.have.been.called
         expect(this.UserUpdater.promises.addAffiliationForNewUser).to.not.have
           .been.called
       })
+
       it('should not return an error', function () {
         expect(this.next).to.be.calledWith()
       })
     })
+
     describe('without ensureAffiliation query parameter', function () {
       beforeEach(async function () {
         this.Features.hasFeature.withArgs('affiliations').returns(true)
@@ -906,16 +944,19 @@ describe('UserController', function () {
           this.next
         )
       })
+
       it('should not run middleware', function () {
         expect(this.UserGetter.promises.getUser).to.not.have.been.called
         expect(this.UserUpdater.promises.confirmEmail).to.not.have.been.called
         expect(this.UserUpdater.promises.addAffiliationForNewUser).to.not.have
           .been.called
       })
+
       it('should not return an error', function () {
         expect(this.next).to.be.calledWith()
       })
     })
+
     describe('no flagged email', function () {
       beforeEach(async function () {
         const email = 'unit-test@overleaf.com'
@@ -933,19 +974,23 @@ describe('UserController', function () {
           this.next
         )
       })
+
       it('should get the user', function () {
         expect(this.UserGetter.promises.getUser).to.have.been.calledWith(
           this.user._id
         )
       })
+
       it('should not try to add affiliation or update user', function () {
         expect(this.UserUpdater.promises.addAffiliationForNewUser).to.not.have
           .been.called
       })
+
       it('should not return an error', function () {
         expect(this.next).to.be.calledWith()
       })
     })
+
     describe('flagged non-SSO email', function () {
       let emailFlagged
       beforeEach(async function () {
@@ -966,11 +1011,13 @@ describe('UserController', function () {
           this.next
         )
       })
+
       it('should check the user has permission', function () {
         expect(this.req.assertPermission).to.have.been.calledWith(
           'add-affiliation'
         )
       })
+
       it('should unflag the emails but not confirm', function () {
         expect(
           this.UserUpdater.promises.addAffiliationForNewUser
@@ -979,10 +1026,12 @@ describe('UserController', function () {
           this.UserUpdater.promises.confirmEmail
         ).to.not.have.been.calledWith(this.user._id, emailFlagged)
       })
+
       it('should not return an error', function () {
         expect(this.next).to.be.calledWith()
       })
     })
+
     describe('flagged SSO email', function () {
       let emailFlagged
       beforeEach(async function () {
@@ -1004,11 +1053,13 @@ describe('UserController', function () {
           this.next
         )
       })
+
       it('should check the user has permission', function () {
         expect(this.req.assertPermission).to.have.been.calledWith(
           'add-affiliation'
         )
       })
+
       it('should add affiliation to v1, unflag and confirm on v2', function () {
         expect(this.UserUpdater.promises.addAffiliationForNewUser).to.have.not
           .been.called
@@ -1017,10 +1068,12 @@ describe('UserController', function () {
           emailFlagged
         )
       })
+
       it('should not return an error', function () {
         expect(this.next).to.be.calledWith()
       })
     })
+
     describe('when v1 returns an error', function () {
       let emailFlagged
       beforeEach(async function () {
@@ -1042,11 +1095,13 @@ describe('UserController', function () {
           this.next
         )
       })
+
       it('should check the user has permission', function () {
         expect(this.req.assertPermission).to.have.been.calledWith(
           'add-affiliation'
         )
       })
+
       it('should return the error', function () {
         expect(this.next).to.be.calledWith(sinon.match.instanceOf(Error))
       })

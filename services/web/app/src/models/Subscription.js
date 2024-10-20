@@ -36,6 +36,7 @@ const SubscriptionSchema = new Schema(
       managedUsers: { type: Boolean, default: null },
       groupSSO: { type: Boolean, default: null },
     },
+    addOns: Schema.Types.Mixed,
     overleaf: {
       id: {
         type: Number,
@@ -54,6 +55,24 @@ const SubscriptionSchema = new Schema(
       },
       trialEndsAt: {
         type: Date,
+      },
+    },
+    v1_id: {
+      type: Number,
+      required: false,
+      min: 1,
+    },
+    salesforce_id: {
+      type: String,
+      required: false,
+      validate: {
+        validator: function (salesforceId) {
+          return (
+            salesforceId == null ||
+            salesforceId === '' ||
+            salesforceId.match(/^(?:[A-Za-z0-9]{15}|[A-Za-z0-9]{18})$/)
+          )
+        },
       },
     },
     ssoConfig: { type: ObjectId, ref: 'SSOConfig' },

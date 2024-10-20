@@ -1,93 +1,83 @@
-/* eslint-disable
-    max-len,
-    no-return-assign,
-    no-unused-vars,
-*/
-// TODO: This file was created by bulk-decaffeinate.
-// Fix any style issues and re-enable lint.
-/*
- * decaffeinate suggestions:
- * DS102: Remove unnecessary code created because of implicit returns
- * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
- */
 const SandboxedModule = require('sandboxed-module')
-const assert = require('assert')
 const path = require('path')
 const sinon = require('sinon')
-const modulePath = path.join(
+const { expect } = require('chai')
+const { RequestFailedError } = require('@overleaf/fetch-utils')
+
+const MODULE_PATH = path.join(
   __dirname,
   '../../../../app/src/Features/Chat/ChatApiHandler'
 )
-const { expect } = require('chai')
 
 describe('ChatApiHandler', function () {
   beforeEach(function () {
     this.settings = {
       apis: {
         chat: {
-          internal_url: 'chat.overleaf.env',
+          internal_url: 'http://chat.overleaf.env',
         },
       },
     }
-    this.request = sinon.stub()
-    this.ChatApiHandler = SandboxedModule.require(modulePath, {
+    this.FetchUtils = {
+      fetchJson: sinon.stub(),
+      fetchNothing: sinon.stub().resolves(),
+    }
+    this.ChatApiHandler = SandboxedModule.require(MODULE_PATH, {
       requires: {
         '@overleaf/settings': this.settings,
-        request: this.request,
+        '@overleaf/fetch-utils': this.FetchUtils,
       },
     })
     this.project_id = '3213213kl12j'
     this.user_id = '2k3jlkjs9'
     this.content = 'my message here'
-    return (this.callback = sinon.stub())
   })
 
   describe('sendGlobalMessage', function () {
     describe('successfully', function () {
-      beforeEach(function () {
+      beforeEach(async function () {
         this.message = { mock: 'message' }
-        this.request.callsArgWith(1, null, { statusCode: 200 }, this.message)
-        return this.ChatApiHandler.sendGlobalMessage(
+        this.FetchUtils.fetchJson.resolves(this.message)
+        this.result = await this.ChatApiHandler.promises.sendGlobalMessage(
           this.project_id,
           this.user_id,
-          this.content,
-          this.callback
+          this.content
         )
       })
 
       it('should post the data to the chat api', function () {
-        return this.request
-          .calledWith({
-            url: `${this.settings.apis.chat.internal_url}/project/${this.project_id}/messages`,
+        this.FetchUtils.fetchJson.should.have.been.calledWith(
+          sinon.match(
+            url =>
+              url.toString() ===
+              `${this.settings.apis.chat.internal_url}/project/${this.project_id}/messages`
+          ),
+          {
             method: 'POST',
             json: {
               content: this.content,
               user_id: this.user_id,
             },
-          })
-          .should.equal(true)
+          }
+        )
       })
 
       it('should return the message from the post', function () {
-        return this.callback.calledWith(null, this.message).should.equal(true)
+        expect(this.result).to.deep.equal(this.message)
       })
     })
 
     describe('with a non-success status code', function () {
-      beforeEach(function () {
-        this.request.callsArgWith(1, null, { statusCode: 500 })
-        return this.ChatApiHandler.sendGlobalMessage(
-          this.project_id,
-          this.user_id,
-          this.content,
-          this.callback
-        )
-      })
-
-      it('should return an error', function () {
-        expect(this.callback).to.have.been.calledWith(
-          sinon.match.instanceOf(Error).and(sinon.match.has('statusCode', 500))
-        )
+      beforeEach(async function () {
+        this.error = new RequestFailedError('some-url', {}, { status: 500 })
+        this.FetchUtils.fetchJson.rejects(this.error)
+        await expect(
+          this.ChatApiHandler.promises.sendGlobalMessage(
+            this.project_id,
+            this.user_id,
+            this.content
+          )
+        ).to.be.rejectedWith(this.error)
       })
     })
   })
@@ -96,55 +86,145 @@ describe('ChatApiHandler', function () {
     beforeEach(function () {
       this.messages = [{ mock: 'message' }]
       this.limit = 30
-      return (this.before = '1234')
+      this.before = '1234'
     })
 
     describe('successfully', function () {
-      beforeEach(function () {
-        this.request.callsArgWith(1, null, { statusCode: 200 }, this.messages)
-        return this.ChatApiHandler.getGlobalMessages(
+      beforeEach(async function () {
+        this.FetchUtils.fetchJson.resolves(this.messages)
+        this.result = await this.ChatApiHandler.promises.getGlobalMessages(
           this.project_id,
           this.limit,
-          this.before,
-          this.callback
+          this.before
         )
       })
 
       it('should make get request for room to chat api', function () {
-        return this.request
-          .calledWith({
-            method: 'GET',
-            url: `${this.settings.apis.chat.internal_url}/project/${this.project_id}/messages`,
-            qs: {
-              limit: this.limit,
-              before: this.before,
-            },
-            json: true,
-          })
-          .should.equal(true)
+        this.FetchUtils.fetchJson.should.have.been.calledWith(
+          sinon.match(
+            url =>
+              url.toString() ===
+              `${this.settings.apis.chat.internal_url}/project/${this.project_id}/messages?limit=${this.limit}&before=${this.before}`
+          )
+        )
       })
 
       it('should return the messages from the request', function () {
-        return this.callback.calledWith(null, this.messages).should.equal(true)
+        expect(this.result).to.deep.equal(this.messages)
       })
     })
 
     describe('with failure error code', function () {
-      beforeEach(function () {
-        this.request.callsArgWith(1, null, { statusCode: 500 }, null)
-        return this.ChatApiHandler.getGlobalMessages(
-          this.project_id,
-          this.limit,
-          this.before,
-          this.callback
-        )
+      beforeEach(async function () {
+        this.error = new RequestFailedError('some-url', {}, { status: 500 })
+        this.FetchUtils.fetchJson.rejects(this.error)
+        await expect(
+          this.ChatApiHandler.getGlobalMessages(
+            this.project_id,
+            this.limit,
+            this.before
+          )
+        ).to.be.rejectedWith(this.error)
       })
+    })
+  })
 
-      it('should return an error', function () {
-        expect(this.callback).to.have.been.calledWith(
-          sinon.match.instanceOf(Error).and(sinon.match.has('statusCode', 500))
-        )
-      })
+  describe('duplicateCommentThreads', function () {
+    beforeEach(async function () {
+      this.FetchUtils.fetchJson.resolves(
+        (this.mapping = {
+          'comment-thread-1': 'comment-thread-1-dup',
+          'comment-thread-2': 'comment-thread-2-dup',
+          'comment-thread-3': 'comment-thread-3-dup',
+        })
+      )
+      this.threads = [
+        'comment-thread-1',
+        'comment-thread-2',
+        'comment-thread-3',
+      ]
+      this.result = await this.ChatApiHandler.promises.duplicateCommentThreads(
+        this.project_id,
+        this.threads
+      )
+    })
+
+    it('should make a post request to the chat api', function () {
+      expect(this.FetchUtils.fetchJson).to.have.been.calledWith(
+        sinon.match(
+          url =>
+            url.toString() ===
+            `${this.settings.apis.chat.internal_url}/project/${this.project_id}/duplicate-comment-threads`
+        ),
+        {
+          method: 'POST',
+          json: {
+            threads: this.threads,
+          },
+        }
+      )
+    })
+
+    it('should return the thread mapping', function () {
+      expect(this.result).to.deep.equal(this.mapping)
+    })
+  })
+
+  describe('generateThreadData', async function () {
+    beforeEach(async function () {
+      this.FetchUtils.fetchJson.resolves(
+        (this.chatResponse = {
+          'comment-thread-1': {
+            messages: [
+              {
+                content: 'message 1',
+                timestamp: '2024-01-01T00:00:00.000Z',
+                user_id: 'user-1',
+              },
+            ],
+          },
+          'comment-thread-2': {
+            messages: [
+              {
+                content: 'message 2',
+                timestamp: '2024-01-01T00:00:00.000Z',
+                user_id: 'user-2',
+              },
+            ],
+          },
+        })
+      )
+      // Chat won't return threads that couldn't be found, so response can have
+      // fewer threads
+      this.threads = [
+        'comment-thread-1',
+        'comment-thread-2',
+        'comment-thread-3',
+      ]
+      this.result = await this.ChatApiHandler.promises.generateThreadData(
+        this.project_id,
+        this.threads
+      )
+    })
+
+    it('should make a post request to the chat api', function () {
+      expect(this.FetchUtils.fetchJson).to.have.been.calledWith(
+        sinon.match(
+          url =>
+            url.toString() ===
+            `${this.settings.apis.chat.internal_url}/project/${this.project_id}/generate-thread-data`
+        ),
+        {
+          method: 'POST',
+          json: {
+            threads: this.threads,
+          },
+        }
+      )
+    })
+
+    it('should return the thread data', function () {
+      expect(this.result).to.deep.equal(this.chatResponse)
     })
   })
 })

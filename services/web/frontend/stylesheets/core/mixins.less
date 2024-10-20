@@ -948,11 +948,11 @@
 // -----------
 
 // Centered container element
-.container-fixed() {
+.container-fixed(@gutter: @grid-gutter-width) {
   margin-right: auto;
   margin-left: auto;
-  padding-left: (@grid-gutter-width / 2);
-  padding-right: (@grid-gutter-width / 2);
+  padding-left: (@gutter / 2);
+  padding-right: (@gutter / 2);
   &:extend(.clearfix all);
 }
 
@@ -1077,7 +1077,7 @@
 // Used only by Bootstrap to generate the correct number of grid classes given
 // any value of `@grid-columns`.
 
-.make-grid-columns() {
+.make-grid-columns(@gutter: @grid-gutter-width) {
   // Common styles for all sizes of grid columns, widths 1-12
   .col(@index) when (@index = 1) {
     // initial
@@ -1096,8 +1096,8 @@
       // Prevent columns from collapsing when empty
       min-height: 1px;
       // Inner gutter via padding
-      padding-left: (@grid-gutter-width / 2);
-      padding-right: (@grid-gutter-width / 2);
+      padding-left: (@gutter / 2);
+      padding-right: (@gutter / 2);
     }
   }
   .col(1); // kickstart it
@@ -1213,7 +1213,8 @@
 }
 
 .form-control-focus() {
-  &:focus {
+  &:focus,
+  &:focus-visible {
     &:extend(.input-focus-style);
   }
 }
@@ -1287,4 +1288,85 @@
   background: transparent;
   border: 0;
   -webkit-appearance: none;
+}
+
+.display-lg() {
+  font-size: var(--font-size-13);
+  line-height: var(--line-height-12);
+}
+
+.display-md() {
+  font-size: var(--font-size-12);
+  line-height: var(--line-height-11);
+}
+
+.display-sm() {
+  font-size: var(--font-size-11);
+  line-height: var(--line-height-10);
+}
+
+.display-xs() {
+  font-size: var(--font-size-10);
+  line-height: var(--line-height-09);
+}
+
+.heading-2xl() {
+  font-size: var(--font-size-09);
+  line-height: var(--line-height-08);
+}
+
+.heading-xl() {
+  font-size: var(--font-size-08);
+  line-height: var(--line-height-07);
+}
+
+.heading-lg() {
+  font-size: var(--font-size-07);
+  line-height: var(--line-height-06);
+}
+
+.heading-md() {
+  font-size: var(--font-size-06);
+  line-height: var(--line-height-05);
+}
+
+.heading-sm() {
+  font-size: var(--font-size-05);
+  line-height: var(--line-height-04);
+}
+
+.heading-xs() {
+  font-size: var(--font-size-04);
+  line-height: var(--line-height-03);
+}
+
+.body-lg() {
+  font-size: var(--font-size-04);
+  line-height: var(--line-height-03);
+}
+
+.body-base() {
+  font-size: var(--font-size-03);
+  line-height: var(--line-height-03);
+}
+
+.body-sm() {
+  font-size: var(--font-size-02);
+  line-height: var(--line-height-02);
+}
+
+.body-xs() {
+  font-size: var(--font-size-01);
+  line-height: var(--line-height-01);
+}
+
+.override-typography(@override) {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  p {
+    @override();
+  }
 }

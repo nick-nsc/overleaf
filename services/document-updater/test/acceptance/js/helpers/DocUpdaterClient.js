@@ -97,7 +97,7 @@ module.exports = DocUpdaterClient = {
 
   getDoc(projectId, docId, callback) {
     request.get(
-      `http://localhost:3003/project/${projectId}/doc/${docId}`,
+      `http://127.0.0.1:3003/project/${projectId}/doc/${docId}`,
       (error, res, body) => {
         if (body != null && res.statusCode >= 200 && res.statusCode < 300) {
           body = JSON.parse(body)
@@ -109,7 +109,7 @@ module.exports = DocUpdaterClient = {
 
   getDocAndRecentOps(projectId, docId, fromVersion, callback) {
     request.get(
-      `http://localhost:3003/project/${projectId}/doc/${docId}?fromVersion=${fromVersion}`,
+      `http://127.0.0.1:3003/project/${projectId}/doc/${docId}?fromVersion=${fromVersion}`,
       (error, res, body) => {
         if (body != null && res.statusCode >= 200 && res.statusCode < 300) {
           body = JSON.parse(body)
@@ -125,7 +125,7 @@ module.exports = DocUpdaterClient = {
 
   peekDoc(projectId, docId, callback) {
     request.get(
-      `http://localhost:3003/project/${projectId}/doc/${docId}/peek`,
+      `http://127.0.0.1:3003/project/${projectId}/doc/${docId}/peek`,
       (error, res, body) => {
         if (body != null && res.statusCode >= 200 && res.statusCode < 300) {
           body = JSON.parse(body)
@@ -137,7 +137,7 @@ module.exports = DocUpdaterClient = {
 
   flushDoc(projectId, docId, callback) {
     request.post(
-      `http://localhost:3003/project/${projectId}/doc/${docId}/flush`,
+      `http://127.0.0.1:3003/project/${projectId}/doc/${docId}/flush`,
       (error, res, body) => callback(error, res, body)
     )
   },
@@ -145,7 +145,7 @@ module.exports = DocUpdaterClient = {
   setDocLines(projectId, docId, lines, source, userId, undoing, callback) {
     request.post(
       {
-        url: `http://localhost:3003/project/${projectId}/doc/${docId}`,
+        url: `http://127.0.0.1:3003/project/${projectId}/doc/${docId}`,
         json: {
           lines,
           source,
@@ -159,50 +159,60 @@ module.exports = DocUpdaterClient = {
 
   deleteDoc(projectId, docId, callback) {
     request.del(
-      `http://localhost:3003/project/${projectId}/doc/${docId}`,
+      `http://127.0.0.1:3003/project/${projectId}/doc/${docId}`,
       (error, res, body) => callback(error, res, body)
     )
   },
 
   flushProject(projectId, callback) {
-    request.post(`http://localhost:3003/project/${projectId}/flush`, callback)
+    request.post(`http://127.0.0.1:3003/project/${projectId}/flush`, callback)
   },
 
   deleteProject(projectId, callback) {
-    request.del(`http://localhost:3003/project/${projectId}`, callback)
+    request.del(`http://127.0.0.1:3003/project/${projectId}`, callback)
   },
 
   deleteProjectOnShutdown(projectId, callback) {
     request.del(
-      `http://localhost:3003/project/${projectId}?background=true&shutdown=true`,
+      `http://127.0.0.1:3003/project/${projectId}?background=true&shutdown=true`,
       callback
     )
   },
 
   flushOldProjects(callback) {
     request.get(
-      'http://localhost:3003/flush_queued_projects?min_delete_age=1',
+      'http://127.0.0.1:3003/flush_queued_projects?min_delete_age=1',
       callback
     )
   },
 
   acceptChange(projectId, docId, changeId, callback) {
     request.post(
-      `http://localhost:3003/project/${projectId}/doc/${docId}/change/${changeId}/accept`,
+      `http://127.0.0.1:3003/project/${projectId}/doc/${docId}/change/${changeId}/accept`,
+      callback
+    )
+  },
+
+  acceptChanges(projectId, docId, changeIds, callback) {
+    request.post(
+      {
+        url: `http://127.0.0.1:3003/project/${projectId}/doc/${docId}/change/accept`,
+        json: { change_ids: changeIds },
+      },
       callback
     )
   },
 
   removeComment(projectId, docId, comment, callback) {
     request.del(
-      `http://localhost:3003/project/${projectId}/doc/${docId}/comment/${comment}`,
+      `http://127.0.0.1:3003/project/${projectId}/doc/${docId}/comment/${comment}`,
       callback
     )
   },
 
   getProjectDocs(projectId, projectStateHash, callback) {
     request.get(
-      `http://localhost:3003/project/${projectId}/doc?state=${projectStateHash}`,
+      `http://127.0.0.1:3003/project/${projectId}/doc?state=${projectStateHash}`,
       (error, res, body) => {
         if (body != null && res.statusCode >= 200 && res.statusCode < 300) {
           body = JSON.parse(body)
@@ -215,7 +225,7 @@ module.exports = DocUpdaterClient = {
   sendProjectUpdate(projectId, userId, updates, version, callback) {
     request.post(
       {
-        url: `http://localhost:3003/project/${projectId}`,
+        url: `http://127.0.0.1:3003/project/${projectId}`,
         json: { userId, updates, version },
       },
       (error, res, body) => callback(error, res, body)

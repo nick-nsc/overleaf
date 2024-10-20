@@ -1,11 +1,11 @@
 import Request from 'request'
 
 const request = Request.defaults({
-  baseUrl: 'http://localhost:3010',
+  baseUrl: 'http://127.0.0.1:3010',
 })
 
 async function asyncRequest(options) {
-  return new Promise((resolve, reject) => {
+  return await new Promise((resolve, reject) => {
     request(options, (err, response, body) => {
       if (err) {
         reject(err)
@@ -17,7 +17,7 @@ async function asyncRequest(options) {
 }
 
 export async function sendGlobalMessage(projectId, userId, content) {
-  return asyncRequest({
+  return await asyncRequest({
     method: 'post',
     url: `/project/${projectId}/messages`,
     json: {
@@ -28,7 +28,7 @@ export async function sendGlobalMessage(projectId, userId, content) {
 }
 
 export async function getGlobalMessages(projectId) {
-  return asyncRequest({
+  return await asyncRequest({
     method: 'get',
     url: `/project/${projectId}/messages`,
     json: true,
@@ -36,7 +36,7 @@ export async function getGlobalMessages(projectId) {
 }
 
 export async function sendMessage(projectId, threadId, userId, content) {
-  return asyncRequest({
+  return await asyncRequest({
     method: 'post',
     url: `/project/${projectId}/thread/${threadId}/messages`,
     json: {
@@ -47,7 +47,7 @@ export async function sendMessage(projectId, threadId, userId, content) {
 }
 
 export async function getThreads(projectId) {
-  return asyncRequest({
+  return await asyncRequest({
     method: 'get',
     url: `/project/${projectId}/threads`,
     json: true,
@@ -55,7 +55,7 @@ export async function getThreads(projectId) {
 }
 
 export async function resolveThread(projectId, threadId, userId) {
-  return asyncRequest({
+  return await asyncRequest({
     method: 'post',
     url: `/project/${projectId}/thread/${threadId}/resolve`,
     json: {
@@ -64,8 +64,16 @@ export async function resolveThread(projectId, threadId, userId) {
   })
 }
 
+export async function getResolvedThreadIds(projectId) {
+  return await asyncRequest({
+    method: 'get',
+    url: `/project/${projectId}/resolved-thread-ids`,
+    json: true,
+  })
+}
+
 export async function editMessage(projectId, threadId, messageId, content) {
-  return asyncRequest({
+  return await asyncRequest({
     method: 'post',
     url: `/project/${projectId}/thread/${threadId}/messages/${messageId}/edit`,
     json: {
@@ -81,7 +89,7 @@ export async function editMessageWithUser(
   userId,
   content
 ) {
-  return asyncRequest({
+  return await asyncRequest({
     method: 'post',
     url: `/project/${projectId}/thread/${threadId}/messages/${messageId}/edit`,
     json: {
@@ -92,7 +100,7 @@ export async function editMessageWithUser(
 }
 
 export async function checkStatus() {
-  return asyncRequest({
+  return await asyncRequest({
     method: 'get',
     url: `/status`,
     json: true,
@@ -110,29 +118,49 @@ export async function getMetric(matcher) {
 }
 
 export async function reopenThread(projectId, threadId) {
-  return asyncRequest({
+  return await asyncRequest({
     method: 'post',
     url: `/project/${projectId}/thread/${threadId}/reopen`,
   })
 }
 
 export async function deleteThread(projectId, threadId) {
-  return asyncRequest({
+  return await asyncRequest({
     method: 'delete',
     url: `/project/${projectId}/thread/${threadId}`,
   })
 }
 
 export async function deleteMessage(projectId, threadId, messageId) {
-  return asyncRequest({
+  return await asyncRequest({
     method: 'delete',
     url: `/project/${projectId}/thread/${threadId}/messages/${messageId}`,
   })
 }
 
 export async function destroyProject(projectId) {
-  return asyncRequest({
+  return await asyncRequest({
     method: 'delete',
     url: `/project/${projectId}`,
+  })
+}
+
+export async function duplicateCommentThreads(projectId, threads) {
+  return await asyncRequest({
+    method: 'post',
+    url: `/project/${projectId}/duplicate-comment-threads`,
+    json: {
+      threads,
+    },
+  })
+}
+
+export async function generateThreadData(projectId, threads) {
+  return await asyncRequest({
+    method: 'post',
+    url: `/project/${projectId}/generate-thread-data`,
+    json: {
+      threads,
+    },
   })
 }

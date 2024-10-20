@@ -22,7 +22,6 @@ import { isNameUniqueInFolder } from '../util/is-name-unique-in-folder'
 import { isBlockedFilename, isCleanFilename } from '../util/safe-path'
 
 import { useProjectContext } from '../../../shared/context/project-context'
-import { useEditorContext } from '../../../shared/context/editor-context'
 import { useFileTreeData } from '../../../shared/context/file-tree-data-context'
 import { useFileTreeSelectable } from './file-tree-selectable'
 
@@ -33,6 +32,8 @@ import {
   DuplicateFilenameMoveError,
 } from '../errors'
 import { Folder } from '../../../../../types/folder'
+import { useReferencesContext } from '@/features/ide-react/context/references-context'
+import { useSnapshotContext } from '@/features/ide-react/context/snapshot-context'
 
 type DroppedFile = File & {
   relativePath?: string
@@ -58,6 +59,7 @@ const FileTreeActionableContext = createContext<
       canRename: boolean
       canCreate: boolean
       parentFolderId: string
+      selectedFileName: string | null
       isDuplicate: (parentFolderId: string, name: string) => boolean
       startRenaming: any
       finishRenaming: any
@@ -215,14 +217,14 @@ function fileTreeActionableReducer(state: State, action: Action) {
   }
 }
 
-export const FileTreeActionableProvider: FC<{
-  reindexReferences: () => void
-}> = ({ reindexReferences, children }) => {
+export const FileTreeActionableProvider: FC = ({ children }) => {
   const { _id: projectId } = useProjectContext()
-  const { permissionsLevel } = useEditorContext()
+  const { fileTreeReadOnly } = useFileTreeData()
+  const { indexAllReferences } = useReferencesContext()
+  const { fileTreeFromHistory } = useSnapshotContext()
 
   const [state, dispatch] = useReducer(
-    permissionsLevel === 'readOnly'
+    fileTreeReadOnly
       ? fileTreeActionableReadOnlyReducer
       : fileTreeActionableReducer,
     defaultState
@@ -304,7 +306,7 @@ export const FileTreeActionableProvider: FC<{
         // @ts-ignore (TODO: improve mapSeries types)
         .then(() => {
           if (shouldReindexReferences) {
-            reindexReferences()
+            indexAllReferences(true)
           }
           dispatch({ type: ACTION_TYPES.CLEAR })
         })
@@ -313,7 +315,7 @@ export const FileTreeActionableProvider: FC<{
           dispatch({ type: ACTION_TYPES.ERROR, error })
         })
     )
-  }, [fileTreeData, projectId, selectedEntityIds, reindexReferences])
+  }, [fileTreeData, projectId, selectedEntityIds, indexAllReferences])
 
   // moves entities. Tree is updated immediately and data are sync'd after.
   const finishMoving = useCallback(
@@ -385,6 +387,16 @@ export const FileTreeActionableProvider: FC<{
       isRootFolderSelected
     )
   }, [fileTreeData, selectedEntityIds, isRootFolderSelected])
+
+  // return the name of the selected file or doc if there is only one selected
+  const selectedFileName = useMemo(() => {
+    if (selectedEntityIds.size === 1) {
+      const [selectedEntityId] = selectedEntityIds
+      const selectedEntity = findInTree(fileTreeData, selectedEntityId)
+      return selectedEntity?.entity?.name
+    }
+    return null
+  }, [fileTreeData, selectedEntityIds])
 
   const finishCreatingEntity = useCallback(
     entity => {
@@ -482,6 +494,9 @@ export const FileTreeActionableProvider: FC<{
       const selectedEntity = findInTree(fileTreeData, selectedEntityId)
 
       if (selectedEntity?.type === 'fileRef') {
+        if (fileTreeFromHistory) {
+          return `/project/${projectId}/blob/${selectedEntity.entity.hash}`
+        }
         return `/project/${projectId}/file/${selectedEntityId}`
       }
 
@@ -489,7 +504,7 @@ export const FileTreeActionableProvider: FC<{
         return `/project/${projectId}/doc/${selectedEntityId}/download`
       }
     }
-  }, [fileTreeData, projectId, selectedEntityIds])
+  }, [fileTreeData, projectId, selectedEntityIds, fileTreeFromHistory])
 
   // TODO: wrap in useMemo
   const value = {
@@ -498,6 +513,7 @@ export const FileTreeActionableProvider: FC<{
     canCreate: selectedEntityIds.size < 2,
     ...state,
     parentFolderId,
+    selectedFileName,
     isDuplicate,
     startRenaming,
     finishRenaming,

@@ -3,11 +3,8 @@ import { FullSizeLoadingSpinner } from '../../../shared/components/loading-spinn
 import withErrorBoundary from '../../../infrastructure/error-boundary'
 import { ErrorBoundaryFallback } from '../../../shared/components/error-boundary-fallback'
 import importOverleafModules from '../../../../macros/import-overleaf-module.macro'
-import GrammarlyAdvert from './grammarly-advert'
 
-const writefullPromotion = importOverleafModules(
-  'writefullEditorPromotion'
-) as {
+const editorPromotions = importOverleafModules('editorPromotions') as {
   import: { default: ElementType }
   path: string
 }[]
@@ -20,10 +17,9 @@ const CodeMirrorEditor = lazy(
 function SourceEditor() {
   return (
     <Suspense fallback={<FullSizeLoadingSpinner delay={500} />}>
-      {writefullPromotion.map(({ import: { default: Component }, path }) => (
+      {editorPromotions.map(({ import: { default: Component }, path }) => (
         <Component key={path} />
       ))}
-      <GrammarlyAdvert />
       <CodeMirrorEditor />
     </Suspense>
   )

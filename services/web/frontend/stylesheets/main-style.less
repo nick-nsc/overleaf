@@ -1,11 +1,11 @@
-@import (less) '../fonts/lato.css';
-@import (less) '../fonts/dm-mono.css';
-@import (less) '../fonts/noto-sans.css';
-@import (less) '../fonts/merriweather.css';
-@import (less) '../fonts/source-code-pro.css';
-@import (less) '../fonts/stix-two-math.css';
-@import (less) '../fonts/noto-serif.css';
-@import (less) '../fonts/material-symbols.css';
+@import (less) '../fonts/lato/lato.css';
+@import (less) '../fonts/dm-mono/dm-mono.css';
+@import (less) '../fonts/noto-sans/noto-sans.css';
+@import (less) '../fonts/merriweather/merriweather.css';
+@import (less) '../fonts/source-code-pro/source-code-pro.css';
+@import (less) '../fonts/STIXTwoMath/stix-two-math.css';
+@import (less) '../fonts/noto-serif/noto-serif.css';
+@import (less) '../fonts/material-symbols/material-symbols.css';
 
 @is-overleaf-light: false;
 
@@ -13,7 +13,7 @@
 @import 'variables/all.less';
 @import 'variables/css-variables.less';
 @import 'app/ol-style-guide.less';
-@import (less) '../fonts/font-awesome.css';
+@import (less) '../fonts/font-awesome/font-awesome.css';
 
 @import 'core/mixins.less';
 
@@ -48,6 +48,7 @@
 @import 'components/input-groups.less';
 @import 'components/navs.less';
 @import 'components/navbar.less';
+@import 'components/quote.less';
 @import 'components/footer.less';
 @import 'components/notifications.less';
 @import 'components/labels.less';
@@ -71,16 +72,16 @@
 @import 'components/list-group.less';
 @import 'components/select.less';
 @import 'components/switch.less';
-@import 'components/switcher.less';
 @import 'components/stepper.less';
 @import 'components/radio-chip.less';
+@import 'components/interstitial.less';
 
 // Components w/ JavaScript
+@import 'components/accordion.less';
 @import 'components/modals.less';
 @import 'components/tooltip.less';
 @import 'components/popovers.less';
 @import 'components/daterange-picker';
-@import 'components/vertical-resizable-panes.less';
 @import 'components/lists.less';
 @import 'components/overbox.less';
 @import 'components/embed-responsive.less';
@@ -103,9 +104,9 @@
 @import 'app/project-list-react.less';
 @import 'app/editor.less';
 @import 'app/homepage.less';
-@import 'app/plans/plans.less';
-@import 'app/plans/plans-ol.less';
 @import 'app/plans/plans-v2.less';
+@import 'app/plans/plans-light-touch-redesign.less';
+@import 'app/plans/plans-new-design.less';
 @import 'app/recurly.less';
 @import 'app/bonus.less';
 @import 'app/register.less';
@@ -116,6 +117,8 @@
 @import 'app/translations.less';
 @import 'app/contact-us.less';
 @import 'app/subscription.less';
+@import 'app/change-plan-modal.less';
+@import 'app/group-subscription-modal.less';
 @import 'app/invite.less';
 @import 'app/error-pages.less';
 @import 'app/editor/history-v2.less';
@@ -135,6 +138,9 @@
 @import 'app/admin-hub.less';
 @import 'app/import.less';
 @import 'app/website-redesign.less';
+@import 'app/add-secondary-email-prompt.less';
+@import 'app/confirm-email.less';
+
 // Pages
 @import 'app/about.less';
 @import 'app/blog-posts.less';
@@ -148,5 +154,7 @@
 @import 'modules/admin-panel.less';
 @import 'modules/git-bridge-modal.less';
 @import 'modules/group-settings.less';
-@import 'modules/overleaf-integration.less';
+@import 'modules/onboarding.less';
 @import 'modules/writefull.less';
+@import 'modules/third-party-references.less';
+@import 'modules/labs.less';

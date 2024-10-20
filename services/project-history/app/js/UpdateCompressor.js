@@ -1,5 +1,11 @@
+// @ts-check
+
 import OError from '@overleaf/o-error'
 import DMP from 'diff-match-patch'
+
+/**
+ * @import { DeleteOp, InsertOp, Op, Update } from './types'
+ */
 
 const MAX_TIME_BETWEEN_UPDATES = 60 * 1000 // one minute
 const MAX_UPDATE_SIZE = 2 * 1024 * 1024 // 2 MB
@@ -31,47 +37,89 @@ const mergeUpdatesWithOp = function (firstUpdate, secondUpdate, op) {
   return update
 }
 
-const adjustLengthByOp = function (length, op) {
-  if (op.i != null) {
-    return length + op.i.length
-  } else if (op.d != null) {
-    return length - op.d.length
-  } else if (op.c != null) {
+/**
+ * Adjust the given length to account for the given op
+ *
+ * The resulting length is the new length of the doc after the op is applied.
+ *
+ * @param {number} length
+ * @param {Op} op
+ * @param {object} opts
+ * @param {boolean} [opts.tracked] - whether or not the update is a tracked change
+ * @returns {number} the adjusted length
+ */
+function adjustLengthByOp(length, op, opts = {}) {
+  if ('i' in op && op.i != null) {
+    if (op.trackedDeleteRejection) {
+      // Tracked delete rejection: will be translated into a retain
+      return length
+    } else {
+      return length + op.i.length
+    }
+  } else if ('d' in op && op.d != null) {
+    if (opts.tracked) {
+      // Tracked delete: will be translated into a retain, except where it overlaps tracked inserts.
+      for (const change of op.trackedChanges ?? []) {
+        if (change.type === 'insert') {
+          length -= change.length
+        }
+      }
+      return length
+    } else {
+      return length - op.d.length
+    }
+  } else if ('r' in op && op.r != null) {
+    return length
+  } else if ('c' in op && op.c != null) {
     return length
   } else {
     throw new OError('unexpected op type')
   }
 }
 
-// Updates come from the doc updater in format
-// {
-// 	op:   [ { ... op1 ... }, { ... op2 ... } ]
-// 	meta: { ts: ..., user_id: ... }
-// }
-// but it's easier to work with on op per update, so convert these updates to
-// our compressed format
-// [{
-// 	op: op1
-// 	meta: { ts: ..., user_id: ... }
-// }, {
-// 	op: op2
-// 	meta: { ts: ..., user_id: ... }
-// }]
+/**
+ * Updates come from the doc updater in format
+ * {
+ * 	op:   [ { ... op1 ... }, { ... op2 ... } ]
+ * 	meta: { ts: ..., user_id: ... }
+ * }
+ * but it's easier to work with on op per update, so convert these updates to
+ * our compressed format
+ * [{
+ * 	op: op1
+ * 	meta: { ts: ..., user_id: ... }
+ * }, {
+ * 	op: op2
+ * 	meta: { ts: ..., user_id: ... }
+ * }]
+ *
+ * @param {Update[]} updates
+ * @returns {Update[]} single op updates
+ */
 export function convertToSingleOpUpdates(updates) {
   const splitUpdates = []
   for (const update of updates) {
-    if (update.op == null) {
+    if (!('op' in update)) {
       // Not a text op, likely a project strucure op
       splitUpdates.push(update)
       continue
     }
     const ops = update.op
-    let { doc_length: docLength } = update.meta
+
+    let docLength = update.meta.history_doc_length ?? update.meta.doc_length
+    // Temporary fix for document-updater sending a length of -1 for empty
+    // documents. This can be removed after all queues have been flushed.
+    if (docLength === -1) {
+      docLength = 0
+    }
     for (const op of ops) {
       const splitUpdate = cloneWithOp(update, op)
       if (docLength != null) {
         splitUpdate.meta.doc_length = docLength
-        docLength = adjustLengthByOp(docLength, op)
+        docLength = adjustLengthByOp(docLength, op, {
+          tracked: update.meta.tc != null,
+        })
+        delete splitUpdate.meta.history_doc_length
       }
       splitUpdates.push(splitUpdate)
     }
@@ -146,13 +194,21 @@ export function compressUpdates(updates) {
   return compressedUpdates
 }
 
+/**
+ * If possible, merge two updates into a single update that has the same effect.
+ *
+ * It's useful to do some of this work at this point while we're dealing with
+ * document-updater updates. The deletes, in particular include the deleted
+ * text. This allows us to find pieces of inserts and deletes that cancel each
+ * other out because they insert/delete the exact same text. This compression
+ * makes the diff smaller.
+ */
 function _concatTwoUpdates(firstUpdate, secondUpdate) {
   // Previously we cloned firstUpdate and secondUpdate at this point but we
   // can skip this step because whenever they are returned with
   // modification there is always a clone at that point via
   // mergeUpdatesWithOp.
 
-  let offset
   if (firstUpdate.op == null || secondUpdate.op == null) {
     // Project structure ops
     return [firstUpdate, secondUpdate]
@@ -185,6 +241,45 @@ function _concatTwoUpdates(firstUpdate, secondUpdate) {
     return [firstUpdate, secondUpdate]
   }
 
+  if (
+    (firstUpdate.meta.tc == null && secondUpdate.meta.tc != null) ||
+    (firstUpdate.meta.tc != null && secondUpdate.meta.tc == null)
+  ) {
+    // One update is tracking changes and the other isn't. Tracking changes
+    // results in different behaviour in the history, so we need to keep these
+    // two updates separate.
+    return [firstUpdate, secondUpdate]
+  }
+
+  if (Boolean(firstUpdate.op.u) !== Boolean(secondUpdate.op.u)) {
+    // One update is an undo and the other isn't. If we were to merge the two
+    // updates, we would have to choose one value for the flag, which would be
+    // partially incorrect. Moreover, a tracked delete that is also an undo is
+    // treated as a tracked insert rejection by the history, so these updates
+    // need to be well separated.
+    return [firstUpdate, secondUpdate]
+  }
+
+  if (
+    firstUpdate.op.trackedDeleteRejection ||
+    secondUpdate.op.trackedDeleteRejection
+  ) {
+    // Do not merge tracked delete rejections. Each tracked delete rejection is
+    // a separate operation.
+    return [firstUpdate, secondUpdate]
+  }
+
+  if (
+    firstUpdate.op.trackedChanges != null ||
+    secondUpdate.op.trackedChanges != null
+  ) {
+    // Do not merge ops that span tracked changes.
+    // TODO: This could theoretically be handled, but it would be complex. One
+    // would need to take tracked deletes into account when merging inserts and
+    // deletes together.
+    return [firstUpdate, secondUpdate]
+  }
+
   const firstOp = firstUpdate.op
   const secondOp = secondUpdate.op
   const firstSize =
@@ -202,30 +297,43 @@ function _concatTwoUpdates(firstUpdate, secondUpdate) {
     firstOp.i != null &&
     secondOp.i != null &&
     secondOpInsideFirstOp &&
-    combinedLengthUnderLimit
+    combinedLengthUnderLimit &&
+    insertOpsInsideSameComments(firstOp, secondOp)
   ) {
     return [
       mergeUpdatesWithOp(firstUpdate, secondUpdate, {
-        p: firstOp.p,
+        ...firstOp,
         i: strInject(firstOp.i, secondOp.p - firstOp.p, secondOp.i),
       }),
     ]
-    // Two deletes
-  } else if (
+  }
+
+  // Two deletes
+  if (
     firstOp.d != null &&
     secondOp.d != null &&
     firstOpInsideSecondOp &&
-    combinedLengthUnderLimit
+    combinedLengthUnderLimit &&
+    firstUpdate.meta.tc == null &&
+    secondUpdate.meta.tc == null
   ) {
     return [
       mergeUpdatesWithOp(firstUpdate, secondUpdate, {
-        p: secondOp.p,
+        ...secondOp,
         d: strInject(secondOp.d, firstOp.p - secondOp.p, firstOp.d),
       }),
     ]
-    // An insert and then a delete
-  } else if (firstOp.i != null && secondOp.d != null && secondOpInsideFirstOp) {
-    offset = secondOp.p - firstOp.p
+  }
+
+  // An insert and then a delete
+  if (
+    firstOp.i != null &&
+    secondOp.d != null &&
+    secondOpInsideFirstOp &&
+    firstUpdate.meta.tc == null &&
+    secondUpdate.meta.tc == null
+  ) {
+    const offset = secondOp.p - firstOp.p
     const insertedText = firstOp.i.slice(offset, offset + secondOp.d.length)
     // Only trim the insert when the delete is fully contained within in it
     if (insertedText === secondOp.d) {
@@ -235,7 +343,7 @@ function _concatTwoUpdates(firstUpdate, secondUpdate) {
       } else {
         return [
           mergeUpdatesWithOp(firstUpdate, secondUpdate, {
-            p: firstOp.p,
+            ...firstOp,
             i: insert,
           }),
         ]
@@ -244,35 +352,64 @@ function _concatTwoUpdates(firstUpdate, secondUpdate) {
       // This will only happen if the delete extends outside the insert
       return [firstUpdate, secondUpdate]
     }
+  }
 
-    // A delete then an insert at the same place, likely a copy-paste of a chunk of content
-  } else if (
+  // A delete then an insert at the same place, likely a copy-paste of a chunk of content
+  if (
     firstOp.d != null &&
     secondOp.i != null &&
-    firstOp.p === secondOp.p
+    firstOp.p === secondOp.p &&
+    firstUpdate.meta.tc == null &&
+    secondUpdate.meta.tc == null
   ) {
-    offset = firstOp.p
-    const diffUpdates = diffAsShareJsOps(firstOp.d, secondOp.i).map(function (
-      op
-    ) {
-      op.p += offset
-      return mergeUpdatesWithOp(firstUpdate, secondUpdate, op)
-    })
+    const offset = firstOp.p
+    const hoffset = firstOp.hpos
+    const diffUpdates = diffAsShareJsOps(firstOp.d, secondOp.i).map(
+      function (op) {
+        // diffAsShareJsOps() returns ops with positions relative to the position
+        // of the copy/paste. We need to adjust these positions so that they
+        // apply to the whole document instead.
+        const pos = op.p
+        op.p = pos + offset
+        if (hoffset != null) {
+          op.hpos = pos + hoffset
+        }
+        if (firstOp.u && secondOp.u) {
+          op.u = true
+        }
+        if ('i' in op && secondOp.commentIds != null) {
+          // Make sure that commentIds metadata is propagated to inserts
+          op.commentIds = secondOp.commentIds
+        }
+        return mergeUpdatesWithOp(firstUpdate, secondUpdate, op)
+      }
+    )
 
     // Doing a diff like this loses track of the doc lengths for each
     // update, so recalculate them
-    let { doc_length: docLength } = firstUpdate.meta
+    let docLength =
+      firstUpdate.meta.history_doc_length ?? firstUpdate.meta.doc_length
     for (const update of diffUpdates) {
       update.meta.doc_length = docLength
-      docLength = adjustLengthByOp(docLength, update.op)
+      docLength = adjustLengthByOp(docLength, update.op, {
+        tracked: update.meta.tc != null,
+      })
+      delete update.meta.history_doc_length
     }
 
     return diffUpdates
-  } else {
-    return [firstUpdate, secondUpdate]
   }
+
+  return [firstUpdate, secondUpdate]
 }
 
+/**
+ * Return the diff between two strings
+ *
+ * @param {string} before
+ * @param {string} after
+ * @returns {(InsertOp | DeleteOp)[]} the ops that generate that diff
+ */
 export function diffAsShareJsOps(before, after) {
   const diffs = dmp.diff_main(before, after)
   dmp.diff_cleanupSemantic(diffs)
@@ -300,4 +437,32 @@ export function diffAsShareJsOps(before, after) {
     }
   }
   return ops
+}
+
+/**
+ * Checks if two insert ops are inside the same comments
+ *
+ * @param {InsertOp} op1
+ * @param {InsertOp} op2
+ * @returns {boolean}
+ */
+function insertOpsInsideSameComments(op1, op2) {
+  const commentIds1 = op1.commentIds
+  const commentIds2 = op2.commentIds
+  if (commentIds1 == null && commentIds2 == null) {
+    // None are inside comments
+    return true
+  }
+
+  if (
+    commentIds1 != null &&
+    commentIds2 != null &&
+    commentIds1.every(id => commentIds2.includes(id)) &&
+    commentIds2.every(id => commentIds1.includes(id))
+  ) {
+    // Both are inside the same comments
+    return true
+  }
+
+  return false
 }

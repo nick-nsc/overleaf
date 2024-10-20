@@ -1,32 +1,26 @@
 import { useState } from 'react'
-import {
-  Alert,
-  Button,
-  ControlLabel,
-  FormControl,
-  FormGroup,
-} from 'react-bootstrap'
 import { useTranslation } from 'react-i18next'
 import {
   getUserFacingMessage,
   postJSON,
 } from '../../../infrastructure/fetch-json'
 import getMeta from '../../../utils/meta'
-import { ExposedSettings } from '../../../../../types/exposed-settings'
 import useAsync from '../../../shared/hooks/use-async'
 import { useUserContext } from '../../../shared/context/user-context'
+import OLButton from '@/features/ui/components/ol/ol-button'
+import OLNotification from '@/features/ui/components/ol/ol-notification'
+import OLFormGroup from '@/features/ui/components/ol/ol-form-group'
+import OLFormLabel from '@/features/ui/components/ol/ol-form-label'
+import OLFormControl from '@/features/ui/components/ol/ol-form-control'
+import FormText from '@/features/ui/components/bootstrap-5/form/form-text'
 
 function AccountInfoSection() {
   const { t } = useTranslation()
-  const { hasAffiliationsFeature } = getMeta(
-    'ol-ExposedSettings'
-  ) as ExposedSettings
+  const { hasAffiliationsFeature } = getMeta('ol-ExposedSettings')
   const isExternalAuthenticationSystemUsed = getMeta(
     'ol-isExternalAuthenticationSystemUsed'
-  ) as boolean
-  const shouldAllowEditingDetails = getMeta(
-    'ol-shouldAllowEditingDetails'
-  ) as boolean
+  )
+  const shouldAllowEditingDetails = getMeta('ol-shouldAllowEditingDetails')
   const {
     first_name: initialFirstName,
     last_name: initialLastName,
@@ -94,6 +88,7 @@ function AccountInfoSection() {
           type="text"
           label={t('first_name')}
           value={firstName}
+          maxLength={255}
           handleChange={handleFirstNameChange}
           canEdit={canUpdateNames}
           required={false}
@@ -102,30 +97,43 @@ function AccountInfoSection() {
           id="last-name-input"
           type="text"
           label={t('last_name')}
+          maxLength={255}
           value={lastName}
           handleChange={handleLastNameChange}
           canEdit={canUpdateNames}
           required={false}
         />
         {isSuccess ? (
-          <FormGroup>
-            <Alert bsStyle="success">{t('thanks_settings_updated')}</Alert>
-          </FormGroup>
+          <OLFormGroup>
+            <OLNotification
+              type="success"
+              content={t('thanks_settings_updated')}
+            />
+          </OLFormGroup>
         ) : null}
         {isError ? (
-          <FormGroup>
-            <Alert bsStyle="danger">{getUserFacingMessage(error)}</Alert>
-          </FormGroup>
+          <OLFormGroup>
+            <OLNotification
+              type="error"
+              content={getUserFacingMessage(error) ?? ''}
+            />
+          </OLFormGroup>
         ) : null}
         {canUpdateEmail || canUpdateNames ? (
-          <Button
-            form="account-info-form"
-            type="submit"
-            bsStyle="primary"
-            disabled={isLoading || !isFormValid}
-          >
-            {isLoading ? <>{t('saving')}…</> : t('update')}
-          </Button>
+          <OLFormGroup>
+            <OLButton
+              type="submit"
+              variant="primary"
+              form="account-info-form"
+              disabled={!isFormValid}
+              isLoading={isLoading}
+              bs3Props={{
+                loading: isLoading ? `${t('saving')}…` : t('update'),
+              }}
+            >
+              {t('update')}
+            </OLButton>
+          </OLFormGroup>
         ) : null}
       </form>
     </>
@@ -139,6 +147,7 @@ type ReadOrWriteFormGroupProps = {
   value?: string
   handleChange: (event: any) => void
   canEdit: boolean
+  maxLength?: number
   required: boolean
 }
 
@@ -149,18 +158,17 @@ function ReadOrWriteFormGroup({
   value,
   handleChange,
   canEdit,
+  maxLength,
   required,
 }: ReadOrWriteFormGroupProps) {
   const [validationMessage, setValidationMessage] = useState('')
 
-  const handleInvalid = (
-    event: React.InvalidEvent<HTMLInputElement & FormControl>
-  ) => {
+  const handleInvalid = (event: React.InvalidEvent<HTMLInputElement>) => {
     event.preventDefault()
   }
 
   const handleChangeAndValidity = (
-    event: React.ChangeEvent<HTMLInputElement & FormControl>
+    event: React.ChangeEvent<HTMLInputElement>
   ) => {
     handleChange(event)
     setValidationMessage(event.target.validationMessage)
@@ -168,29 +176,29 @@ function ReadOrWriteFormGroup({
 
   if (!canEdit) {
     return (
-      <FormGroup>
-        <ControlLabel htmlFor={id}>{label}</ControlLabel>
-        <FormControl id={id} type="text" readOnly value={value} />
-      </FormGroup>
+      <OLFormGroup controlId={id}>
+        <OLFormLabel>{label}</OLFormLabel>
+        <OLFormControl type="text" readOnly value={value} />
+      </OLFormGroup>
     )
   }
 
   return (
-    <FormGroup>
-      <ControlLabel htmlFor={id}>{label}</ControlLabel>
-      <FormControl
-        id={id}
+    <OLFormGroup controlId={id}>
+      <OLFormLabel>{label}</OLFormLabel>
+      <OLFormControl
         type={type}
         required={required}
         value={value}
+        maxLength={maxLength}
         data-ol-dirty={!!validationMessage}
         onChange={handleChangeAndValidity}
         onInvalid={handleInvalid}
       />
-      {validationMessage ? (
-        <span className="small text-danger">{validationMessage}</span>
-      ) : null}
-    </FormGroup>
+      {validationMessage && (
+        <FormText type="error">{validationMessage}</FormText>
+      )}
+    </OLFormGroup>
   )
 }
 

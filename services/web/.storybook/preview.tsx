@@ -9,11 +9,86 @@ import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 // @ts-ignore
 import en from '../../../services/web/locales/en.json'
-import { ExposedSettings } from '../types/exposed-settings'
-import { User } from '../types/user'
+import { bootstrapVersionArg } from './utils/with-bootstrap-switcher'
 
-window.i18n = window.i18n || {}
-window.i18n.currentLangCode = window.i18n.currentLangCode || 'en'
+function resetMeta(bootstrapVersion?: 3 | 5) {
+  window.metaAttributesCache = new Map()
+  window.metaAttributesCache.set('ol-i18n', { currentLangCode: 'en' })
+  if (bootstrapVersion) {
+    window.metaAttributesCache.set('ol-bootstrapVersion', bootstrapVersion)
+  }
+  window.metaAttributesCache.set('ol-ExposedSettings', {
+    adminEmail: 'placeholder@example.com',
+    appName: 'Overleaf',
+    cookieDomain: '.overleaf.stories',
+    dropboxAppName: 'Overleaf-Stories',
+    emailConfirmationDisabled: false,
+    enableSubscriptions: true,
+    hasAffiliationsFeature: false,
+    hasLinkUrlFeature: true,
+    hasLinkedProjectFileFeature: true,
+    hasLinkedProjectOutputFileFeature: true,
+    hasSamlFeature: true,
+    ieeeBrandId: 15,
+    isOverleaf: true,
+    labsEnabled: true,
+    maxEntitiesPerProject: 10,
+    maxUploadSize: 5 * 1024 * 1024,
+    recaptchaDisabled: {
+      invite: true,
+      login: true,
+      passwordReset: true,
+      register: true,
+      addEmail: true,
+    },
+    sentryAllowedOriginRegex: '',
+    siteUrl: 'http://localhost',
+    templateLinks: [],
+    textExtensions: [
+      'tex',
+      'latex',
+      'sty',
+      'cls',
+      'bst',
+      'bib',
+      'bibtex',
+      'txt',
+      'tikz',
+      'mtx',
+      'rtex',
+      'md',
+      'asy',
+      'lbx',
+      'bbx',
+      'cbx',
+      'm',
+      'lco',
+      'dtx',
+      'ins',
+      'ist',
+      'def',
+      'clo',
+      'ldf',
+      'rmd',
+      'lua',
+      'gv',
+      'mf',
+      'lhs',
+      'mk',
+      'xmpdata',
+      'cfg',
+      'rnw',
+      'ltx',
+      'inc',
+    ],
+    editableFilenames: ['latexmkrc', '.latexmkrc', 'makefile', 'gnumakefile'],
+    validRootDocExtensions: ['tex', 'Rtex', 'ltx', 'Rnw'],
+    fileIgnorePattern:
+      '**/{{__MACOSX,.git,.texpadtmp,.R}{,/**},.!(latexmkrc),*.{dvi,aux,log,toc,out,pdfsync,synctex,synctex(busy),fdb_latexmk,fls,nlo,ind,glo,gls,glg,bbl,blg,doc,docx,gz,swp}}',
+    projectUploadTimeout: 12000,
+  })
+}
+
 i18n.use(initReactI18next).init({
   lng: 'en',
 
@@ -40,10 +115,6 @@ i18n.use(initReactI18next).init({
     },
   },
 })
-
-// avoid some errors by creating these objects in advance
-window.user = {} as User
-window.ExposedSettings = {} as ExposedSettings
 
 const preview: Preview = {
   parameters: {
@@ -94,9 +165,14 @@ const preview: Preview = {
   decorators: [
     (Story, context) => {
       const { bootstrap3Style, bootstrap5Style } = context.loaded
-      const activeStyle = context.parameters.bootstrap5
-        ? bootstrap5Style
-        : bootstrap3Style
+      const bootstrapVersion = Number(
+        context.args[bootstrapVersionArg] ||
+          (context.parameters.bootstrap5 ? 5 : 3)
+      ) as 3 | 5
+      const activeStyle =
+        bootstrapVersion === 5 ? bootstrap5Style : bootstrap3Style
+
+      resetMeta(bootstrapVersion)
 
       return (
         <>
@@ -109,3 +185,6 @@ const preview: Preview = {
 }
 
 export default preview
+
+// Populate meta for top-level access in modules on import
+resetMeta()

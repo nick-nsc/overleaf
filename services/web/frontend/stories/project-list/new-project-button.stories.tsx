@@ -1,6 +1,8 @@
 import NewProjectButton from '../../js/features/project-list/components/new-project-button'
 import { ProjectListProvider } from '../../js/features/project-list/context/project-list-context'
 import useFetchMock from '../hooks/use-fetch-mock'
+import getMeta from '@/utils/meta'
+import { bsVersionDecorator } from '../../../.storybook/utils/with-bootstrap-switcher'
 
 const templateLinks = [
   {
@@ -46,7 +48,7 @@ const templateLinks = [
 ]
 
 export const Success = () => {
-  window.metaAttributesCache.set('ol-ExposedSettings', {
+  Object.assign(getMeta('ol-ExposedSettings'), {
     templateLinks,
   })
 
@@ -71,7 +73,7 @@ export const Success = () => {
 }
 
 export const Error = () => {
-  window.metaAttributesCache.set('ol-ExposedSettings', {
+  Object.assign(getMeta('ol-ExposedSettings'), {
     templateLinks,
   })
 
@@ -98,4 +100,7 @@ export const Error = () => {
 export default {
   title: 'Project List / New Project Button',
   component: NewProjectButton,
+  argTypes: {
+    ...bsVersionDecorator.argTypes,
+  },
 }

@@ -5,12 +5,14 @@ import { useFileTreeCreateName } from '../../../contexts/file-tree-create-name'
 import { useFileTreeCreateForm } from '../../../contexts/file-tree-create-form'
 import * as eventTracking from '../../../../../infrastructure/event-tracking'
 import ErrorMessage from '../error-message'
+import importOverleafModules from '../../../../../../macros/import-overleaf-module.macro'
+
+const newFilePromotionComponents = importOverleafModules('newFilePromotions')
 
 export default function FileTreeCreateNewDoc() {
   const { name, validName } = useFileTreeCreateName()
   const { setValid } = useFileTreeCreateForm()
-  const { error, finishCreatingDoc } = useFileTreeActionable()
-
+  const { error, finishCreatingDoc, inFlight } = useFileTreeActionable()
   // form validation: name is valid
   useEffect(() => {
     setValid(validName)
@@ -22,16 +24,23 @@ export default function FileTreeCreateNewDoc() {
       event.preventDefault()
 
       finishCreatingDoc({ name })
-      eventTracking.sendMB('new-file-created', { method: 'doc' })
+      eventTracking.sendMB('new-file-created', {
+        method: 'doc',
+        extension: name.split('.').length > 1 ? name.split('.').pop() : '',
+      })
     },
     [finishCreatingDoc, name]
   )
 
   return (
     <form noValidate id="create-file" onSubmit={handleSubmit}>
-      <FileTreeCreateNameInput focusName error={error} />
-
+      <FileTreeCreateNameInput focusName error={error} inFlight={inFlight} />
       {error && <ErrorMessage error={error} />}
+      {newFilePromotionComponents.map(
+        ({ import: { default: Component }, path }) => (
+          <Component key={path} />
+        )
+      )}
     </form>
   )
 }

@@ -1,3 +1,5 @@
+import getMeta from '@/utils/meta'
+
 function loadGA() {
   if (window.olLoadGA) {
     window.olLoadGA()
@@ -6,7 +8,7 @@ function loadGA() {
 
 function setConsent(value) {
   document.querySelector('.cookie-banner').classList.add('hidden')
-  const cookieDomain = window.ExposedSettings.cookieDomain
+  const cookieDomain = getMeta('ol-ExposedSettings').cookieDomain
   const oneYearInSeconds = 60 * 60 * 24 * 365
   const cookieAttributes =
     '; path=/' +
@@ -18,12 +20,17 @@ function setConsent(value) {
   if (value === 'all') {
     document.cookie = 'oa=1' + cookieAttributes
     loadGA()
+    window.dispatchEvent(new CustomEvent('cookie-consent', { detail: true }))
   } else {
     document.cookie = 'oa=0' + cookieAttributes
+    window.dispatchEvent(new CustomEvent('cookie-consent', { detail: false }))
   }
 }
 
-if (window.ExposedSettings.gaToken || window.ExposedSettings.gaTokenV4) {
+if (
+  getMeta('ol-ExposedSettings').gaToken ||
+  getMeta('ol-ExposedSettings').gaTokenV4
+) {
   document
     .querySelectorAll('[data-ol-cookie-banner-set-consent]')
     .forEach(el => {

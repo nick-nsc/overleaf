@@ -2,7 +2,7 @@ const {
   callbackifyAll,
   promiseMapWithLimit,
 } = require('@overleaf/promise-utils')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 const Settings = require('@overleaf/settings')
 const logger = require('@overleaf/logger')
 const { fetchJson } = require('@overleaf/fetch-utils')
@@ -15,7 +15,6 @@ const NotificationsHandler = require('../Notifications/NotificationsHandler')
 const SubscriptionLocator = require('../Subscription/SubscriptionLocator')
 const { Institution } = require('../../models/Institution')
 const { Subscription } = require('../../models/Subscription')
-const Queues = require('../../infrastructure/Queues')
 const OError = require('@overleaf/o-error')
 
 const ASYNC_LIMIT = parseInt(process.env.ASYNC_LIMIT, 10) || 5
@@ -105,9 +104,8 @@ const InstitutionsManager = {
   async refreshInstitutionUsers(institutionId, notify) {
     const refreshFunction = notify ? refreshFeaturesAndNotify : refreshFeatures
 
-    const { institution, affiliations } = await fetchInstitutionAndAffiliations(
-      institutionId
-    )
+    const { institution, affiliations } =
+      await fetchInstitutionAndAffiliations(institutionId)
 
     for (const affiliation of affiliations) {
       affiliation.institutionName = institution.name
@@ -256,14 +254,6 @@ const InstitutionsManager = {
     )
   },
 
-  /**
-   * Enqueue a job for adding affiliations for when a domain is confirmed
-   */
-  async confirmDomain(hostname) {
-    const queue = Queues.getQueue('confirm-institution-domain')
-    await queue.add({ hostname })
-  },
-
   async fetchV1Data(institution) {
     const url = `${Settings.apis.v1.url}/universities/list/${institution.v1Id}`
     try {
@@ -316,9 +306,8 @@ async function refreshFeaturesAndNotify(affiliation) {
 
 const getUserInfo = async userId => {
   const user = await UserGetter.promises.getUser(userId, { _id: 1 })
-  const subscription = await SubscriptionLocator.promises.getUsersSubscription(
-    user
-  )
+  const subscription =
+    await SubscriptionLocator.promises.getUsersSubscription(user)
   return { user, subscription }
 }
 

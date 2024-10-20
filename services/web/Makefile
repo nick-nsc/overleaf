@@ -393,56 +393,13 @@ WITH_NODE_MODULES_PATH = \
 
 $(WITH_NODE_MODULES_PATH): export PATH=$(NODE_MODULES_PATH)
 
-lint: lint_backend
-lint_backend:
-	npx eslint \
-		'app.{js,jsx,mjs,ts,tsx}' \
-		'app/**/*.{js,jsx,mjs,ts,tsx}' \
-		'modules/*/index.{js,jsx,mjs,ts,tsx}' \
-		'modules/*/app/**/*.{js,jsx,mjs,ts,tsx}' \
-		--max-warnings=0
+lint: lint_eslint
+lint_eslint:
+	npm run lint
 
-lint: lint_frontend
-lint_frontend:
-	npx eslint \
-		'frontend/**/*.{js,jsx,mjs,ts,tsx}' \
-		'modules/**/frontend/**/*.{js,jsx,mjs,ts,tsx}' \
-		--max-warnings=0
-
-lint: lint_test
-lint_test: lint_test_app
-lint_test_app: lint_test_app_unit
-lint_test_app_unit:
-	npx eslint \
-		'test/unit/**/*.{js,jsx,mjs,ts,tsx}' \
-		--max-warnings=0
-
-lint_test_app: lint_test_app_rest
-lint_test_app_rest:
-	npx eslint \
-		'test/**/*.{js,jsx,mjs,ts,tsx}' \
-		--ignore-pattern 'test/unit/**/*.{js,jsx,mjs,ts,tsx}' \
-		--max-warnings=0
-
-lint_test: lint_test_modules
-lint_test_modules:
-	npx eslint \
-		'modules/*/test/**/*.{js,jsx,mjs,ts,tsx}' \
-		--max-warnings=0
-
-lint: lint_misc
-# migrations, scripts, webpack config
-lint_misc:
-	npx eslint . \
-		--ignore-pattern 'app.{js,jsx,mjs,ts,tsx}' \
-		--ignore-pattern 'app/**/*.{js,jsx,mjs,ts,tsx}' \
-		--ignore-pattern 'modules/*/app/**/*.{js,jsx,mjs,ts,tsx}' \
-		--ignore-pattern 'modules/*/index.{js,jsx,mjs,ts,tsx}' \
-		--ignore-pattern 'frontend/**/*.{js,jsx,mjs,ts,tsx}' \
-		--ignore-pattern 'modules/**/frontend/**/*.{js,jsx,mjs,ts,tsx}' \
-		--ignore-pattern 'test/**/*.{js,jsx,mjs,ts,tsx}' \
-		--ignore-pattern 'modules/*/test/**/*.{js,jsx,mjs,ts,tsx}' \
-		--max-warnings=0
+lint: lint_stylelint
+lint_stylelint:
+	npm run lint:styles
 
 lint: lint_pug
 lint_pug:
@@ -466,13 +423,17 @@ lint: lint_flag_res_send_usage
 lint_flag_res_send_usage:
 	bin/lint_flag_res_send_usage
 
+lint: lint_overleafModuleImports
+lint_overleafModuleImports:
+	node scripts/check_overleafModuleImports.js
+
 lint: typecheck_frontend
 typecheck_frontend:
-	npx -p typescript tsc --noEmit
+	npm run --silent type-check
 
 lint: typecheck_backend
 typecheck_backend:
-	npx -p typescript tsc -p tsconfig.backend.json --noEmit
+	npm run --silent type-check:backend
 
 lint_in_docker:
 	$(RUN_LINT_FORMAT) make lint -j2 --output-sync
@@ -539,10 +500,20 @@ build_webpack_once:
 		--file Dockerfile \
 		../..
 
+build_pug:
+	docker build \
+		--build-arg SENTRY_RELEASE \
+		--cache-from $(IMAGE_CI)-dev \
+		--tag $(IMAGE_CI)-pug \
+		--target pug \
+		--file Dockerfile \
+		../..
+
 build:
 	docker build \
 		--build-arg SENTRY_RELEASE \
 		--cache-from $(IMAGE_CI)-webpack \
+		--cache-from $(IMAGE_CI)-pug \
 		--cache-from $(IMAGE_REPO_FINAL) \
 		--tag $(IMAGE_REPO_FINAL) \
 		--target app \
@@ -550,7 +521,7 @@ build:
 		../..
 
 publish:
-	docker push $(DOCKER_REPO)/$(PROJECT_NAME):$(BRANCH_NAME)-$(BUILD_NUMBER)
+	docker push $(IMAGE_REPO_FINAL)
 
 tar:
 	COMPOSE_PROJECT_NAME=tar_$(BUILD_DIR_NAME) $(DOCKER_COMPOSE) run --rm tar

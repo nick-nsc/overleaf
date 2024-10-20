@@ -1,7 +1,14 @@
 import getMeta from '../../../utils/meta'
 import { swapModal } from '../../utils/swapModal'
 import * as eventTracking from '../../../infrastructure/event-tracking'
-import { createLocalizedGroupPlanPrice } from '../utils/group-plan-pricing'
+import {
+  createLocalizedGroupPlanPrice,
+  formatCurrencyDefault,
+} from '../utils/group-plan-pricing'
+import { getSplitTestVariant } from '@/utils/splitTestUtils'
+import { formatCurrencyLocalized } from '@/shared/utils/currency'
+
+export const GROUP_PLAN_MODAL_HASH = '#groups'
 
 function getFormValues() {
   const modalEl = document.querySelector('[data-ol-group-plan-modal]')
@@ -20,12 +27,18 @@ export function updateGroupModalPlanPricing() {
   const modalEl = document.querySelector('[data-ol-group-plan-modal]')
   const { planCode, size, currency, usage } = getFormValues()
 
+  const localCcyVariant = getSplitTestVariant('local-ccy-format-v2')
+
   const { localizedPrice, localizedPerUserPrice } =
     createLocalizedGroupPlanPrice({
       plan: planCode,
       licenseSize: size,
       currency,
       usage,
+      formatCurrency:
+        localCcyVariant === 'enabled'
+          ? formatCurrencyLocalized
+          : formatCurrencyDefault,
     })
 
   modalEl.querySelectorAll('[data-ol-group-plan-plan-code]').forEach(el => {
@@ -60,11 +73,11 @@ const modalEl = $('[data-ol-group-plan-modal]')
 modalEl
   .on('shown.bs.modal', function () {
     const path = `${window.location.pathname}${window.location.search}`
-    history.replaceState(null, document.title, path + '#groups')
+    history.replaceState(null, document.title, path + GROUP_PLAN_MODAL_HASH)
     eventTracking.sendMB('form-submitted-groups-modal-open')
   })
   .on('hidden.bs.modal', function () {
-    const path = `${window.location.pathname}${window.location.search}`
+    const path = `${window.location.pathname}${window.location.search}${window.location.hash}`
     history.replaceState(null, document.title, path)
   })
 
@@ -155,6 +168,6 @@ window.addEventListener('load', () => {
   updateGroupModalPlanPricingIfAvailable()
 })
 
-if (window.location.hash === '#groups') {
+if (window.location.hash === GROUP_PLAN_MODAL_HASH) {
   showGroupPlanModal()
 }

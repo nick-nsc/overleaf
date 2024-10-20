@@ -1,6 +1,7 @@
 // @ts-check
 /**
- * @typedef {import('../file_data')} FileData
+ * @import FileData from '../file_data'
+ * @import { RawEditOperation } from '../types'
  */
 
 class EditOperation {
@@ -12,7 +13,7 @@ class EditOperation {
 
   /**
    * Converts operation into a JSON value.
-   * @returns {object}
+   * @returns {RawEditOperation}
    */
   toJSON() {
     throw new Error('Abstract method not implemented')

@@ -8,7 +8,24 @@ mixin features_premium
 	li + #{translate('more').toLowerCase()}
 
 mixin gen_localized_price_for_plan_view(plan, view)
-	span #{settings.localizedPlanPricing[recommendedCurrency][plan][view]}
+	span #{formatCurrency(settings.localizedPlanPricing[recommendedCurrency][plan][view], recommendedCurrency, language, true)}
+
+mixin currency_and_payment_methods()
+	.row.row-spaced-large.text-centered
+		.col-xs-12
+			p.text-centered
+				strong #{translate("all_prices_displayed_are_in_currency", { recommendedCurrency })}
+				| &nbsp;
+				span #{translate("subject_to_additional_vat")}
+			i.fa.fa-cc-mastercard.fa-2x(aria-hidden="true") &nbsp;
+			span.sr-only #{translate('payment_method_accepted', { paymentMethod: 'Mastercard' })}
+			i.fa.fa-cc-visa.fa-2x(aria-hidden="true") &nbsp;
+			span.sr-only #{translate('payment_method_accepted', { paymentMethod: 'Visa' })}
+			i.fa.fa-cc-amex.fa-2x(aria-hidden="true") &nbsp;
+			span.sr-only #{translate('payment_method_accepted', { paymentMethod: 'Amex' })}
+			i.fa.fa-cc-paypal.fa-2x(aria-hidden="true") &nbsp;
+			span.sr-only #{translate('payment_method_accepted', { paymentMethod: 'Paypal' })}
+
 
 mixin plans_v2_table(period, config)
 	- var baseColspan = config.baseColspan || 1
@@ -216,7 +233,7 @@ mixin table_head_group_collaborator(highlighted, eventTrackingKey, additionalEve
 	.plans-v2-table-th-content
 		p.plans-v2-table-th-content-title #{translate("group_standard")}
 		.plans-v2-table-price-container
-			strike.plans-v2-table-price-before-discount
+			s.plans-v2-table-price-before-discount
 				+gen_localized_price_for_plan_view('collaborator', 'annual')
 			p.plans-v2-table-price
 				span(data-ol-plans-v2-group-price-per-user='collaborator') #{initialLocalizedGroupPrice.pricePerUser.collaborator}
@@ -237,7 +254,7 @@ mixin table_head_group_professional(highlighted, eventTrackingKey, additionalEve
 	.plans-v2-table-th-content
 		p.plans-v2-table-th-content-title #{translate("group_professional")}
 		.plans-v2-table-price-container
-			strike.plans-v2-table-price-before-discount
+			s.plans-v2-table-price-before-discount
 				+gen_localized_price_for_plan_view('professional', 'annual')
 			p.plans-v2-table-price
 				span(data-ol-plans-v2-group-price-per-user='professional') #{initialLocalizedGroupPrice.pricePerUser.professional}
@@ -265,7 +282,9 @@ mixin table_head_group_total_per_year(groupPlan)
 		) !{translate("total_per_year_for_x_users", {licenseSize})}
 
 mixin table_head_group_organization(highlighted, eventTrackingKey, additionalEventSegmentation)
-	- var segmentation = JSON.stringify(Object.assign({}, {button: 'group_organization-link', location: 'table-header-list', period: 'annual'}, additionalEventSegmentation))
+	- additionalEventSegmentation = additionalEventSegmentation || {}
+	- var segmentation = { ...additionalEventSegmentation, button: 'group_organization-link', location: 'table-header-list', period: 'annual', currency: recommendedCurrency }
+
 	.plans-v2-table-th-content
 		p.plans-v2-table-th-content-title #{translate("organization")}
 		.plans-v2-table-comments-icon
@@ -330,7 +349,7 @@ mixin table_head_student_university(highlighted, eventTrackingKey, additionalEve
 mixin table_head_price(plan, period)
 	div.plans-v2-table-price-container
 		if plan !== 'free' && period === 'annual'
-			strike.plans-v2-table-price-before-discount
+			s.plans-v2-table-price-before-discount
 				+gen_localized_price_for_plan_view(plan, 'monthlyTimesTwelve')
 		p.plans-v2-table-price
 			+gen_localized_price_for_plan_view(plan, period)
@@ -520,7 +539,8 @@ mixin btn_buy_student_university(highlighted, eventTrackingKey, additionalEventS
 
 mixin additional_link_group(eventTrackingKey, additionalEventSegmentation, plan)
 	- var buttonSegmentation = plan + '-link'
-	- var segmentation = JSON.stringify(Object.assign({}, {button: buttonSegmentation, location: 'table-header'}, additionalEventSegmentation))
+	- additionalEventSegmentation = additionalEventSegmentation || {}
+	- var segmentation = { ...additionalEventSegmentation, button: buttonSegmentation, location: 'table-header', currency: recommendedCurrency }
 	small.plans-v2-table-th-content-additional-link
 		| #{translate("or")} 
 		a(
@@ -534,7 +554,8 @@ mixin additional_link_group(eventTrackingKey, additionalEventSegmentation, plan)
 
 mixin additional_link_buy(eventTrackingKey, additionalEventSegmentation, plan, period)
 	- var buttonSegmentation = plan + '-link'
-	- var segmentation = JSON.stringify(Object.assign({}, {button: buttonSegmentation, location: 'table-header', period}, additionalEventSegmentation))
+	- additionalEventSegmentation = additionalEventSegmentation || {}
+	- var segmentation = { ...additionalEventSegmentation, button: buttonSegmentation, location: 'table-header', currency: recommendedCurrency }
 	- var itmCampaign = itm_campaign ? { itm_campaign } : {itm_campaign: 'plans'}
 	- var itmReferrer = itm_referrer ? { itm_referrer } : {}
 	- var qs = new URLSearchParams({planCode: plan, currency: recommendedCurrency, itm_content: 'card', ...itmCampaign, ...itmReferrer})

@@ -1,6 +1,7 @@
 import useFetchMock from './hooks/use-fetch-mock'
 import CloneProjectModal from '../js/features/clone-project-modal/components/clone-project-modal'
 import { ScopeDecorator } from './decorators/scope'
+import { bsVersionDecorator } from '../../.storybook/utils/with-bootstrap-switcher'
 
 export const Success = args => {
   useFetchMock(fetchMock => {
@@ -43,11 +44,20 @@ export default {
   component: CloneProjectModal,
   args: {
     show: true,
+    projectName: 'Project 1',
+    projectTags: [
+      {
+        _id: 'tag-1',
+        name: 'Category 1',
+        color: '#c0ffee',
+      },
+    ],
   },
   argTypes: {
     handleHide: { action: 'close modal' },
     openProject: { action: 'open project' },
     handleAfterCloned: { action: 'after cloned' },
+    ...bsVersionDecorator.argTypes,
   },
   decorators: [ScopeDecorator],
 }

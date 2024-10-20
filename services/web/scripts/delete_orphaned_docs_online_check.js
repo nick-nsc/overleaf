@@ -1,6 +1,6 @@
 const DocstoreManager = require('../app/src/Features/Docstore/DocstoreManager')
 const { promisify } = require('util')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 const {
   db,
   waitForDb,
@@ -68,9 +68,8 @@ async function main() {
         new Set(docs.map(doc => doc.project_id.toString()))
       ).map(id => new ObjectId(id))
       console.log('Checking projects', JSON.stringify(projectIds))
-      const { nProjectsWithOrphanedDocs, nDeletedDocs } = await processBatch(
-        projectIds
-      )
+      const { nProjectsWithOrphanedDocs, nDeletedDocs } =
+        await processBatch(projectIds)
       nProjectsProcessedTotal += projectIds.length
       nProjectsWithOrphanedDocsTotal += nProjectsWithOrphanedDocs
       nDeletedDocsTotal += nDeletedDocs

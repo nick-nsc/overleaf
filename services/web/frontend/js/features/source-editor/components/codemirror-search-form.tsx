@@ -1,7 +1,7 @@
 import {
   useCodeMirrorStateContext,
   useCodeMirrorViewContext,
-} from './codemirror-editor'
+} from './codemirror-context'
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { runScopeHandlers } from '@codemirror/view'
 import {
@@ -358,6 +358,7 @@ const CodeMirrorSearchForm: FC = () => {
             id={caseSensitiveId}
             name="caseSensitive"
             type="checkbox"
+            autoComplete="off"
             checked={query.caseSensitive}
             onChange={handleChange}
             onClick={focusSearchBox}
@@ -369,6 +370,7 @@ const CodeMirrorSearchForm: FC = () => {
             id={regexpId}
             name="regexp"
             type="checkbox"
+            autoComplete="off"
             checked={query.regexp}
             onChange={handleChange}
             onClick={focusSearchBox}
@@ -380,6 +382,7 @@ const CodeMirrorSearchForm: FC = () => {
             id={wholeWordId}
             name="wholeWord"
             type="checkbox"
+            autoComplete="off"
             checked={query.wholeWord}
             onChange={handleChange}
             onClick={focusSearchBox}
@@ -391,6 +394,7 @@ const CodeMirrorSearchForm: FC = () => {
             id={withinSelectionId}
             name="withinSelection"
             type="checkbox"
+            autoComplete="off"
             checked={!!query.scope}
             onChange={handleWithinSelectionChange}
             onClick={focusSearchBox}
@@ -401,14 +405,6 @@ const CodeMirrorSearchForm: FC = () => {
 
         <div className="ol-cm-search-form-group ol-cm-search-next-previous">
           <ButtonGroup className="ol-cm-search-form-button-group">
-            <Button type="button" bsSize="small" onClick={() => findNext(view)}>
-              <Icon
-                type="chevron-down"
-                fw
-                accessibilityLabel={t('search_next')}
-              />
-            </Button>
-
             <Button
               type="button"
               bsSize="small"
@@ -418,6 +414,14 @@ const CodeMirrorSearchForm: FC = () => {
                 type="chevron-up"
                 fw
                 accessibilityLabel={t('search_previous')}
+              />
+            </Button>
+
+            <Button type="button" bsSize="small" onClick={() => findNext(view)}>
+              <Icon
+                type="chevron-down"
+                fw
+                accessibilityLabel={t('search_next')}
               />
             </Button>
           </ButtonGroup>

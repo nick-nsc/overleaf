@@ -2,16 +2,46 @@ import { EditorView, ViewUpdate } from '@codemirror/view'
 import { Diagnostic, linter, lintGutter } from '@codemirror/lint'
 import {
   Compartment,
+  EditorState,
   Extension,
+  Line,
   RangeSet,
   RangeValue,
   StateEffect,
   StateField,
-  Text,
 } from '@codemirror/state'
 import { Annotation } from '../../../../../types/annotation'
 import { debugConsole } from '@/utils/debugging'
 import { sendMB } from '@/infrastructure/event-tracking'
+import importOverleafModules from '../../../../macros/import-overleaf-module.macro'
+import { syntaxTree } from '@codemirror/language'
+
+interface CompileLogDiagnostic extends Diagnostic {
+  compile?: true
+  ruleId?: string
+  id?: string
+  entryIndex: number
+  firstOnLine?: boolean
+}
+
+type RenderedDiagnostic = Pick<
+  CompileLogDiagnostic,
+  | 'message'
+  | 'severity'
+  | 'ruleId'
+  | 'compile'
+  | 'source'
+  | 'id'
+  | 'firstOnLine'
+>
+
+export type DiagnosticAction = (
+  diagnostic: RenderedDiagnostic
+) => HTMLButtonElement | null
+
+const diagnosticActions = importOverleafModules('diagnosticActions') as {
+  import: { default: DiagnosticAction }
+}[]
 
 const compileLintSourceConf = new Compartment()
 
@@ -56,7 +86,8 @@ export const lintSourceConfig = {
  */
 const compileLogLintSource = (): Extension =>
   linter(view => {
-    const items: Diagnostic[] = []
+    const items: CompileLogDiagnostic[] = []
+    // NOTE: iter() changes the order of diagnostics on the same line
     const cursor = view.state.field(compileDiagnosticsState).iter()
     while (cursor.value !== null) {
       const { diagnostic } = cursor.value
@@ -68,13 +99,10 @@ const compileLogLintSource = (): Extension =>
       })
       cursor.next()
     }
+    // restore the original order of items
+    items.sort((a, b) => a.from - b.from || a.entryIndex - b.entryIndex)
     return items
   }, lintSourceConfig)
-
-interface CompileLogDiagnostic extends Diagnostic {
-  compile?: true
-  ruleId?: string
-}
 
 class CompileLogDiagnosticRangeValue extends RangeValue {
   constructor(public diagnostic: CompileLogDiagnostic) {
@@ -116,14 +144,17 @@ export const compileDiagnosticsState = StateField.define<
   },
 })
 
-export const setAnnotations = (doc: Text, annotations: Annotation[]) => {
-  const diagnostics: Diagnostic[] = []
+export const setAnnotations = (
+  state: EditorState,
+  annotations: Annotation[]
+) => {
+  const diagnostics: CompileLogDiagnostic[] = []
 
   for (const annotation of annotations) {
     // ignore "whole document" (row: -1) annotations
     if (annotation.row !== -1) {
       try {
-        diagnostics.push(convertAnnotationToDiagnostic(doc, annotation))
+        diagnostics.push(...convertAnnotationToDiagnostic(state, annotation))
       } catch (error) {
         // ignore invalid annotations
         debugConsole.debug('invalid annotation position', error)
@@ -145,36 +176,89 @@ export const showCompileLogDiagnostics = (show: boolean) => {
   }
 }
 
-const convertAnnotationToDiagnostic = (
-  doc: Text,
+const commandRanges = (state: EditorState, line: Line, command: string) => {
+  const ranges: { from: number; to: number }[] = []
+
+  syntaxTree(state).iterate({
+    enter(nodeRef) {
+      if (nodeRef.type.is('CtrlSeq')) {
+        const { from, to } = nodeRef
+        if (command === state.sliceDoc(from, to)) {
+          ranges.push({ from, to })
+        }
+      }
+    },
+    from: line.from,
+    to: line.to,
+  })
+
+  return ranges.slice(0, 1) // NOTE: only highlighting the first match on a line, to avoid duplicate messages
+}
+
+const chooseHighlightRanges = (
+  state: EditorState,
+  line: Line,
   annotation: Annotation
-): CompileLogDiagnostic => {
+) => {
+  const ranges: { from: number; to: number }[] = []
+
+  if (annotation.command) {
+    ranges.push(...commandRanges(state, line, annotation.command))
+  }
+
+  // default to highlighting the whole line
+  if (ranges.length === 0) {
+    ranges.push(line)
+  }
+
+  return ranges
+}
+
+const convertAnnotationToDiagnostic = (
+  state: EditorState,
+  annotation: Annotation
+): CompileLogDiagnostic[] => {
   if (annotation.row < 0) {
     throw new Error(`Invalid annotation row ${annotation.row}`)
   }
 
-  const line = doc.line(annotation.row + 1)
+  // NOTE: highlight whole line by default, as synctex doesn't output column number
+  const line = state.doc.line(annotation.row + 1)
 
-  return {
-    from: line.from,
-    to: line.to, // NOTE: highlight whole line as synctex doesn't output column number
+  const highlightRanges = chooseHighlightRanges(state, line, annotation)
+
+  return highlightRanges.map(location => ({
+    from: location.from,
+    to: location.to,
     severity: annotation.type,
     message: annotation.text,
     ruleId: annotation.ruleId,
     compile: true,
-  }
+    id: annotation.id,
+    entryIndex: annotation.entryIndex,
+    source: annotation.source,
+    firstOnLine: annotation.firstOnLine,
+  }))
 }
 
-export const renderMessage = (
-  diagnostic: Pick<
-    CompileLogDiagnostic,
-    'message' | 'severity' | 'ruleId' | 'compile'
-  >
-) => {
+export const renderMessage = (diagnostic: RenderedDiagnostic) => {
   const { message, severity, ruleId, compile = false } = diagnostic
 
   const div = document.createElement('div')
-  div.textContent = message
+  div.classList.add('ol-cm-diagnostic-message')
+
+  div.append(message)
+
+  const activeDiagnosticActions = diagnosticActions
+    .map(m => m.import.default(diagnostic))
+    .filter(Boolean) as HTMLButtonElement[]
+
+  if (activeDiagnosticActions.length) {
+    const actions = document.createElement('div')
+    actions.classList.add('ol-cm-diagnostic-actions')
+    actions.append(...activeDiagnosticActions)
+    div.append(actions)
+  }
 
   window.setTimeout(() => {
     if (div.isConnected) {

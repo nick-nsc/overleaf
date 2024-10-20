@@ -1,27 +1,55 @@
+import '../../../helpers/bootstrap-3'
 import { mockScope } from '../helpers/mock-scope'
 import { EditorProviders } from '../../../helpers/editor-providers'
 import CodemirrorEditor from '../../../../../frontend/js/features/source-editor/components/codemirror-editor'
-import { FC, ComponentProps } from 'react'
+import { FC } from 'react'
 import { FileTreePathContext } from '@/features/file-tree/contexts/file-tree-path'
+import { TestContainer } from '../helpers/test-container'
+import { PermissionsContext } from '@/features/ide-react/context/permissions-context'
 
-const Container: FC = ({ children }) => (
-  <div style={{ width: 785, height: 785 }}>{children}</div>
+const FileTreePathProvider: FC = ({ children }) => (
+  <FileTreePathContext.Provider
+    value={{
+      dirname: cy.stub(),
+      findEntityByPath: cy.stub(),
+      pathInFolder: cy.stub(),
+      previewByPath: cy
+        .stub()
+        .as('previewByPath')
+        .returns({ url: '/images/frog.jpg', extension: 'jpg' }),
+    }}
+  >
+    {children}
+  </FileTreePathContext.Provider>
 )
 
-const mountEditor = (
-  content: string,
-  props?: Omit<ComponentProps<typeof EditorProviders>, 'children' | 'scope'>
-) => {
+const PermissionsProvider: FC = ({ children }) => (
+  <PermissionsContext.Provider
+    value={{
+      read: true,
+      write: false,
+      admin: false,
+      comment: true,
+    }}
+  >
+    {children}
+  </PermissionsContext.Provider>
+)
+
+const mountEditor = (content: string) => {
   const scope = mockScope(content)
   scope.permissions.write = false
   scope.editor.showVisual = true
 
   cy.mount(
-    <Container>
-      <EditorProviders scope={scope} {...props}>
+    <TestContainer>
+      <EditorProviders
+        scope={scope}
+        providers={{ FileTreePathProvider, PermissionsProvider }}
+      >
         <CodemirrorEditor />
       </EditorProviders>
-    </Container>
+    </TestContainer>
   )
 
   // wait for the content to be parsed and revealed
@@ -33,6 +61,7 @@ describe('<CodeMirrorEditor/> in Visual mode with read-only permission', functio
     window.metaAttributesCache.set('ol-preventCompileOnLoad', true)
     cy.interceptMathJax()
     cy.interceptEvents()
+    cy.interceptMetadata()
     cy.interceptSpelling()
   })
 
@@ -56,7 +85,7 @@ describe('<CodeMirrorEditor/> in Visual mode with read-only permission', functio
   })
 
   it('does not enter a table cell on double-click', function () {
-    mountEditor('\\begin{tabular}{c}\n    cell\n\\end{tabular}')
+    mountEditor('\\begin{tabular}{c}\n    cell\n\\end{tabular}\n\n')
 
     cy.get('.table-generator-cell').dblclick()
     cy.get('.table-generator-cell').get('textarea').should('not.exist')
@@ -85,22 +114,6 @@ describe('<CodeMirrorEditor/> in Visual mode with read-only permission', functio
   })
 
   it('does not display the figure edit button', function () {
-    const FileTreePathProvider: FC = ({ children }) => (
-      <FileTreePathContext.Provider
-        value={{
-          dirname: cy.stub(),
-          findEntityByPath: cy.stub(),
-          pathInFolder: cy.stub(),
-          previewByPath: cy
-            .stub()
-            .as('previewByPath')
-            .returns({ url: '/images/frog.jpg', extension: 'jpg' }),
-        }}
-      >
-        {children}
-      </FileTreePathContext.Provider>
-    )
-
     cy.intercept('/images/frog.jpg', { fixture: 'images/gradient.png' })
 
     mountEditor(
@@ -109,10 +122,7 @@ describe('<CodeMirrorEditor/> in Visual mode with read-only permission', functio
 \\includegraphics[width=0.5\\linewidth]{frog.jpg}
 \\caption{My caption}
 \\label{fig:my-label}
-\\end{figure}`,
-      {
-        providers: { FileTreePathProvider },
-      }
+\\end{figure}`
     )
 
     cy.get('img.ol-cm-graphics').should('have.length', 1)

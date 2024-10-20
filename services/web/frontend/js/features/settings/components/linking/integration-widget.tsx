@@ -1,12 +1,22 @@
 import { useCallback, useState, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import AccessibleModal from '../../../../shared/components/accessible-modal'
-import { Button, Modal } from 'react-bootstrap'
+import OLBadge from '@/features/ui/components/ol/ol-badge'
 import getMeta from '../../../../utils/meta'
 import { sendMB } from '../../../../infrastructure/event-tracking'
+import OLButton from '@/features/ui/components/ol/ol-button'
+import OLModal, {
+  OLModalBody,
+  OLModalFooter,
+  OLModalHeader,
+  OLModalTitle,
+} from '@/features/ui/components/ol/ol-modal'
 
-function trackUpgradeClick() {
-  sendMB('settings-upgrade-click')
+function trackUpgradeClick(integration: string) {
+  sendMB('settings-upgrade-click', { integration })
+}
+
+function trackLinkingClick(integration: string) {
+  sendMB('link-integration-click', { integration, location: 'Settings' })
 }
 
 type IntegrationLinkingWidgetProps = {
@@ -56,9 +66,7 @@ export function IntegrationLinkingWidget({
       <div className="description-container">
         <div className="title-row">
           <h4>{title}</h4>
-          {!hasFeature && (
-            <span className="label label-info">{t('premium_feature')}</span>
-          )}
+          {!hasFeature && <OLBadge bg="info">{t('premium_feature')}</OLBadge>}
         </div>
         <p className="small">
           {description}{' '}
@@ -70,6 +78,7 @@ export function IntegrationLinkingWidget({
       </div>
       <div>
         <ActionButton
+          integration={title}
           hasFeature={hasFeature}
           linked={linked}
           handleUnlinkClick={handleUnlinkClick}
@@ -78,6 +87,7 @@ export function IntegrationLinkingWidget({
         />
       </div>
       <UnlinkConfirmationModal
+        integration={title}
         show={showModal}
         title={unlinkConfirmationTitle}
         content={unlinkConfirmationText}
@@ -89,6 +99,7 @@ export function IntegrationLinkingWidget({
 }
 
 type ActionButtonProps = {
+  integration: string
   hasFeature?: boolean
   linked?: boolean
   handleUnlinkClick: () => void
@@ -102,47 +113,45 @@ function ActionButton({
   handleUnlinkClick,
   linkPath,
   disabled,
+  integration,
 }: ActionButtonProps) {
   const { t } = useTranslation()
   if (!hasFeature) {
     return (
-      <Button
-        bsStyle={null}
-        className="btn-primary"
+      <OLButton
+        variant="primary"
         href="/user/subscription/plans"
-        onClick={trackUpgradeClick}
+        onClick={() => trackUpgradeClick(integration)}
       >
         <span className="text-capitalize">{t('upgrade')}</span>
-      </Button>
+      </OLButton>
     )
   } else if (linked) {
     return (
-      <Button
-        className="btn-danger-ghost"
+      <OLButton
+        variant="danger-ghost"
         onClick={handleUnlinkClick}
-        bsStyle={null}
         disabled={disabled}
       >
         {t('unlink')}
-      </Button>
+      </OLButton>
     )
   } else {
     return (
       <>
         {disabled ? (
-          <button
-            disabled
-            className="btn btn-secondary-info btn-secondary text-capitalize"
-          >
+          <OLButton disabled variant="secondary" className="text-capitalize">
             {t('link')}
-          </button>
+          </OLButton>
         ) : (
-          <a
-            className="btn btn-secondary-info btn-secondary text-capitalize"
+          <OLButton
+            variant="secondary"
             href={linkPath}
+            className="text-capitalize"
+            onClick={() => trackLinkingClick(integration)}
           >
             {t('link')}
-          </a>
+          </OLButton>
         )}
       </>
     )
@@ -152,6 +161,7 @@ function ActionButton({
 type UnlinkConfirmModalProps = {
   show: boolean
   title: string
+  integration: string
   content: string
   unlinkPath: string
   handleHide: () => void
@@ -160,42 +170,49 @@ type UnlinkConfirmModalProps = {
 function UnlinkConfirmationModal({
   show,
   title,
+  integration,
   content,
   unlinkPath,
   handleHide,
 }: UnlinkConfirmModalProps) {
   const { t } = useTranslation()
 
-  const handleCancel = (
-    event: React.MouseEvent<HTMLButtonElement & Button>
-  ) => {
+  const handleCancel = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
     handleHide()
   }
+
+  const handleConfirm = () => {
+    sendMB('unlink-integration-click', {
+      integration,
+    })
+  }
+
   return (
-    <AccessibleModal show={show} onHide={handleHide}>
-      <Modal.Header closeButton>
-        <Modal.Title>{title}</Modal.Title>
-      </Modal.Header>
+    <OLModal show={show} onHide={handleHide}>
+      <OLModalHeader closeButton>
+        <OLModalTitle>{title}</OLModalTitle>
+      </OLModalHeader>
 
-      <Modal.Body className="modal-body-share">
+      <OLModalBody>
         <p>{content}</p>
-      </Modal.Body>
+      </OLModalBody>
 
-      <Modal.Footer>
+      <OLModalFooter>
         <form action={unlinkPath} method="POST" className="form-inline">
           <input type="hidden" name="_csrf" value={getMeta('ol-csrfToken')} />
-          <Button
-            className="btn-secondary-info btn-secondary"
-            onClick={handleCancel}
-          >
+          <OLButton variant="secondary" onClick={handleCancel}>
             {t('cancel')}
-          </Button>
-          <Button type="submit" className="btn-danger-ghost" bsStyle={null}>
+          </OLButton>
+          <OLButton
+            type="submit"
+            variant="danger-ghost"
+            onClick={handleConfirm}
+          >
             {t('unlink')}
-          </Button>
+          </OLButton>
         </form>
-      </Modal.Footer>
-    </AccessibleModal>
+      </OLModalFooter>
+    </OLModal>
   )
 }

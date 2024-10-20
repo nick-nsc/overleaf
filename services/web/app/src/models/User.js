@@ -6,6 +6,7 @@ const { ObjectId } = Schema
 
 // See https://stackoverflow.com/questions/386294/what-is-the-maximum-length-of-a-valid-email-address/574698#574698
 const MAX_EMAIL_LENGTH = 254
+const MAX_NAME_LENGTH = 255
 
 const UserSchema = new Schema(
   {
@@ -26,8 +27,16 @@ const UserSchema = new Schema(
         reconfirmedAt: { type: Date },
       },
     ],
-    first_name: { type: String, default: '' },
-    last_name: { type: String, default: '' },
+    first_name: {
+      type: String,
+      default: '',
+      maxlength: MAX_NAME_LENGTH,
+    },
+    last_name: {
+      type: String,
+      default: '',
+      maxlength: MAX_NAME_LENGTH,
+    },
     role: { type: String, default: '' },
     institution: { type: String, default: '' },
     hashedPassword: String,
@@ -72,6 +81,7 @@ const UserSchema = new Schema(
     lastLoggedIn: { type: Date },
     lastLoginIp: { type: String, default: '' },
     lastPrimaryEmailCheck: { type: Date },
+    lastTrial: { type: Date },
     loginCount: { type: Number, default: 0 },
     holdingAccount: { type: Boolean, default: false },
     ace: {
@@ -86,6 +96,7 @@ const UserSchema = new Schema(
       syntaxValidation: { type: Boolean },
       fontFamily: { type: String },
       lineHeight: { type: String },
+      mathPreview: { type: Boolean, default: true },
     },
     features: {
       collaborators: {
@@ -107,7 +118,6 @@ const UserSchema = new Schema(
         type: String,
         default: Settings.defaultFeatures.compileGroup,
       },
-      templates: { type: Boolean, default: Settings.defaultFeatures.templates },
       references: {
         type: Boolean,
         default: Settings.defaultFeatures.references,
@@ -126,6 +136,10 @@ const UserSchema = new Schema(
         type: Boolean,
         default: Settings.defaultFeatures.symbolPalette,
       },
+      // labs feature, which shouldnt have a default as we havent decided pricing model yet
+      aiErrorAssistant: {
+        type: Boolean,
+      },
     },
     featuresOverrides: [
       {
@@ -138,6 +152,7 @@ const UserSchema = new Schema(
         expiresAt: { type: Date },
         note: { type: String },
         features: {
+          aiErrorAssistant: { type: Boolean },
           collaborators: { type: Number },
           versioning: { type: Boolean },
           dropbox: { type: Boolean },
@@ -151,6 +166,7 @@ const UserSchema = new Schema(
           zotero: { type: Boolean },
           referencesSearch: { type: Boolean },
           symbolPalette: { type: Boolean },
+          compileAssistant: { type: Boolean },
         },
       },
     ],
@@ -173,7 +189,8 @@ const UserSchema = new Schema(
       zotero: Schema.Types.Mixed,
     },
     writefull: {
-      enabled: { type: Boolean, default: false },
+      enabled: { type: Boolean, default: null },
+      autoCreatedAccount: { type: Boolean, default: false },
     },
     alphaProgram: { type: Boolean, default: false }, // experimental features
     betaProgram: { type: Boolean, default: false },
@@ -196,6 +213,7 @@ const UserSchema = new Schema(
     splitTests: Schema.Types.Mixed,
     analyticsId: { type: String },
     completedTutorials: Schema.Types.Mixed,
+    suspended: { type: Boolean },
   },
   { minimize: false }
 )

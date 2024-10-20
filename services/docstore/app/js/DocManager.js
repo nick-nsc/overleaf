@@ -8,7 +8,19 @@ const Settings = require('@overleaf/settings')
 const { callbackifyAll } = require('@overleaf/promise-utils')
 const { setTimeout } = require('timers/promises')
 
+/**
+ * @import { Document } from 'mongodb'
+ * @import { WithId } from 'mongodb'
+ */
+
 const DocManager = {
+  /**
+   * @param {string} projectId
+   * @param {string} docId
+   * @param {{inS3: boolean}} filter
+   * @returns {Promise<WithId<Document>>}
+   * @private
+   */
   async _getDoc(projectId, docId, filter) {
     if (filter == null) {
       filter = {}
@@ -117,6 +129,25 @@ const DocManager = {
       throw new Errors.NotFoundError(`No docs for project ${projectId}`)
     }
     return docs
+  },
+
+  async projectHasRanges(projectId) {
+    const docs = await MongoManager.promises.getProjectsDocs(
+      projectId,
+      {},
+      { _id: 1 }
+    )
+    const docIds = docs.map(doc => doc._id)
+    for (const docId of docIds) {
+      const doc = await DocManager.peekDoc(projectId, docId)
+      if (
+        (doc.ranges?.comments != null && doc.ranges.comments.length > 0) ||
+        (doc.ranges?.changes != null && doc.ranges.changes.length > 0)
+      ) {
+        return true
+      }
+    }
+    return false
   },
 
   async updateDoc(projectId, docId, lines, version, ranges) {

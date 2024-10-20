@@ -1,5 +1,6 @@
 @import 'colors.less';
 @import 'z-index.less';
+@import 'border-radius.less';
 
 //
 // Variables
@@ -107,15 +108,57 @@
 @line-height-large: 1.33;
 @line-height-small: 1.5;
 
-@border-radius-base: 3px;
-@border-radius-base-new: 4px;
-@border-radius-large: 5px;
-@border-radius-small: 2px;
 @border-width-sm: 1px;
 @border-width-base: 3px; // only used by plans and cards
 @border-size: 1px;
 @border-color-base: @neutral-60;
 @border-color-disabled: @color-disabled;
+
+@spacing-00: 0px;
+@spacing-01: 2px;
+@spacing-02: 4px;
+@spacing-03: 6px;
+@spacing-04: 8px;
+@spacing-05: 12px;
+@spacing-06: 16px;
+@spacing-07: 20px;
+@spacing-08: 24px;
+@spacing-09: 32px;
+@spacing-10: 40px;
+@spacing-11: 48px;
+@spacing-12: 56px;
+@spacing-13: 64px;
+@spacing-14: 72px;
+@spacing-15: 80px;
+@spacing-16: 96px;
+
+@font-size-01: 0.75rem; // 12px
+@font-size-02: 0.875rem; // 14px
+@font-size-03: 1rem; // 16px
+@font-size-04: 1.125rem; // 18px
+@font-size-05: 1.25rem; // 20px
+@font-size-06: 1.5rem; // 24px
+@font-size-07: 1.875rem; // 30px
+@font-size-08: 2.25rem; // 36px
+@font-size-09: 3rem; // 48px
+@font-size-10: 3.25rem; // 52px
+@font-size-11: 3.75rem; // 60px
+@font-size-12: 4.5rem; // 72px
+@font-size-13: 6rem; // 96px
+@font-size-body-base: @font-size-03;
+
+@line-height-01: 1rem; // 16px
+@line-height-02: 1.25rem; // 20px
+@line-height-03: 1.5rem; // 24px
+@line-height-04: 1.75rem; // 28px
+@line-height-05: 2rem; // 32px
+@line-height-06: 2.5rem; // 40px
+@line-height-07: 3rem; // 48px
+@line-height-08: 4rem; // 64px
+@line-height-09: 4.25rem; // 68px
+@line-height-10: 5rem; // 80px
+@line-height-11: 6rem; // 96px
+@line-height-12: 8rem; // 128px
 
 //** Horizontal line color.
 @hr-border: @neutral-20;
@@ -325,22 +368,28 @@
 @screen-sm-min: @screen-sm;
 @screen-tablet: @screen-sm-min;
 
-// Medium screen / desktop
+// Medium screen / small desktop
 // Note: Deprecated @screen-md and @screen-desktop as of v3.0.1
 @screen-md: 992px;
 @screen-md-min: @screen-md;
 @screen-desktop: @screen-md-min;
 
-// Large screen / wide desktop
+// Large screen / desktop
 // Note: Deprecated @screen-lg and @screen-lg-desktop as of v3.0.1
 @screen-lg: 1200px;
 @screen-lg-min: @screen-lg;
 @screen-lg-desktop: @screen-lg-min;
 
+// Extra large screen / wide desktop
+@screen-xl: 1400px;
+@screen-xl-min: @screen-xl;
+@screen-xl-desktop: @screen-xl-min;
+
 // So media queries don't overlap when required, provide a maximum
 @screen-xs-max: (@screen-sm-min - 1);
 @screen-sm-max: (@screen-md-min - 1);
 @screen-md-max: (@screen-lg-min - 1);
+@screen-lg-max: (@screen-xl-min - 1);
 
 //== Grid system
 //
@@ -350,6 +399,7 @@
 @grid-columns: 12;
 //** Padding between columns. Gets divided in half for the left and right.
 @grid-gutter-width: 30px;
+@grid-gutter-width-new: 32px; // for website-redesign because the usage of 16px padding
 // Navbar collapse
 //** Point at which the navbar becomes uncollapsed.
 @grid-float-breakpoint: @screen-md-min;
@@ -365,15 +415,20 @@
 //** For `@screen-sm-min` and up.
 @container-sm: @container-tablet;
 
-// Medium screen / desktop
+// Medium screen / small desktop
 @container-desktop: ((940px + @grid-gutter-width));
 //** For `@screen-md-min` and up.
 @container-md: @container-desktop;
 
-// Large screen / wide desktop
+// Large screen / desktop
 @container-large-desktop: ((1140px + @grid-gutter-width));
 //** For `@screen-lg-min` and up.
 @container-lg: @container-large-desktop;
+
+// Extra large screen / wide desktop
+@container-wide-desktop: ((1248px + @grid-gutter-width-new)); // 1280px
+//** For `@screen-xl-min` and up.
+@container-xl: @container-wide-desktop;
 
 //== Navbar
 //
@@ -726,7 +781,7 @@
 
 @content-margin-vertical: @line-height-computed;
 
-@left-menu-width: 320px;
+@left-menu-width: 340px;
 @left-menu-animation-duration: 0.35s;
 
 @toolbar-border-color: @neutral-80;
@@ -787,7 +842,8 @@
 @btn-secondary-hover-bg-color: @neutral-20;
 
 // Shadows
-@box-shadow: 0px 4px 12px rgba(30, 37, 48, 0.12),
+@box-shadow:
+  0px 4px 12px rgba(30, 37, 48, 0.12),
   0px 2px 4px rgba(30, 37, 48, 0.08);
 
 // Cards
@@ -835,7 +891,7 @@
 @folders-tag-padding: @folders-menu-item-v-padding 30px
   @folders-menu-item-v-padding @folders-menu-item-h-padding;
 @folders-tag-line-height: 1.4;
-@folders-tag-display: block;
+@folders-tag-display: flex;
 @folders-tag-menu-color: #fff;
 @folders-tag-hover: @sidebar-hover-bg;
 @folders-tag-border-color: @folders-tag-menu-color;
@@ -954,6 +1010,7 @@
 @logs-pane-bg: @neutral-80;
 @log-line-no-color: #fff;
 @log-hints-color: @neutral-70;
+@pdf-toolbar-btn-hover-color: rgba(125, 125, 125, 0.2);
 
 // Tags
 @tag-border-radius: 9999px;

@@ -1,5 +1,3 @@
-import MockedSocket from 'socket.io-mock'
-
 import { rootFolderBase } from './fixtures/file-tree-base'
 import { rootFolderLimit } from './fixtures/file-tree-limit'
 import FileTreeRoot from '../js/features/file-tree/components/file-tree-root'
@@ -7,13 +5,11 @@ import FileTreeError from '../js/features/file-tree/components/file-tree-error'
 import useFetchMock from './hooks/use-fetch-mock'
 import { ScopeDecorator } from './decorators/scope'
 import { useScope } from './hooks/use-scope'
+import { useIdeContext } from '@/shared/context/ide-context'
+import { bsVersionDecorator } from '../../.storybook/utils/with-bootstrap-switcher'
 
 const MOCK_DELAY = 2000
 
-window._ide = {
-  ...window._ide,
-  socket: new MockedSocket(),
-}
 const DEFAULT_PROJECT = {
   _id: '123abc',
   name: 'Some Project',
@@ -21,18 +17,14 @@ const DEFAULT_PROJECT = {
   rootFolder: rootFolderBase,
 }
 
-function defaultSetupMocks(fetchMock) {
+function defaultSetupMocks(fetchMock, socket) {
   fetchMock
     .post(
       /\/project\/\w+\/(file|doc|folder)\/\w+\/rename/,
       (path, req) => {
         const body = JSON.parse(req.body)
         const entityId = path.match(/([^/]+)\/rename$/)[1]
-        window._ide.socket.socketClient.emit(
-          'reciveEntityRename',
-          entityId,
-          body.name
-        )
+        socket.emitToClient('reciveEntityRename', entityId, body.name)
         return 204
       },
 
@@ -51,11 +43,7 @@ function defaultSetupMocks(fetchMock) {
           _id: Math.random().toString(16).replace(/0\./, 'random-test-id-'),
           name: body.name,
         }
-        window._ide.socket.socketClient.emit(
-          'reciveNewFolder',
-          body.parent_folder_id,
-          newFolder
-        )
+        socket.emitToClient('reciveNewFolder', body.parent_folder_id, newFolder)
         return newFolder
       },
       {
@@ -66,7 +54,7 @@ function defaultSetupMocks(fetchMock) {
       /\/project\/\w+\/(file|doc|folder)\/\w+/,
       path => {
         const entityId = path.match(/[^/]+$/)[0]
-        window._ide.socket.socketClient.emit('removeEntity', entityId)
+        socket.emitToClient('removeEntity', entityId)
         return 204
       },
       {
@@ -76,17 +64,14 @@ function defaultSetupMocks(fetchMock) {
     .post(/\/project\/\w+\/(file|doc|folder)\/\w+\/move/, (path, req) => {
       const body = JSON.parse(req.body)
       const entityId = path.match(/([^/]+)\/move/)[1]
-      window._ide.socket.socketClient.emit(
-        'reciveEntityMove',
-        entityId,
-        body.folder_id
-      )
+      socket.emitToClient('reciveEntityMove', entityId, body.folder_id)
       return 204
     })
 }
 
 export const FullTree = args => {
-  useFetchMock(defaultSetupMocks)
+  const { socket } = useIdeContext()
+  useFetchMock(fetchMock => defaultSetupMocks(fetchMock, socket))
 
   useScope({
     project: DEFAULT_PROJECT,
@@ -149,7 +134,8 @@ export const FallbackError = args => {
 }
 
 export const FilesLimit = args => {
-  useFetchMock(defaultSetupMocks)
+  const { socket } = useIdeContext()
+  useFetchMock(fetchMock => defaultSetupMocks(fetchMock, socket))
 
   useScope({
     project: {
@@ -170,9 +156,6 @@ export default {
       console.log('started free trial')
     },
     refProviders: {},
-    reindexReferences: () => {
-      console.log('reindex references')
-    },
     setRefProviderEnabled: provider => {
       console.log(`ref provider ${provider} enabled`)
     },
@@ -181,6 +164,7 @@ export default {
   argTypes: {
     onInit: { action: 'onInit' },
     onSelect: { action: 'onSelect' },
+    ...bsVersionDecorator.argTypes,
   },
   decorators: [
     ScopeDecorator,

@@ -6,7 +6,6 @@ import fetchMock from 'fetch-mock'
 
 describe('<HelpContactUs />', function () {
   beforeEach(function () {
-    window.metaAttributesCache = new Map()
     window.metaAttributesCache.set('ol-user', {
       email: 'sherlock@holmes.co.uk',
       first_name: 'Sherlock',
@@ -15,7 +14,6 @@ describe('<HelpContactUs />', function () {
   })
 
   afterEach(function () {
-    window.metaAttributesCache = new Map()
     fetchMock.reset()
   })
 
@@ -25,7 +23,7 @@ describe('<HelpContactUs />', function () {
     expect(screen.queryByRole('dialog')).to.equal(null)
     fireEvent.click(screen.getByRole('button', { name: 'Contact Us' }))
     const modal = screen.getAllByRole('dialog')[0]
-    within(modal).getAllByText('Contact Us')
+    within(modal).getAllByText('Get in touch')
     within(modal).getByText('Subject')
   })
 })

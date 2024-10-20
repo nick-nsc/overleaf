@@ -1,19 +1,19 @@
 // @ts-check
 /**
- * @typedef {import("../types").TrackingPropsRawData} TrackingPropsRawData
+ * @import { TrackingPropsRawData, TrackingDirective } from "../types"
  */
 
 class TrackingProps {
   /**
    *
-   * @param {'insert' | 'delete' | 'none'} type
+   * @param {'insert' | 'delete'} type
    * @param {string} userId
    * @param {Date} ts
    */
   constructor(type, userId, ts) {
     /**
      * @readonly
-     * @type {'insert' | 'delete' | 'none'}
+     * @type {'insert' | 'delete'}
      */
     this.type = type
     /**
@@ -48,6 +48,10 @@ class TrackingProps {
     }
   }
 
+  /**
+   * @param {TrackingDirective} [other]
+   * @returns {boolean}
+   */
   equals(other) {
     if (!(other instanceof TrackingProps)) {
       return false

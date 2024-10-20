@@ -2,13 +2,19 @@ const _ = require('lodash')
 const { Readable } = require('stream')
 const OError = require('@overleaf/o-error')
 const fetch = require('node-fetch')
+const http = require('http')
+const https = require('https')
+
+/**
+ * @import { Response } from 'node-fetch'
+ */
 
 /**
  * Make a request and return the parsed JSON response.
  *
  * @param {string | URL} url - request URL
- * @param {object} opts - fetch options
- * @return {Promise<object>} the parsed JSON response
+ * @param {any} [opts] - fetch options
+ * @return {Promise<any>} the parsed JSON response
  * @throws {RequestFailedError} if the response has a failure status code
  */
 async function fetchJson(url, opts = {}) {
@@ -19,7 +25,7 @@ async function fetchJson(url, opts = {}) {
 async function fetchJsonWithResponse(url, opts = {}) {
   const { fetchOpts } = parseOpts(opts)
   fetchOpts.headers = fetchOpts.headers ?? {}
-  fetchOpts.headers.Accept = 'application/json'
+  fetchOpts.headers.Accept = fetchOpts.headers.Accept ?? 'application/json'
 
   const response = await performRequest(url, fetchOpts)
   if (!response.ok) {
@@ -37,7 +43,7 @@ async function fetchJsonWithResponse(url, opts = {}) {
  * If the response body is destroyed, the request is aborted.
  *
  * @param {string | URL} url - request URL
- * @param {object} opts - fetch options
+ * @param {any} [opts] - fetch options
  * @return {Promise<Readable>}
  * @throws {RequestFailedError} if the response has a failure status code
  */
@@ -65,7 +71,7 @@ async function fetchStreamWithResponse(url, opts = {}) {
  * Make a request and discard the response.
  *
  * @param {string | URL} url - request URL
- * @param {object} opts - fetch options
+ * @param {any} [opts] - fetch options
  * @return {Promise<Response>}
  * @throws {RequestFailedError} if the response has a failure status code
  */
@@ -84,7 +90,7 @@ async function fetchNothing(url, opts = {}) {
  * Make a request and extract the redirect from the response.
  *
  * @param {string | URL} url - request URL
- * @param {object} opts - fetch options
+ * @param {any} [opts] - fetch options
  * @return {Promise<string>}
  * @throws {RequestFailedError} if the response has a non redirect status code or missing Location header
  */
@@ -113,7 +119,7 @@ async function fetchRedirect(url, opts = {}) {
  * Make a request and return a string.
  *
  * @param {string | URL} url - request URL
- * @param {object} opts - fetch options
+ * @param {any} [opts] - fetch options
  * @return {Promise<string>}
  * @throws {RequestFailedError} if the response has a failure status code
  */
@@ -237,11 +243,50 @@ async function discardResponseBody(response) {
   }
 }
 
+/**
+ * @param {Response} response
+ */
 async function maybeGetResponseBody(response) {
   try {
     return await response.text()
   } catch (err) {
     return null
+  }
+}
+
+// Define custom http and https agents with support for connect timeouts
+
+class ConnectTimeoutError extends OError {
+  constructor(options) {
+    super('connect timeout', options)
+  }
+}
+
+function withTimeout(createConnection, options, callback) {
+  if (options.connectTimeout) {
+    // Wrap createConnection in a timeout
+    const timer = setTimeout(() => {
+      socket.destroy(new ConnectTimeoutError(options))
+    }, options.connectTimeout)
+    const socket = createConnection(options, (err, stream) => {
+      clearTimeout(timer)
+      callback(err, stream)
+    })
+    return socket
+  } else {
+    // Fallback to default createConnection
+    return createConnection(options, callback)
+  }
+}
+
+class CustomHttpAgent extends http.Agent {
+  createConnection(options, callback) {
+    return withTimeout(super.createConnection.bind(this), options, callback)
+  }
+}
+class CustomHttpsAgent extends https.Agent {
+  createConnection(options, callback) {
+    return withTimeout(super.createConnection.bind(this), options, callback)
   }
 }
 
@@ -255,4 +300,7 @@ module.exports = {
   fetchString,
   fetchStringWithResponse,
   RequestFailedError,
+  ConnectTimeoutError,
+  CustomHttpAgent,
+  CustomHttpsAgent,
 }

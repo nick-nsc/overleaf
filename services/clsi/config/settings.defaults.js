@@ -1,4 +1,7 @@
 const Path = require('path')
+const os = require('os')
+
+const isPreEmptible = os.hostname().includes('pre-emp')
 
 module.exports = {
   compileSizeLimit: process.env.COMPILE_SIZE_LIMIT || '7mb',
@@ -23,7 +26,7 @@ module.exports = {
   internal: {
     clsi: {
       port: 3013,
-      host: process.env.LISTEN_ADDRESS || 'localhost',
+      host: process.env.LISTEN_ADDRESS || '127.0.0.1',
     },
 
     load_balancer_agent: {
@@ -35,12 +38,12 @@ module.exports = {
   apis: {
     clsi: {
       // Internal requests (used by tests only at the time of writing).
-      url: `http://${process.env.CLSI_HOST || 'localhost'}:3013`,
+      url: `http://${process.env.CLSI_HOST || '127.0.0.1'}:3013`,
       // External url prefix for output files, e.g. for requests via load-balancers.
       outputUrlPrefix: `${process.env.ZONE ? `/zone/${process.env.ZONE}` : ''}`,
     },
     clsiPerf: {
-      host: `${process.env.CLSI_PERF_HOST || 'localhost'}:${
+      host: `${process.env.CLSI_PERF_HOST || '127.0.0.1'}:${
         process.env.CLSI_PERF_PORT || '3043'
       }`,
     },
@@ -69,6 +72,7 @@ module.exports = {
     parseInt(process.env.PDF_CACHING_WORKER_POOL_SIZE, 10) || 4,
   pdfCachingWorkerPoolBackLogLimit:
     parseInt(process.env.PDF_CACHING_WORKER_POOL_BACK_LOG_LIMIT, 10) || 40,
+  compileConcurrencyLimit: isPreEmptible ? 32 : 64,
 }
 
 if (process.env.ALLOWED_COMPILE_GROUPS) {
@@ -159,6 +163,4 @@ if (process.env.DOCKER_RUNNER) {
   module.exports.path.synctexBaseDir = () => '/compile'
 
   module.exports.path.sandboxedCompilesHostDir = process.env.COMPILES_HOST_DIR
-
-  module.exports.path.synctexBinHostPath = process.env.SYNCTEX_BIN_HOST_PATH
 }

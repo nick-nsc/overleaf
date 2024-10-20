@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CustomSubscription,
   ManagedGroupSubscription,
@@ -18,16 +19,19 @@ import {
   PriceForDisplayData,
 } from '../../../../../types/subscription/plan'
 import { Institution } from '../../../../../types/institution'
-import { Institution as ManagedInstitution } from '../components/dashboard/managed-institutions'
-import { Publisher as ManagedPublisher } from '../components/dashboard/managed-publishers'
 import getMeta from '../../../utils/meta'
 import {
+  formatCurrencyDefault,
   loadDisplayPriceWithTaxPromise,
   loadGroupDisplayPriceWithTaxPromise,
 } from '../util/recurly-pricing'
 import { isRecurlyLoaded } from '../util/is-recurly-loaded'
 import { SubscriptionDashModalIds } from '../../../../../types/subscription/dashboard/modal-ids'
 import { debugConsole } from '@/utils/debugging'
+import { useFeatureFlag } from '@/shared/context/split-test-context'
+import { formatCurrencyLocalized } from '@/shared/utils/currency'
+import { ManagedInstitution } from '../../../../../types/subscription/dashboard/managed-institution'
+import { Publisher } from '../../../../../types/subscription/dashboard/publisher'
 
 type SubscriptionDashboardContextValue = {
   groupPlanToChangeToCode: string
@@ -46,7 +50,7 @@ type SubscriptionDashboardContextValue = {
   managedGroupSubscriptions: ManagedGroupSubscription[]
   memberGroupSubscriptions: MemberGroupSubscription[]
   managedInstitutions: ManagedInstitution[]
-  managedPublishers: ManagedPublisher[]
+  managedPublishers: Publisher[]
   updateManagedInstitution: (institution: ManagedInstitution) => void
   modalIdShown?: SubscriptionDashModalIds
   personalSubscription?: RecurlySubscription | CustomSubscription
@@ -70,6 +74,7 @@ type SubscriptionDashboardContextValue = {
   setShowCancellation: React.Dispatch<React.SetStateAction<boolean>>
   leavingGroupId?: string
   setLeavingGroupId: React.Dispatch<React.SetStateAction<string | undefined>>
+  userCanExtendTrial: boolean
 }
 
 export const SubscriptionDashboardContext = createContext<
@@ -81,12 +86,13 @@ export function SubscriptionDashboardProvider({
 }: {
   children: ReactNode
 }) {
+  const { i18n } = useTranslation()
   const [modalIdShown, setModalIdShown] = useState<
     SubscriptionDashModalIds | undefined
   >()
   const [recurlyLoadError, setRecurlyLoadError] = useState(false)
   const [showCancellation, setShowCancellation] = useState(false)
-  const [plans, setPlans] = useState([])
+  const [plans, setPlans] = useState<Plan[]>([])
   const [queryingIndividualPlansData, setQueryingIndividualPlansData] =
     useState(true)
   const [planCodeToChangeTo, setPlanCodeToChangeTo] = useState<
@@ -108,19 +114,14 @@ export function SubscriptionDashboardProvider({
   const [leavingGroupId, setLeavingGroupId] = useState<string | undefined>()
 
   const plansWithoutDisplayPrice = getMeta('ol-plans')
-  const institutionMemberships: Institution[] = getMeta(
-    'ol-currentInstitutionsWithLicence'
-  )
+  const institutionMemberships = getMeta('ol-currentInstitutionsWithLicence')
   const personalSubscription = getMeta('ol-subscription')
-  const managedGroupSubscriptions: ManagedGroupSubscription[] = getMeta(
-    'ol-managedGroupSubscriptions'
+  const userCanExtendTrial = getMeta('ol-userCanExtendTrial')
+  const managedGroupSubscriptions = getMeta('ol-managedGroupSubscriptions')
+  const memberGroupSubscriptions = getMeta('ol-memberGroupSubscriptions')
+  const [managedInstitutions, setManagedInstitutions] = useState(
+    getMeta('ol-managedInstitutions')
   )
-  const memberGroupSubscriptions: MemberGroupSubscription[] = getMeta(
-    'ol-memberGroupSubscriptions'
-  )
-  const [managedInstitutions, setManagedInstitutions] = useState<
-    ManagedInstitution[]
-  >(getMeta('ol-managedInstitutions'))
   const managedPublishers = getMeta('ol-managedPublishers')
   const hasSubscription = getMeta('ol-hasSubscription')
   const recurlyApiKey = getMeta('ol-recurlyApiKey')
@@ -139,6 +140,10 @@ export function SubscriptionDashboardProvider({
       institutionMemberships?.length > 0 ||
       memberGroupSubscriptions?.length > 0
   )
+
+  const formatCurrency = useFeatureFlag('local-ccy-format-v2')
+    ? formatCurrencyLocalized
+    : formatCurrencyDefault
 
   useEffect(() => {
     if (!isRecurlyLoaded()) {
@@ -161,10 +166,16 @@ export function SubscriptionDashboardProvider({
             const priceData = await loadDisplayPriceWithTaxPromise(
               plan.planCode,
               currency,
-              taxRate
+              taxRate,
+              i18n.language,
+              formatCurrency
             )
-            if (priceData?.totalForDisplay) {
-              plan.displayPrice = priceData.totalForDisplay
+            if (priceData?.totalAsNumber !== undefined) {
+              plan.displayPrice = formatCurrency(
+                priceData.totalAsNumber,
+                currency,
+                i18n.language
+              )
             }
           } catch (error) {
             debugConsole.error(error)
@@ -175,7 +186,12 @@ export function SubscriptionDashboardProvider({
       }
       fetchPlansDisplayPrices().catch(debugConsole.error)
     }
-  }, [personalSubscription, plansWithoutDisplayPrice])
+  }, [
+    personalSubscription,
+    plansWithoutDisplayPrice,
+    i18n.language,
+    formatCurrency,
+  ])
 
   useEffect(() => {
     if (
@@ -197,7 +213,9 @@ export function SubscriptionDashboardProvider({
             currency,
             taxRate,
             groupPlanToChangeToSize,
-            groupPlanToChangeToUsage
+            groupPlanToChangeToUsage,
+            i18n.language,
+            formatCurrency
           )
         } catch (e) {
           debugConsole.error(e)
@@ -213,6 +231,8 @@ export function SubscriptionDashboardProvider({
     groupPlanToChangeToSize,
     personalSubscription,
     groupPlanToChangeToCode,
+    formatCurrency,
+    i18n.language,
   ])
 
   const updateManagedInstitution = useCallback(
@@ -276,6 +296,7 @@ export function SubscriptionDashboardProvider({
       setShowCancellation,
       leavingGroupId,
       setLeavingGroupId,
+      userCanExtendTrial,
     }),
     [
       groupPlanToChangeToCode,
@@ -311,6 +332,7 @@ export function SubscriptionDashboardProvider({
       setShowCancellation,
       leavingGroupId,
       setLeavingGroupId,
+      userCanExtendTrial,
     ]
   )
 

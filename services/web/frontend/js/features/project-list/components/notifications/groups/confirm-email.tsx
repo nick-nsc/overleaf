@@ -1,5 +1,4 @@
 import { Trans, useTranslation } from 'react-i18next'
-import { Button } from 'react-bootstrap'
 import Notification from '../notification'
 import Icon from '../../../../../shared/components/icon'
 import getMeta from '../../../../../utils/meta'
@@ -9,15 +8,12 @@ import {
   postJSON,
   getUserFacingMessage,
 } from '../../../../../infrastructure/fetch-json'
-import { ExposedSettings } from '../../../../../../../types/exposed-settings'
 import { UserEmailData } from '../../../../../../../types/user-email'
 import { debugConsole } from '@/utils/debugging'
-import { Subscription } from '../../../../../../../types/project/dashboard/subscription'
+import OLButton from '@/features/ui/components/ol/ol-button'
 
 const ssoAvailable = ({ samlProviderId, affiliation }: UserEmailData) => {
-  const { hasSamlFeature, hasSamlBeta } = getMeta(
-    'ol-ExposedSettings'
-  ) as ExposedSettings
+  const { hasSamlFeature, hasSamlBeta } = getMeta('ol-ExposedSettings')
 
   if (!hasSamlFeature) {
     return false
@@ -60,9 +56,7 @@ function emailHasLicenceAfterConfirming(emailData: UserEmailData) {
 }
 
 function isOnFreeOrIndividualPlan() {
-  const subscription: Subscription | undefined = getMeta(
-    'ol-usersBestSubscription'
-  )
+  const subscription = getMeta('ol-usersBestSubscription')
   if (!subscription) {
     return false
   }
@@ -71,9 +65,7 @@ function isOnFreeOrIndividualPlan() {
 }
 
 const showConfirmEmail = (userEmail: UserEmailData) => {
-  const { emailConfirmationDisabled } = getMeta(
-    'ol-ExposedSettings'
-  ) as ExposedSettings
+  const { emailConfirmationDisabled } = getMeta('ol-ExposedSettings')
 
   return (
     !emailConfirmationDisabled &&
@@ -104,8 +96,8 @@ function ConfirmEmailNotification({ userEmail }: { userEmail: UserEmailData }) {
   if (emailHasLicenceAfterConfirming(userEmail) && isOnFreeOrIndividualPlan()) {
     return (
       <Notification
-        bsStyle="info"
-        body={
+        type="info"
+        content={
           <div data-testid="notification-body">
             {isLoading ? (
               <>
@@ -120,12 +112,6 @@ function ConfirmEmailNotification({ userEmail }: { userEmail: UserEmailData }) {
                   i18nKey="one_step_away_from_professional_features"
                   components={[<strong />]} // eslint-disable-line react/jsx-key
                 />
-                <button
-                  className="pull-right btn btn-info btn-sm"
-                  onClick={() => handleResendConfirmationEmail(userEmail)}
-                >
-                  {t('resend_email')}
-                </button>
                 <br />
                 <Trans
                   i18nKey="institution_has_overleaf_subscription"
@@ -141,14 +127,22 @@ function ConfirmEmailNotification({ userEmail }: { userEmail: UserEmailData }) {
             )}
           </div>
         }
+        action={
+          <OLButton
+            variant="secondary"
+            onClick={() => handleResendConfirmationEmail(userEmail)}
+          >
+            {t('resend_email')}
+          </OLButton>
+        }
       />
     )
   }
 
   return (
     <Notification
-      bsStyle="warning"
-      body={
+      type="warning"
+      content={
         <div data-testid="pro-notification-body">
           {isLoading ? (
             <>
@@ -162,13 +156,13 @@ function ConfirmEmailNotification({ userEmail }: { userEmail: UserEmailData }) {
               {t('please_confirm_email', {
                 emailAddress: userEmail.email,
               })}{' '}
-              <Button
-                bsStyle="link"
-                className="btn-inline-link"
+              <OLButton
+                variant="link"
                 onClick={() => handleResendConfirmationEmail(userEmail)}
+                className="btn-inline-link"
               >
-                ({t('resend_confirmation_email')})
-              </Button>
+                {t('resend_confirmation_email')}
+              </OLButton>
             </>
           )}
         </div>
@@ -179,7 +173,7 @@ function ConfirmEmailNotification({ userEmail }: { userEmail: UserEmailData }) {
 
 function ConfirmEmail() {
   const { totalProjectsCount } = useProjectListContext()
-  const userEmails = getMeta('ol-userEmails', []) as UserEmailData[]
+  const userEmails = getMeta('ol-userEmails') || []
 
   if (!totalProjectsCount || !userEmails.length) {
     return null

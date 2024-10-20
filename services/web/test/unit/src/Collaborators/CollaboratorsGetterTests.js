@@ -2,7 +2,7 @@ const Path = require('path')
 const SandboxedModule = require('sandboxed-module')
 const sinon = require('sinon')
 const { expect } = require('chai')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 const { Project } = require('../helpers/models/Project')
 const Errors = require('../../../../app/src/Features/Errors/Errors')
 
@@ -13,10 +13,11 @@ const MODULE_PATH = Path.join(
 
 describe('CollaboratorsGetter', function () {
   beforeEach(function () {
-    this.userId = 'mock-user-id'
+    this.userId = 'efb93a186e9a06f15fea5abd'
     this.ownerRef = new ObjectId()
     this.readOnlyRef1 = new ObjectId()
     this.readOnlyRef2 = new ObjectId()
+    this.pendingEditorRef = new ObjectId()
     this.readWriteRef1 = new ObjectId()
     this.readWriteRef2 = new ObjectId()
     this.readOnlyTokenRef = new ObjectId()
@@ -25,7 +26,12 @@ describe('CollaboratorsGetter', function () {
     this.project = {
       _id: new ObjectId(),
       owner_ref: [this.ownerRef],
-      readOnly_refs: [this.readOnlyRef1, this.readOnlyRef2],
+      readOnly_refs: [
+        this.readOnlyRef1,
+        this.readOnlyRef2,
+        this.pendingEditorRef,
+      ],
+      pendingEditor_refs: [this.pendingEditorRef],
       collaberator_refs: [this.readWriteRef1, this.readWriteRef2],
       tokenAccessReadAndWrite_refs: [this.readWriteTokenRef],
       tokenAccessReadOnly_refs: [this.readOnlyTokenRef],
@@ -53,7 +59,7 @@ describe('CollaboratorsGetter', function () {
     }
     this.CollaboratorsGetter = SandboxedModule.require(MODULE_PATH, {
       requires: {
-        mongodb: { ObjectId },
+        'mongodb-legacy': { ObjectId },
         '../User/UserGetter': this.UserGetter,
         '../../models/Project': { Project },
         '../Project/ProjectGetter': this.ProjectGetter,
@@ -100,6 +106,12 @@ describe('CollaboratorsGetter', function () {
             source: 'invite',
           },
           {
+            id: this.pendingEditorRef.toString(),
+            privilegeLevel: 'readOnly',
+            source: 'invite',
+            pendingEditor: true,
+          },
+          {
             id: this.readOnlyTokenRef.toString(),
             privilegeLevel: 'readOnly',
             source: 'token',
@@ -139,6 +151,7 @@ describe('CollaboratorsGetter', function () {
         this.readOnlyRef2.toString(),
         this.readWriteRef1.toString(),
         this.readWriteRef2.toString(),
+        this.pendingEditorRef.toString(),
         this.readWriteTokenRef.toString(),
         this.readOnlyTokenRef.toString(),
       ])
@@ -157,6 +170,7 @@ describe('CollaboratorsGetter', function () {
         this.readOnlyRef2.toString(),
         this.readWriteRef1.toString(),
         this.readWriteRef2.toString(),
+        this.pendingEditorRef.toString(),
       ])
     })
   })
@@ -224,6 +238,38 @@ describe('CollaboratorsGetter', function () {
       it('should return false', async function () {
         const isMember =
           await this.CollaboratorsGetter.promises.isUserInvitedMemberOfProject(
+            this.nonMemberRef
+          )
+        expect(isMember).to.equal(false)
+      })
+    })
+  })
+
+  describe('isUserInvitedReadWriteMemberOfProject', function () {
+    describe('when user is a read write member of the project', function () {
+      it('should return true', async function () {
+        const isMember =
+          await this.CollaboratorsGetter.promises.isUserInvitedReadWriteMemberOfProject(
+            this.readWriteRef1
+          )
+        expect(isMember).to.equal(true)
+      })
+    })
+
+    describe('when user is a read only member of the project', function () {
+      it('should return false', async function () {
+        const isMember =
+          await this.CollaboratorsGetter.promises.isUserInvitedReadWriteMemberOfProject(
+            this.readOnlyRef1
+          )
+        expect(isMember).to.equal(false)
+      })
+    })
+
+    describe('when user is not a member of the project', function () {
+      it('should return false', async function () {
+        const isMember =
+          await this.CollaboratorsGetter.promises.isUserInvitedReadWriteMemberOfProject(
             this.nonMemberRef
           )
         expect(isMember).to.equal(false)
@@ -365,6 +411,28 @@ describe('CollaboratorsGetter', function () {
     })
   })
 
+  describe('userIsReadWriteTokenMember', function () {
+    it('should return true when the project is found', async function () {
+      this.ProjectMock.expects('findOne').chain('exec').resolves(this.project)
+      const isMember =
+        await this.CollaboratorsGetter.promises.userIsReadWriteTokenMember(
+          this.userId,
+          this.project._id
+        )
+      expect(isMember).to.be.true
+    })
+
+    it('should return false when the project is not found', async function () {
+      this.ProjectMock.expects('findOne').chain('exec').resolves(null)
+      const isMember =
+        await this.CollaboratorsGetter.promises.userIsReadWriteTokenMember(
+          this.userId,
+          this.project._id
+        )
+      expect(isMember).to.be.false
+    })
+  })
+
   describe('getPublicShareTokens', function () {
     const userMock = new ObjectId()
 
@@ -418,6 +486,26 @@ describe('CollaboratorsGetter', function () {
           )
         expect(tokens).to.deep.equal(tokens)
       })
+    })
+  })
+
+  describe('getInvitedEditCollaboratorCount', function () {
+    it('should return the count of invited edit collaborators (token, readAndWrite)', async function () {
+      const count =
+        await this.CollaboratorsGetter.promises.getInvitedEditCollaboratorCount(
+          this.project._id
+        )
+      expect(count).to.equal(2)
+    })
+  })
+
+  describe('getInvitedPendingEditorCount', function () {
+    it('should return the count of pending editors', async function () {
+      const count =
+        await this.CollaboratorsGetter.promises.getInvitedPendingEditorCount(
+          this.project._id
+        )
+      expect(count).to.equal(1)
     })
   })
 })

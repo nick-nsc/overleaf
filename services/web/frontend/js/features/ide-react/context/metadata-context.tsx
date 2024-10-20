@@ -11,11 +11,9 @@ import {
 import { useIdeReactContext } from '@/features/ide-react/context/ide-react-context'
 import { useConnectionContext } from '@/features/ide-react/context/connection-context'
 import { useEditorManagerContext } from '@/features/ide-react/context/editor-manager-context'
-import _ from 'lodash'
 import { getJSON, postJSON } from '@/infrastructure/fetch-json'
 import { useOnlineUsersContext } from '@/features/ide-react/context/online-users-context'
 import { useEditorContext } from '@/shared/context/editor-context'
-import { useIdeContext } from '@/shared/context/ide-context'
 import useSocketListener from '@/features/ide-react/hooks/use-socket-listener'
 import useEventListener from '@/shared/hooks/use-event-listener'
 import { useModalsContext } from '@/features/ide-react/context/modals-context'
@@ -23,32 +21,34 @@ import { usePermissionsContext } from '@/features/ide-react/context/permissions-
 import { useTranslation } from 'react-i18next'
 import { IdeEvents } from '@/features/ide-react/create-ide-event-emitter'
 
-type DocumentMetadata = {
+export type Command = {
+  caption: string
+  snippet: string
+  meta: string
+  score: number
+}
+
+export type DocumentMetadata = {
   labels: string[]
-  packages: Record<string, any>
+  packages: Record<string, Command[]>
+  packageNames: string[]
 }
 
 type DocumentsMetadata = Record<string, DocumentMetadata>
 
-type MetadataContextValue = {
-  metadata: {
-    state: {
-      documents: DocumentsMetadata
-    }
-    getAllLabels: () => DocumentMetadata['labels']
-    getAllPackages: () => DocumentMetadata['packages']
-  }
-}
-
 type DocMetadataResponse = { docId: string; meta: DocumentMetadata }
 
-const MetadataContext = createContext<MetadataContextValue | undefined>(
-  undefined
-)
+export const MetadataContext = createContext<
+  | {
+      commands: Command[]
+      labels: Set<string>
+      packageNames: Set<string>
+    }
+  | undefined
+>(undefined)
 
 export const MetadataProvider: FC = ({ children }) => {
   const { t } = useTranslation()
-  const ide = useIdeContext()
   const { eventEmitter, projectId } = useIdeReactContext()
   const { socket } = useConnectionContext()
   const { onlineUsersCount } = useOnlineUsersContext()
@@ -67,7 +67,8 @@ export const MetadataProvider: FC = ({ children }) => {
     }: CustomEvent<IdeEvents['entity:deleted']>) => {
       if (entity.type === 'doc') {
         setDocuments(documents => {
-          return _.omit(documents, entity.entity._id)
+          delete documents[entity.entity._id]
+          return { ...documents }
         })
       }
     }
@@ -91,23 +92,6 @@ export const MetadataProvider: FC = ({ children }) => {
       setDocuments(documents => ({ ...documents, [docId]: meta }))
     }
   }, [])
-
-  const getAllLabels = useCallback(
-    () => _.flattenDeep(Object.values(documents).map(meta => meta.labels)),
-    [documents]
-  )
-
-  const getAllPackages = useCallback(() => {
-    const packageCommandMapping: Record<string, any> = {}
-    for (const meta of Object.values(documents)) {
-      for (const [packageName, commandSnippets] of Object.entries(
-        meta.packages
-      )) {
-        packageCommandMapping[packageName] = commandSnippets
-      }
-    }
-    return packageCommandMapping
-  }, [documents])
 
   const loadProjectMetaFromServer = useCallback(() => {
     getJSON(`/project/${projectId}/metadata`).then(
@@ -214,20 +198,15 @@ export const MetadataProvider: FC = ({ children }) => {
     }
   }, [eventEmitter, loadProjectMetaFromServer, showGenericMessageModal, t])
 
-  const value = useMemo<MetadataContextValue>(
-    () => ({
-      metadata: {
-        state: { documents },
-        getAllLabels,
-        getAllPackages,
-      },
-    }),
-    [documents, getAllLabels, getAllPackages]
-  )
+  const value = useMemo(() => {
+    const docs = Object.values(documents)
 
-  // Expose metadataManager via ide object because useCodeMirrorScope relies on
-  // it, for now
-  ide.metadataManager = value
+    return {
+      commands: docs.flatMap(doc => Object.values(doc.packages).flat()),
+      labels: new Set(docs.flatMap(doc => doc.labels)),
+      packageNames: new Set(docs.flatMap(doc => doc.packageNames)),
+    }
+  }, [documents])
 
   return (
     <MetadataContext.Provider value={value}>
@@ -236,7 +215,7 @@ export const MetadataProvider: FC = ({ children }) => {
   )
 }
 
-export function useMetadataContext(): MetadataContextValue {
+export function useMetadataContext() {
   const context = useContext(MetadataContext)
 
   if (!context) {

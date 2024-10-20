@@ -5,9 +5,20 @@ import getMeta from '../../../../utils/meta'
 import customLocalStorage from '../../../../infrastructure/local-storage'
 import { useProjectListContext } from '../../context/project-list-context'
 import { useTranslation } from 'react-i18next'
+import {
+  GroupsAndEnterpriseBannerVariant,
+  GroupsAndEnterpriseBannerVariants,
+} from '../../../../../../types/project/dashboard/notification'
+import OLButton from '@/features/ui/components/ol/ol-button'
 
-const variants = ['did-you-know', 'on-premise', 'people', 'FOMO'] as const
-type GroupsAndEnterpriseBannerVariant = typeof variants[number]
+type urlForVariantsType = {
+  [key in GroupsAndEnterpriseBannerVariant]: string // eslint-disable-line no-unused-vars
+}
+
+const urlForVariants: urlForVariantsType = {
+  'on-premise': '/for/contact-sales-2',
+  FOMO: '/for/contact-sales-4',
+}
 
 let viewEventSent = false
 
@@ -15,21 +26,16 @@ export default function GroupsAndEnterpriseBanner() {
   const { t } = useTranslation()
   const { totalProjectsCount } = useProjectListContext()
 
-  const showGroupsAndEnterpriseBanner: boolean = getMeta(
+  const showGroupsAndEnterpriseBanner = getMeta(
     'ol-showGroupsAndEnterpriseBanner'
   )
-  const groupsAndEnterpriseBannerVariant: GroupsAndEnterpriseBannerVariant =
-    getMeta('ol-groupsAndEnterpriseBannerVariant')
-  const newNotificationStyle = getMeta(
-    'ol-newNotificationStyle',
-    false
-  ) as boolean
+  const groupsAndEnterpriseBannerVariant = getMeta(
+    'ol-groupsAndEnterpriseBannerVariant'
+  )
 
   const hasDismissedGroupsAndEnterpriseBanner = hasRecentlyDismissedBanner()
 
-  const contactSalesUrl = `/for/contact-sales-${
-    variants.indexOf(groupsAndEnterpriseBannerVariant) + 1
-  }`
+  const contactSalesUrl = urlForVariants[groupsAndEnterpriseBannerVariant]
 
   const shouldRenderBanner =
     showGroupsAndEnterpriseBanner &&
@@ -67,30 +73,26 @@ export default function GroupsAndEnterpriseBanner() {
 
   return (
     <Notification
-      bsStyle="info"
+      type="info"
       onDismiss={handleClose}
-      body={<BannerContent variant={groupsAndEnterpriseBannerVariant} />}
+      content={<BannerContent variant={groupsAndEnterpriseBannerVariant} />}
       action={
-        <a
-          className={
-            newNotificationStyle
-              ? 'btn btn-secondary btn-sm'
-              : 'pull-right btn btn-info btn-sm'
-          }
+        <OLButton
+          variant="secondary"
           href={contactSalesUrl}
           target="_blank"
           rel="noreferrer"
           onClick={handleClickContact}
         >
           {t('contact_sales')}
-        </a>
+        </OLButton>
       }
     />
   )
 }
 
 function isVariantValid(variant: GroupsAndEnterpriseBannerVariant) {
-  return variants.includes(variant)
+  return GroupsAndEnterpriseBannerVariants.includes(variant)
 }
 
 function BannerContent({
@@ -98,25 +100,13 @@ function BannerContent({
 }: {
   variant: GroupsAndEnterpriseBannerVariant
 }) {
-  const { t } = useTranslation()
-
   switch (variant) {
-    case 'did-you-know':
-      return <span>{t('did_you_know_that_overleaf_offers')}</span>
     case 'on-premise':
       return (
         <span>
           Overleaf On-Premises: Does your company want to keep its data within
           its firewall? Overleaf offers Server Pro, an on-premises solution for
           companies. Get in touch to learn more.
-        </span>
-      )
-    case 'people':
-      return (
-        <span>
-          Other people at your company may already be using Overleaf. Save money
-          with Overleaf group and company-wide subscriptions. Request more
-          information.
         </span>
       )
     case 'FOMO':

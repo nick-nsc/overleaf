@@ -7,20 +7,40 @@ import {
   Completion,
 } from '@codemirror/autocomplete'
 import { EditorView, keymap } from '@codemirror/view'
-import { Compartment, Prec, TransactionSpec } from '@codemirror/state'
+import {
+  Compartment,
+  Extension,
+  Prec,
+  TransactionSpec,
+} from '@codemirror/state'
+import importOverleafModules from '../../../../macros/import-overleaf-module.macro'
+
+const moduleExtensions: Array<(options: Record<string, any>) => Extension> =
+  importOverleafModules('autoCompleteExtensions').map(
+    (item: { import: { extension: Extension } }) => item.import.extension
+  )
 
 const autoCompleteConf = new Compartment()
 
-export const autoComplete = ({ autoComplete }: { autoComplete: boolean }) =>
-  autoCompleteConf.of(createAutoComplete(autoComplete))
+type AutoCompleteOptions = {
+  enabled: boolean
+} & Record<string, any>
 
-export const setAutoComplete = (autoComplete: boolean): TransactionSpec => {
+export const autoComplete = ({ enabled, ...rest }: AutoCompleteOptions) =>
+  autoCompleteConf.of(createAutoComplete({ enabled, ...rest }))
+
+export const setAutoComplete = ({
+  enabled,
+  ...rest
+}: AutoCompleteOptions): TransactionSpec => {
   return {
-    effects: autoCompleteConf.reconfigure(createAutoComplete(autoComplete)),
+    effects: autoCompleteConf.reconfigure(
+      createAutoComplete({ enabled, ...rest })
+    ),
   }
 }
 
-const createAutoComplete = (enabled: boolean) => {
+const createAutoComplete = ({ enabled, ...rest }: AutoCompleteOptions) => {
   if (!enabled) {
     return []
   }
@@ -79,9 +99,11 @@ const createAutoComplete = (enabled: boolean) => {
         ])
       ),
     ],
+    moduleExtensions.map(extension => extension({ ...rest })),
   ]
 }
 
+const AUTOCOMPLETE_LINE_HEIGHT = 1.4
 /**
  * Styles for the autocomplete menu
  */
@@ -113,8 +135,19 @@ const autocompleteTheme = EditorView.baseTheme({
   '.cm-tooltip.cm-tooltip-autocomplete li[role="option"]': {
     display: 'flex',
     justifyContent: 'space-between',
-    lineHeight: 1.4, // increase the line height from default 1.2, for a larger target area
+    lineHeight: AUTOCOMPLETE_LINE_HEIGHT, // increase the line height from default 1.2, for a larger target area
     outline: '1px solid transparent',
+  },
+  '.cm-tooltip .cm-completionDetail': {
+    flex: '1 0 auto',
+    fontSize: 'calc(var(--font-size) * 1.4)',
+    lineHeight: `calc(var(--font-size) * ${AUTOCOMPLETE_LINE_HEIGHT})`,
+    overflow: 'hidden',
+    // By default CodeMirror styles the details as italic
+    fontStyle: 'normal !important',
+    // We use this element for the symbol palette, so change the font to the
+    // symbol palette font
+    fontFamily: "'Stix Two Math', serif",
   },
   '&light .cm-tooltip.cm-tooltip-autocomplete li[role="option"]:hover': {
     outlineColor: '#abbffe',

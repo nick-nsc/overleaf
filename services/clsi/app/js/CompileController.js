@@ -30,7 +30,7 @@ function compile(req, res, next) {
           return next(error)
         }
         CompileManager.doCompileWithLock(request, (error, result) => {
-          let { outputFiles, stats, timings } = result || {}
+          let { buildId, outputFiles, stats, timings } = result || {}
           let code, status
           if (outputFiles == null) {
             outputFiles = []
@@ -48,7 +48,10 @@ function compile(req, res, next) {
               },
               'files out of sync, please retry'
             )
-          } else if (error?.code === 'EPIPE') {
+          } else if (
+            error?.code === 'EPIPE' ||
+            error instanceof Errors.TooManyCompileRequestsError
+          ) {
             // docker returns EPIPE when shutting down
             code = 503 // send 503 Unavailable response
             status = 'unavailable'
@@ -98,6 +101,7 @@ function compile(req, res, next) {
 
           if (error) {
             outputFiles = error.outputFiles || []
+            buildId = error.buildId
           }
 
           timer.done()
@@ -107,6 +111,7 @@ function compile(req, res, next) {
               error: error?.message || error,
               stats,
               timings,
+              buildId,
               outputUrlPrefix: Settings.apis.clsi.outputUrlPrefix,
               outputFiles: outputFiles.map(file => ({
                 url:

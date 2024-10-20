@@ -1,22 +1,19 @@
-import { FC } from 'react'
+import '../../../helpers/bootstrap-3'
 import { EditorProviders } from '../../../helpers/editor-providers'
 import CodemirrorEditor from '../../../../../frontend/js/features/source-editor/components/codemirror-editor'
 import { mockScope } from '../helpers/mock-scope'
-
-const Container: FC = ({ children }) => (
-  <div style={{ width: 785, height: 785 }}>{children}</div>
-)
+import { TestContainer } from '../helpers/test-container'
 
 const mountEditor = (content: string) => {
   const scope = mockScope(content)
   scope.editor.showVisual = true
 
   cy.mount(
-    <Container>
+    <TestContainer>
       <EditorProviders scope={scope}>
         <CodemirrorEditor />
       </EditorProviders>
-    </Container>
+    </TestContainer>
   )
 
   // wait for the content to be parsed and revealed
@@ -27,6 +24,7 @@ describe('<CodeMirrorEditor/> command tooltip in Visual mode', function () {
   beforeEach(function () {
     window.metaAttributesCache.set('ol-preventCompileOnLoad', true)
     cy.interceptEvents()
+    cy.interceptMetadata()
     cy.interceptSpelling()
   })
 
@@ -58,8 +56,8 @@ describe('<CodeMirrorEditor/> command tooltip in Visual mode', function () {
     // open the link
     cy.findByRole('button', { name: 'Go to page' }).click()
     cy.get('@window-open').should(
-      'have.been.calledOnceWithExactly',
-      'https://example.com',
+      'have.been.calledWithMatch',
+      Cypress.sinon.match.has('href', 'https://example.com/'),
       '_blank'
     )
 
@@ -116,8 +114,8 @@ describe('<CodeMirrorEditor/> command tooltip in Visual mode', function () {
     // open the link
     cy.findByRole('button', { name: 'Go to page' }).click()
     cy.get('@window-open').should(
-      'have.been.calledOnceWithExactly',
-      'https://example.com',
+      'have.been.calledWithMatch',
+      Cypress.sinon.match.has('href', 'https://example.com/'),
       '_blank'
     )
   })

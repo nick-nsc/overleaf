@@ -5,14 +5,13 @@ const {
   InvalidInsertionError,
   UnprocessableError,
 } = require('../errors')
+const ClearTrackingProps = require('../file_data/clear_tracking_props')
 const TrackingProps = require('../file_data/tracking_props')
 
 /**
+ * @import { RawScanOp, RawInsertOp, RawRetainOp, RawRemoveOp, TrackingDirective } from '../types'
+ *
  * @typedef {{ length: number, inputCursor: number, readonly inputLength: number}} LengthApplyContext
- * @typedef {import('../types').RawScanOp} RawScanOp
- * @typedef {import('../types').RawInsertOp} RawInsertOp
- * @typedef {import('../types').RawRetainOp} RawRetainOp
- * @typedef {import('../types').RawRemoveOp} RawRemoveOp
  */
 
 class ScanOp {
@@ -140,7 +139,9 @@ class InsertOp extends ScanOp {
     return current
   }
 
-  /** @inheritdoc */
+  /** @inheritdoc
+   * @param {ScanOp} other
+   */
   equals(other) {
     if (!(other instanceof InsertOp)) {
       return false
@@ -165,6 +166,10 @@ class InsertOp extends ScanOp {
     return !other.commentIds
   }
 
+  /**
+   * @param {ScanOp} other
+   * @return {other is InsertOp}
+   */
   canMergeWith(other) {
     if (!(other instanceof InsertOp)) {
       return false
@@ -185,6 +190,9 @@ class InsertOp extends ScanOp {
     return !other.commentIds
   }
 
+  /**
+   * @param {ScanOp} other
+   */
   mergeWith(other) {
     if (!this.canMergeWith(other)) {
       throw new Error('Cannot merge with incompatible operation')
@@ -200,6 +208,7 @@ class InsertOp extends ScanOp {
     if (!this.tracking && !this.commentIds) {
       return this.insertion
     }
+    /** @type RawInsertOp */
     const obj = { i: this.insertion }
     if (this.tracking) {
       obj.tracking = this.tracking.toRaw()
@@ -218,7 +227,7 @@ class InsertOp extends ScanOp {
 class RetainOp extends ScanOp {
   /**
    * @param {number} length
-   * @param {TrackingProps | undefined} tracking
+   * @param {TrackingDirective | undefined} tracking
    */
   constructor(length, tracking = undefined) {
     super()
@@ -227,7 +236,7 @@ class RetainOp extends ScanOp {
     }
     /** @type {number} */
     this.length = length
-    /** @type {TrackingProps | undefined} */
+    /** @type {TrackingDirective | undefined} */
     this.tracking = tracking
   }
 
@@ -263,12 +272,18 @@ class RetainOp extends ScanOp {
       throw new Error('retain operation must have a number property')
     }
     if (op.tracking) {
-      return new RetainOp(op.r, TrackingProps.fromRaw(op.tracking))
+      const tracking =
+        op.tracking.type === 'none'
+          ? new ClearTrackingProps()
+          : TrackingProps.fromRaw(op.tracking)
+      return new RetainOp(op.r, tracking)
     }
     return new RetainOp(op.r)
   }
 
-  /** @inheritdoc */
+  /** @inheritdoc
+   * @param {ScanOp} other
+   */
   equals(other) {
     if (!(other instanceof RetainOp)) {
       return false
@@ -282,6 +297,10 @@ class RetainOp extends ScanOp {
     return !other.tracking
   }
 
+  /**
+   * @param {ScanOp} other
+   * @return {other is RetainOp}
+   */
   canMergeWith(other) {
     if (!(other instanceof RetainOp)) {
       return false
@@ -292,6 +311,9 @@ class RetainOp extends ScanOp {
     return !other.tracking
   }
 
+  /**
+   * @param {ScanOp} other
+   */
   mergeWith(other) {
     if (!this.canMergeWith(other)) {
       throw new Error('Cannot merge with incompatible operation')
@@ -315,6 +337,9 @@ class RetainOp extends ScanOp {
 }
 
 class RemoveOp extends ScanOp {
+  /**
+   * @param {number} length
+   */
   constructor(length) {
     super()
     if (length < 0) {
@@ -346,7 +371,11 @@ class RemoveOp extends ScanOp {
     return new RemoveOp(-op)
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   * @param {ScanOp} other
+   * @return {boolean}
+   */
   equals(other) {
     if (!(other instanceof RemoveOp)) {
       return false
@@ -354,10 +383,17 @@ class RemoveOp extends ScanOp {
     return this.length === other.length
   }
 
+  /**
+   * @param {ScanOp} other
+   * @return {other is RemoveOp}
+   */
   canMergeWith(other) {
     return other instanceof RemoveOp
   }
 
+  /**
+   * @param {ScanOp} other
+   */
   mergeWith(other) {
     if (!this.canMergeWith(other)) {
       throw new Error('Cannot merge with incompatible operation')

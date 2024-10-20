@@ -24,17 +24,22 @@ export default function SettingsDocument() {
       label: doc.path,
     }))
 
+    if (!rootDocId) {
+      mappedDocs.unshift({
+        value: '',
+        label: 'None',
+        disabled: true,
+      })
+    }
+
     return mappedDocs
   }, [docs, rootDocId])
-
-  if (permissionsLevel === 'readOnly') {
-    return null
-  }
 
   return (
     <SettingsMenuSelect
       onChange={setRootDocId}
-      value={rootDocId}
+      value={rootDocId ?? ''}
+      disabled={permissionsLevel === 'readOnly'}
       options={validDocsOptions}
       label={t('main_document')}
       name="rootDocId"

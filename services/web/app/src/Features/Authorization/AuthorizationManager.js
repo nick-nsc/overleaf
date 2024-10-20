@@ -1,5 +1,5 @@
 const { callbackify } = require('util')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 const CollaboratorsGetter = require('../Collaborators/CollaboratorsGetter')
 const CollaboratorsHandler = require('../Collaborators/CollaboratorsHandler')
 const ProjectGetter = require('../Project/ProjectGetter')
@@ -70,6 +70,7 @@ async function getPublicAccessLevel(projectId) {
  *
  * @param userId - The id of the user that wants to access the project.
  * @param projectId - The id of the project to be accessed.
+ * @param {string} token
  * @param {Object} opts
  * @param {boolean} opts.ignoreSiteAdmin - Do not consider whether the user is
  *     a site admin.

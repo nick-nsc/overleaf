@@ -51,6 +51,9 @@ import { EditableInlineGraphicsWidget } from './visual-widgets/editable-inline-g
 import {
   CloseBrace,
   OpenBrace,
+  CloseBracket,
+  OpenBracket,
+  OptionalArgument,
   ShortTextArgument,
   TextArgument,
 } from '../../lezer-latex/latex.terms.mjs'
@@ -74,6 +77,15 @@ import {
   validateParsedTable,
 } from '../../components/table-generator/utils'
 import { debugConsole } from '@/utils/debugging'
+import { DescriptionItemWidget } from './visual-widgets/description-item'
+import {
+  createSpaceCommand,
+  hasSpaceSubstitution,
+} from '@/features/source-editor/extensions/visual/visual-widgets/space'
+import {
+  mathAncestorNode,
+  parseMathContainer,
+} from '../../utils/tree-operations/math'
 
 type Options = {
   previewByPath: (path: string) => PreviewPath | null
@@ -101,13 +113,17 @@ function decorateArgumentBraces(
   argumentNode: SyntaxNode | null | undefined,
   start: number,
   decorateEmptyArguments = false,
-  endWidget?: WidgetType
+  endWidget?: WidgetType,
+  braceTypes = {
+    open: OpenBrace,
+    close: CloseBrace,
+  }
 ): Range<Decoration>[] {
   if (!argumentNode) {
     return []
   }
-  const openBrace = argumentNode.getChild('OpenBrace')
-  const closeBrace = argumentNode.getChild('CloseBrace')
+  const openBrace = argumentNode.getChild(braceTypes.open)
+  const closeBrace = argumentNode.getChild(braceTypes.close)
 
   if (openBrace && closeBrace) {
     if (
@@ -120,10 +136,9 @@ function decorateArgumentBraces(
           widget: startWidget,
         }).range(start, openBrace.to),
 
-        Decoration.replace({ widget: endWidget }).range(
-          closeBrace.from,
-          closeBrace.to
-        ),
+        Decoration.replace({
+          widget: endWidget,
+        }).range(closeBrace.from, closeBrace.to),
       ]
     }
   }
@@ -377,6 +392,7 @@ export const atomicDecorations = (options: Options) => {
             switch (envName) {
               case 'itemize':
               case 'enumerate':
+              case 'description':
                 startListEnvironment(envName)
                 listDepth++
                 break
@@ -480,6 +496,7 @@ export const atomicDecorations = (options: Options) => {
             switch (envName) {
               case 'itemize':
               case 'enumerate':
+              case 'description':
                 if (currentListEnvironment === envName) {
                   endListEnvironment()
                 }
@@ -603,14 +620,46 @@ export const atomicDecorations = (options: Options) => {
           return false // no markup in verbatim content
         } else if (
           nodeRef.type.is('NewCommand') ||
-          nodeRef.type.is('RenewCommand')
+          nodeRef.type.is('RenewCommand') ||
+          nodeRef.type.is('Def')
         ) {
-          const argumentNode = nodeRef.node.getChild('LiteralArgContent')
-          if (argumentNode) {
-            const argument = state
-              .sliceDoc(argumentNode.from, argumentNode.to)
-              .trim()
-            if (/^\\\w+/.test(argument)) {
+          const nameNode =
+            nodeRef.node.getChild('LiteralArgContent') ??
+            nodeRef.node.getChild('Csname') ??
+            nodeRef.node.getChild('CtrlSym')
+          if (nameNode) {
+            const name = state.sliceDoc(nameNode.from, nameNode.to).trim()
+            if (/^\\\w+/.test(name)) {
+              const content = state.sliceDoc(nodeRef.from, nodeRef.to)
+              if (content) {
+                commandDefinitions += `${content}\n`
+              }
+            }
+          }
+        } else if (
+          nodeRef.type.is('RenewEnvironment') ||
+          nodeRef.type.is('NewEnvironment')
+        ) {
+          const nameNode = nodeRef.node.getChild('LiteralArgContent')
+          if (nameNode) {
+            const name = state.sliceDoc(nameNode.from, nameNode.to).trim()
+            if (/^\w+/.test(name)) {
+              const content = state.sliceDoc(nodeRef.from, nodeRef.to)
+              if (content) {
+                commandDefinitions += `${content}\n`
+              }
+            }
+          }
+        } else if (nodeRef.type.is('Let')) {
+          const commandNodes = nodeRef.node.getChildren('Csname')
+          if (commandNodes.length !== 2) {
+            return
+          }
+          const nameNode = commandNodes[0]
+          if (nameNode) {
+            // We support more flexible names in let (Csname) than in newcommand
+            const name = state.sliceDoc(nameNode.from, nameNode.to).trim()
+            if (name.length > 1 && name.startsWith('\\')) {
               const content = state.sliceDoc(nodeRef.from, nodeRef.to)
               if (content) {
                 commandDefinitions += `${content}\n`
@@ -715,13 +764,7 @@ export const atomicDecorations = (options: Options) => {
           return false // no markup in input content
         } else if (nodeRef.type.is('Math')) {
           // math equations
-          let passToMathJax = true
-
-          const ancestorNode =
-            ancestorNodeOfType(state, nodeRef.from, '$MathContainer') ||
-            ancestorNodeOfType(state, nodeRef.from, 'EquationEnvironment') ||
-            // NOTE: EquationArrayEnvironment can be nested inside EquationEnvironment
-            ancestorNodeOfType(state, nodeRef.from, 'EquationArrayEnvironment')
+          const ancestorNode = mathAncestorNode(state, nodeRef.from)
 
           if (
             ancestorNode &&
@@ -729,57 +772,19 @@ export const atomicDecorations = (options: Options) => {
               ? shouldDecorateFromLineEdges(state, ancestorNode)
               : shouldDecorate(state, ancestorNode))
           ) {
-            // the content of the Math element, without braces
-            const innerContent = state.doc
-              .sliceString(nodeRef.from, nodeRef.to)
-              .trim()
+            const math = parseMathContainer(state, nodeRef, ancestorNode)
 
-            // only replace when there's content inside the braces
-            if (innerContent.length) {
-              let content = innerContent
-              let displayMode = false
-
-              if (ancestorNode.type.is('$Environment')) {
-                const environmentName = getEnvironmentName(ancestorNode, state)
-                if (environmentName) {
-                  // use the outer content of environments that MathJax supports
-                  // https://docs.mathjax.org/en/latest/input/tex/macros/index.html#environments
-                  if (environmentName === 'tikzcd') {
-                    passToMathJax = false
-                  }
-                  if (
-                    environmentName !== 'math' &&
-                    environmentName !== 'displaymath'
-                  ) {
-                    content = state.doc
-                      .sliceString(ancestorNode.from, ancestorNode.to)
-                      .trim()
-                  }
-
-                  if (environmentName !== 'math') {
-                    displayMode = true
-                  }
-                }
-              } else {
-                if (
-                  ancestorNode.type.is('BracketMath') ||
-                  Boolean(ancestorNode.getChild('DisplayMath'))
-                ) {
-                  displayMode = true
-                }
-              }
-              if (passToMathJax) {
-                decorations.push(
-                  Decoration.replace({
-                    widget: new MathWidget(
-                      content,
-                      displayMode,
-                      commandDefinitions
-                    ),
-                    block: displayMode,
-                  }).range(ancestorNode.from, ancestorNode.to)
-                )
-              }
+            if (math && math.passToMathJax) {
+              decorations.push(
+                Decoration.replace({
+                  widget: new MathWidget(
+                    math.content,
+                    math.displayMode,
+                    commandDefinitions
+                  ),
+                  block: math.displayMode,
+                }).range(ancestorNode.from, ancestorNode.to)
+              )
             }
           }
 
@@ -963,16 +968,51 @@ export const atomicDecorations = (options: Options) => {
               state.sliceDoc(line.from, nodeRef.from)
             )
             const from = onlySpaceBeforeNode ? line.from : nodeRef.from
-            decorations.push(
-              Decoration.replace({
-                widget: new ItemWidget(
-                  currentListEnvironment || 'document',
-                  currentOrdinal,
-                  listDepth
-                ),
-              }).range(from, nodeRef.to)
-            )
-            return false
+
+            if (currentListEnvironment === 'description') {
+              const argumentNode = nodeRef.node.getChild(OptionalArgument)
+              const to = argumentNode ? argumentNode.from : nodeRef.to
+
+              const onlySpaceAfterNode =
+                !argumentNode &&
+                /^\s*$/.test(state.sliceDoc(nodeRef.to, line.to))
+
+              if (!onlySpaceAfterNode) {
+                // decorate the \item command and subsequent whitespace, if there is other content on the line
+                decorations.push(
+                  Decoration.replace({
+                    widget: new DescriptionItemWidget(listDepth),
+                  }).range(from, to)
+                )
+              }
+
+              if (argumentNode) {
+                // decorate the optional argument
+                const decorateBrackets = shouldDecorate(state, argumentNode)
+
+                decorations.push(
+                  ...decorateArgumentBraces(
+                    new BraceWidget(decorateBrackets ? '' : '['),
+                    argumentNode,
+                    from,
+                    false,
+                    new BraceWidget(decorateBrackets ? '' : ']'),
+                    { open: OpenBracket, close: CloseBracket }
+                  )
+                )
+              }
+            } else {
+              decorations.push(
+                Decoration.replace({
+                  widget: new ItemWidget(
+                    currentListEnvironment || 'document',
+                    currentOrdinal,
+                    listDepth
+                  ),
+                }).range(from, nodeRef.to)
+              )
+              return false
+            }
           }
         } else if (nodeRef.type.is('NewTheoremCommand')) {
           const result = parseTheoremArguments(state, nodeRef.node)
@@ -998,11 +1038,38 @@ export const atomicDecorations = (options: Options) => {
               )
             }
           }
+        } else if (nodeRef.type.is('$ToggleTextFormattingCommand')) {
+          // markup that can be toggled using toolbar buttons/keyboard shortcuts
+          const textArgumentNode = nodeRef.node.getChild('TextArgument')
+          const argumentText = textArgumentNode?.getChild('LongArg')
+          const shouldShowBraces =
+            !shouldDecorate(state, nodeRef) ||
+            argumentText?.from === argumentText?.to
+          decorations.push(
+            ...decorateArgumentBraces(
+              new BraceWidget(shouldShowBraces ? '{' : ''),
+              textArgumentNode,
+              nodeRef.from,
+              true,
+              new BraceWidget(shouldShowBraces ? '}' : '')
+            )
+          )
+        } else if (nodeRef.type.is('$OtherTextFormattingCommand')) {
+          // markup that can't be toggled using toolbar buttons/keyboard shortcuts
+          const textArgumentNode = nodeRef.node.getChild('TextArgument')
+          if (shouldDecorate(state, nodeRef)) {
+            decorations.push(
+              ...decorateArgumentBraces(
+                new BraceWidget(),
+                textArgumentNode,
+                nodeRef.from
+              )
+            )
+          }
         } else if (nodeRef.type.is('UnknownCommand')) {
           // a command that's not defined separately by the grammar
           const commandNode = nodeRef.node
           const commandNameNode = commandNode.getChild('$CtrlSeq')
-          const textArgumentNode = commandNode.getChild('TextArgument')
 
           if (commandNameNode) {
             const commandName = state.doc
@@ -1010,46 +1077,9 @@ export const atomicDecorations = (options: Options) => {
               .trim()
 
             if (commandName.length > 0) {
-              if (
-                // markup that can be toggled using toolbar buttons/keyboard shortcuts
-                ['\\textbf', '\\textit', '\\underline'].includes(commandName)
-              ) {
-                const argumentText = textArgumentNode?.getChild('LongArg')
-                const shouldShowBraces =
-                  !shouldDecorate(state, nodeRef) ||
-                  argumentText?.from === argumentText?.to
-                decorations.push(
-                  ...decorateArgumentBraces(
-                    new BraceWidget(shouldShowBraces ? '{' : ''),
-                    textArgumentNode,
-                    nodeRef.from,
-                    true,
-                    new BraceWidget(shouldShowBraces ? '}' : '')
-                  )
-                )
-              } else if (
-                // markup that can't be toggled using toolbar buttons/keyboard shortcuts
-                [
-                  '\\textsc',
-                  '\\texttt',
-                  '\\textmd',
-                  '\\textsf',
-                  '\\textsuperscript',
-                  '\\textsubscript',
-                  '\\sout',
-                  '\\emph',
-                ].includes(commandName)
-              ) {
-                if (shouldDecorate(state, nodeRef)) {
-                  decorations.push(
-                    ...decorateArgumentBraces(
-                      new BraceWidget(),
-                      textArgumentNode,
-                      nodeRef.from
-                    )
-                  )
-                }
-              } else if (commandName === '\\keywords') {
+              const textArgumentNode = commandNode.getChild('TextArgument')
+
+              if (commandName === '\\keywords') {
                 if (shouldDecorate(state, nodeRef)) {
                   // command name and opening brace
                   decorations.push(
@@ -1146,6 +1176,18 @@ export const atomicDecorations = (options: Options) => {
               } else if (hasCharacterSubstitution(commandName)) {
                 if (shouldDecorate(state, nodeRef)) {
                   const replacement = createCharacterCommand(commandName)
+                  if (replacement) {
+                    decorations.push(
+                      Decoration.replace({
+                        widget: replacement,
+                      }).range(nodeRef.from, nodeRef.to)
+                    )
+                    return false
+                  }
+                }
+              } else if (hasSpaceSubstitution(commandName)) {
+                if (shouldDecorate(state, nodeRef)) {
+                  const replacement = createSpaceCommand(commandName)
                   if (replacement) {
                     decorations.push(
                       Decoration.replace({

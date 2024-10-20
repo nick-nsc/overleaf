@@ -3,32 +3,31 @@
   "version": "0.1.0",
   "description": "utilities for node-fetch",
   "main": "index.js",
-  "types": "types/index.d.ts",
   "scripts": {
     "test": "npm run lint && npm run format && npm run types:check && npm run test:unit",
-    "lint": "eslint --ext .js --ext .cjs --max-warnings 0 --format unix .",
-    "lint:fix": "eslint --fix --ext .js --ext .cjs .",
-    "format": "prettier --list-different $PWD/'**/*.{js,cjs}'",
-    "format:fix": "prettier --write $PWD/'**/*.{js,cjs}'",
+    "lint": "eslint --ext .js --ext .cjs --ext .ts --max-warnings 0 --format unix .",
+    "lint:fix": "eslint --fix --ext .js --ext .cjs --ext .ts .",
+    "format": "prettier --list-different $PWD/'**/*.{js,cjs,ts}'",
+    "format:fix": "prettier --write $PWD/'**/*.{js,cjs,ts}'",
     "test:ci": "npm run test:unit",
     "test:unit": "mocha --exit test/**/*.{js,cjs}",
-    "types:build": "[ -d types ] || tsc --noEmit false --emitDeclarationOnly",
-    "types:check": "tsc --noEmit",
-    "types:rebuild": "rm -rf types && npm run types:build"
+    "types:check": "tsc --noEmit"
   },
   "author": "Overleaf (https://www.overleaf.com)",
   "license": "AGPL-3.0-only",
   "devDependencies": {
-    "body-parser": "^1.20.2",
+    "@types/node-fetch": "^2.6.11",
+    "body-parser": "^1.20.3",
     "chai": "^4.3.6",
     "chai-as-promised": "^7.1.1",
-    "express": "^4.18.2",
+    "express": "^4.21.0",
     "mocha": "^10.2.0",
     "typescript": "^5.0.4"
   },
   "dependencies": {
     "@overleaf/o-error": "*",
     "lodash": "^4.17.21",
-    "node-fetch": "^2.6.11"
+    "node-fetch": "^2.7.0",
+    "selfsigned": "^2.4.1"
   }
 }

@@ -1,0 +1,56 @@
+.content {
+  min-height: 100vh;
+  padding-top: $header-height + $spacing-08;
+  padding-bottom: $spacing-08;
+}
+
+.content-alt {
+  background-color: $bg-light-secondary;
+}
+
+// Page header/separator
+.page-separator,
+.page-header {
+  padding-bottom: $spacing-05;
+  border-bottom: 1px solid $border-divider;
+  margin: 0;
+
+  // Apply margin above or below this header/separator only when it has a sibling
+  * > * + &,
+  * > & + * {
+    margin-top: $spacing-08;
+  }
+}
+
+// Horizontal rule. Override Bootstrap's 25% opacity, which we don't want
+hr {
+  opacity: unset;
+}
+
+.horizontal-divider {
+  border-top: 1px solid var(--border-divider);
+}
+
+.hidden {
+  @extend .d-none;
+}
+
+.hidden-print {
+  @extend .d-print-none;
+}
+
+.row-spaced {
+  margin-top: var(--line-height-03);
+}
+
+.row-spaced-small {
+  margin-top: calc(var(--line-height-03) / 2);
+}
+
+.row-spaced-large {
+  margin-top: calc(var(--line-height-03) * 2);
+}
+
+.row-spaced-extra-large {
+  margin-top: calc(var(--line-height-03) * 4);
+}

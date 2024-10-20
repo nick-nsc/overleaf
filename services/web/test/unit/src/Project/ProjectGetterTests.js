@@ -2,7 +2,7 @@ const sinon = require('sinon')
 const { expect } = require('chai')
 const modulePath = '../../../../app/src/Features/Project/ProjectGetter.js'
 const SandboxedModule = require('sandboxed-module')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 
 describe('ProjectGetter', function () {
   beforeEach(function () {
@@ -440,9 +440,8 @@ describe('ProjectGetter', function () {
     })
 
     it('should pass the found projects to the callback', async function () {
-      const docs = await this.ProjectGetter.promises.getUsersDeletedProjects(
-        'giraffe'
-      )
+      const docs =
+        await this.ProjectGetter.promises.getUsersDeletedProjects('giraffe')
       expect(docs).to.deep.equal([this.deletedProject])
     })
   })

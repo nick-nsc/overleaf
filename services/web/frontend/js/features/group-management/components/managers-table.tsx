@@ -42,7 +42,7 @@ export function ManagersTable({
     unselectAllUsers,
     selectUser,
     unselectUser,
-  } = useUserSelection(getMeta('ol-users', []))
+  } = useUserSelection(getMeta('ol-users') || [])
 
   const [emailString, setEmailString] = useState<string>('')
   const [inviteUserInflightCount, setInviteUserInflightCount] = useState(0)
@@ -175,6 +175,7 @@ export function ManagersTable({
                         className="select-all"
                         id="select-all"
                         type="checkbox"
+                        autoComplete="off"
                         onChange={handleSelectAllClick}
                         checked={selectedUsers.length === users.length}
                       />

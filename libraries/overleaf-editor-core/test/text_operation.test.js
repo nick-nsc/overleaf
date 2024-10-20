@@ -15,6 +15,7 @@ const TextOperation = ot.TextOperation
 const StringFileData = require('../lib/file_data/string_file_data')
 const { RetainOp, InsertOp, RemoveOp } = require('../lib/operation/scan_op')
 const TrackingProps = require('../lib/file_data/tracking_props')
+const ClearTrackingProps = require('../lib/file_data/clear_tracking_props')
 
 describe('TextOperation', function () {
   const numTrials = 500
@@ -369,7 +370,7 @@ describe('TextOperation', function () {
         )
       ).to.deep.equal({
         content: 'foo baz',
-        comments: [{ id: 'comment1', ranges: [], resolved: false }],
+        comments: [{ id: 'comment1', ranges: [] }],
       })
     })
 
@@ -473,8 +474,8 @@ describe('TextOperation', function () {
       ).to.deep.equal({
         content: 'foo baaar bbbaz',
         comments: [
-          { id: 'comment1', ranges: [{ pos: 4, length: 5 }], resolved: false },
-          { id: 'comment2', ranges: [{ pos: 10, length: 5 }], resolved: false },
+          { id: 'comment1', ranges: [{ pos: 4, length: 5 }] },
+          { id: 'comment2', ranges: [{ pos: 10, length: 5 }] },
         ],
       })
     })
@@ -496,16 +497,48 @@ describe('TextOperation', function () {
           new TextOperation()
             .retain(4)
             .retain(4, {
-              tracking: TrackingProps.fromRaw({
-                ts: '2024-01-01T00:00:00.000Z',
-                type: 'none',
-                userId: 'user2',
-              }),
+              tracking: new ClearTrackingProps(),
             })
             .retain(3)
         )
       ).to.deep.equal({
         content: 'foo bar baz',
+      })
+    })
+
+    it('it removes the tracking from an insert if operation 2 resolves it', function () {
+      expect(
+        compose(
+          new StringFileData('foo bar baz'),
+          new TextOperation()
+            .retain(4)
+            .insert('quux ', {
+              tracking: TrackingProps.fromRaw({
+                ts: '2023-01-01T00:00:00.000Z',
+                type: 'insert',
+                userId: 'user1',
+              }),
+            })
+            .retain(7),
+          new TextOperation()
+            .retain(6)
+            .retain(5, {
+              tracking: new ClearTrackingProps(),
+            })
+            .retain(5)
+        )
+      ).to.deep.equal({
+        content: 'foo quux bar baz',
+        trackedChanges: [
+          {
+            range: { pos: 4, length: 2 },
+            tracking: {
+              ts: '2023-01-01T00:00:00.000Z',
+              type: 'insert',
+              userId: 'user1',
+            },
+          },
+        ],
       })
     })
   })
@@ -722,9 +755,7 @@ describe('TextOperation', function () {
         )
       ).to.deep.equal({
         content: 'foo qux baz',
-        comments: [
-          { id: 'comment1', ranges: [{ pos: 4, length: 4 }], resolved: false },
-        ],
+        comments: [{ id: 'comment1', ranges: [{ pos: 4, length: 4 }] }],
       })
     })
 
@@ -751,9 +782,7 @@ describe('TextOperation', function () {
         )
       ).to.deep.equal({
         content: 'foo qux corge bar baz',
-        comments: [
-          { id: 'comment1', ranges: [{ pos: 4, length: 13 }], resolved: false },
-        ],
+        comments: [{ id: 'comment1', ranges: [{ pos: 4, length: 13 }] }],
       })
     })
 

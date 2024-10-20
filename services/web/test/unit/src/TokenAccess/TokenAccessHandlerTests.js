@@ -6,7 +6,7 @@ const modulePath = path.join(
   '../../../../app/src/Features/TokenAccess/TokenAccessHandler'
 )
 const { expect } = require('chai')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 
 describe('TokenAccessHandler', function () {
   beforeEach(function () {
@@ -21,7 +21,7 @@ describe('TokenAccessHandler', function () {
     this.req = {}
     this.TokenAccessHandler = SandboxedModule.require(modulePath, {
       requires: {
-        mongodb: { ObjectId },
+        'mongodb-legacy': { ObjectId },
         '../../models/Project': { Project: (this.Project = {}) },
         '@overleaf/metrics': (this.Metrics = { inc: sinon.stub() }),
         '@overleaf/settings': (this.settings = {}),
@@ -32,7 +32,7 @@ describe('TokenAccessHandler', function () {
         }),
         crypto: (this.Crypto = require('crypto')),
         '../Analytics/AnalyticsManager': (this.Analytics = {
-          recordEventForUser: sinon.stub(),
+          recordEventForUserInBackground: sinon.stub(),
         }),
       },
     })
@@ -127,10 +127,10 @@ describe('TokenAccessHandler', function () {
         'tokenAccessReadOnly_refs'
       )
       sinon.assert.calledWith(
-        this.Analytics.recordEventForUser,
+        this.Analytics.recordEventForUserInBackground,
         this.userId,
         'project-joined',
-        { mode: 'read-only' }
+        { mode: 'read-only', projectId: this.projectId.toString() }
       )
     })
 
@@ -175,10 +175,10 @@ describe('TokenAccessHandler', function () {
         'tokenAccessReadAndWrite_refs'
       )
       sinon.assert.calledWith(
-        this.Analytics.recordEventForUser,
+        this.Analytics.recordEventForUserInBackground,
         this.userId,
         'project-joined',
-        { mode: 'read-write' }
+        { mode: 'read-write', projectId: this.projectId.toString() }
       )
     })
 
@@ -197,6 +197,59 @@ describe('TokenAccessHandler', function () {
           )
         ).to.be.rejected
       })
+    })
+  })
+
+  describe('removeReadAndWriteUserFromProject', function () {
+    beforeEach(function () {
+      this.Project.updateOne = sinon
+        .stub()
+        .returns({ exec: sinon.stub().resolves(null) })
+    })
+
+    it('should call Project.updateOne', async function () {
+      await this.TokenAccessHandler.promises.removeReadAndWriteUserFromProject(
+        this.userId,
+        this.projectId
+      )
+
+      expect(this.Project.updateOne.callCount).to.equal(1)
+      expect(
+        this.Project.updateOne.calledWith({
+          _id: this.projectId,
+        })
+      ).to.equal(true)
+      expect(this.Project.updateOne.lastCall.args[1].$pull).to.have.keys(
+        'tokenAccessReadAndWrite_refs'
+      )
+    })
+  })
+
+  describe('moveReadAndWriteUserToReadOnly', function () {
+    beforeEach(function () {
+      this.Project.updateOne = sinon
+        .stub()
+        .returns({ exec: sinon.stub().resolves(null) })
+    })
+
+    it('should call Project.updateOne', async function () {
+      await this.TokenAccessHandler.promises.moveReadAndWriteUserToReadOnly(
+        this.userId,
+        this.projectId
+      )
+
+      expect(this.Project.updateOne.callCount).to.equal(1)
+      expect(
+        this.Project.updateOne.calledWith({
+          _id: this.projectId,
+        })
+      ).to.equal(true)
+      expect(this.Project.updateOne.lastCall.args[1].$pull).to.have.keys(
+        'tokenAccessReadAndWrite_refs'
+      )
+      expect(this.Project.updateOne.lastCall.args[1].$addToSet).to.have.keys(
+        'tokenAccessReadOnly_refs'
+      )
     })
   })
 

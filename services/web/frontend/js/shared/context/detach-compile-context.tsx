@@ -3,6 +3,7 @@ import { CompileContext, useLocalCompileContext } from './local-compile-context'
 import useDetachStateWatcher from '../hooks/use-detach-state-watcher'
 import useDetachAction from '../hooks/use-detach-action'
 import useCompileTriggers from '../../features/pdf-preview/hooks/use-compile-triggers'
+import { useLogEvents } from '@/features/pdf-preview/hooks/use-log-events'
 
 export const DetachCompileContext = createContext<CompileContext | undefined>(
   undefined
@@ -29,6 +30,7 @@ export const DetachCompileProvider: FC = ({ children }) => {
     error: _error,
     fileList: _fileList,
     hasChanges: _hasChanges,
+    hasShortCompileTimeout: _hasShortCompileTimeout,
     highlights: _highlights,
     isProjectOwner: _isProjectOwner,
     lastCompileOptions: _lastCompileOptions,
@@ -52,8 +54,6 @@ export const DetachCompileProvider: FC = ({ children }) => {
     setStopOnValidationError: _setStopOnValidationError,
     showLogs: _showLogs,
     showCompileTimeWarning: _showCompileTimeWarning,
-    showNewCompileTimeoutUI: _showNewCompileTimeoutUI,
-    showFasterCompilesFeedbackUI: _showFasterCompilesFeedbackUI,
     stopOnFirstError: _stopOnFirstError,
     stopOnValidationError: _stopOnValidationError,
     stoppedOnFirstError: _stoppedOnFirstError,
@@ -68,6 +68,7 @@ export const DetachCompileProvider: FC = ({ children }) => {
     setChangedAt: _setChangedAt,
     clearCache: _clearCache,
     syncToEntry: _syncToEntry,
+    recordAction: _recordAction,
   } = localCompileContext
 
   const [animateCompileDropdownArrow] = useDetachStateWatcher(
@@ -123,6 +124,12 @@ export const DetachCompileProvider: FC = ({ children }) => {
   const [hasChanges] = useDetachStateWatcher(
     'hasChanges',
     _hasChanges,
+    'detacher',
+    'detached'
+  )
+  const [hasShortCompileTimeout] = useDetachStateWatcher(
+    'hasShortCompileTimeout',
+    _hasShortCompileTimeout,
     'detacher',
     'detached'
   )
@@ -189,18 +196,6 @@ export const DetachCompileProvider: FC = ({ children }) => {
   const [showLogs] = useDetachStateWatcher(
     'showLogs',
     _showLogs,
-    'detacher',
-    'detached'
-  )
-  const [showNewCompileTimeoutUI] = useDetachStateWatcher(
-    'showNewCompileTimeoutUI',
-    _showNewCompileTimeoutUI,
-    'detacher',
-    'detached'
-  )
-  const [showFasterCompilesFeedbackUI] = useDetachStateWatcher(
-    'showFasterCompilesFeedbackUI',
-    _showFasterCompilesFeedbackUI,
     'detacher',
     'detached'
   )
@@ -369,7 +364,15 @@ export const DetachCompileProvider: FC = ({ children }) => {
     'detacher'
   )
 
+  const recordAction = useDetachAction(
+    'record-action',
+    _recordAction,
+    'detached',
+    'detacher'
+  )
+
   useCompileTriggers(startCompile, setChangedAt)
+  useLogEvents(setShowLogs)
 
   const value = useMemo(
     () => ({
@@ -386,6 +389,7 @@ export const DetachCompileProvider: FC = ({ children }) => {
       error,
       fileList,
       hasChanges,
+      hasShortCompileTimeout,
       highlights,
       isProjectOwner,
       lastCompileOptions,
@@ -413,8 +417,6 @@ export const DetachCompileProvider: FC = ({ children }) => {
       setStopOnValidationError,
       showLogs,
       showCompileTimeWarning,
-      showNewCompileTimeoutUI,
-      showFasterCompilesFeedbackUI,
       startCompile,
       stopCompile,
       stopOnFirstError,
@@ -426,6 +428,7 @@ export const DetachCompileProvider: FC = ({ children }) => {
       setChangedAt,
       cleanupCompileResult,
       syncToEntry,
+      recordAction,
     }),
     [
       animateCompileDropdownArrow,
@@ -437,10 +440,11 @@ export const DetachCompileProvider: FC = ({ children }) => {
       compiling,
       deliveryLatencies,
       draft,
-      error,
       editedSinceCompileStarted,
+      error,
       fileList,
       hasChanges,
+      hasShortCompileTimeout,
       highlights,
       isProjectOwner,
       lastCompileOptions,
@@ -466,8 +470,6 @@ export const DetachCompileProvider: FC = ({ children }) => {
       setStopOnValidationError,
       showCompileTimeWarning,
       showLogs,
-      showNewCompileTimeoutUI,
-      showFasterCompilesFeedbackUI,
       startCompile,
       stopCompile,
       stopOnFirstError,
@@ -479,6 +481,7 @@ export const DetachCompileProvider: FC = ({ children }) => {
       setChangedAt,
       cleanupCompileResult,
       syncToEntry,
+      recordAction,
     ]
   )
 

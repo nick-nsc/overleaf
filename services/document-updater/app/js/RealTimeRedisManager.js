@@ -32,7 +32,13 @@ const MAX_OPS_PER_ITERATION = 8 // process a limited number of ops for safety
 
 const RealTimeRedisManager = {
   getPendingUpdatesForDoc(docId, callback) {
+    // Make sure that this MULTI operation only operates on doc
+    // specific keys, i.e. keys that have the doc id in curly braces.
+    // The curly braces identify a hash key for Redis and ensures that
+    // the MULTI's operations are all done on the same node in a
+    // cluster environment.
     const multi = rclient.multi()
+    multi.llen(Keys.pendingUpdates({ doc_id: docId }))
     multi.lrange(
       Keys.pendingUpdates({ doc_id: docId }),
       0,
@@ -44,19 +50,23 @@ const RealTimeRedisManager = {
       -1
     )
     return multi.exec(function (error, replys) {
-      let jsonUpdate
       if (error != null) {
         return callback(error)
       }
-      const jsonUpdates = replys[0]
-      for (jsonUpdate of Array.from(jsonUpdates)) {
+      const [llen, jsonUpdates, _trimResult] = replys
+      metrics.histogram(
+        'redis.pendingUpdates.llen',
+        llen,
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 50, 75, 100]
+      )
+      for (const jsonUpdate of jsonUpdates) {
         // record metric for each update removed from queue
         metrics.summary('redis.pendingUpdates', jsonUpdate.length, {
           status: 'pop',
         })
       }
       const updates = []
-      for (jsonUpdate of Array.from(jsonUpdates)) {
+      for (const jsonUpdate of jsonUpdates) {
         let update
         try {
           update = JSON.parse(jsonUpdate)
@@ -71,6 +81,33 @@ const RealTimeRedisManager = {
 
   getUpdatesLength(docId, callback) {
     return rclient.llen(Keys.pendingUpdates({ doc_id: docId }), callback)
+  },
+
+  sendCanaryAppliedOp({ projectId, docId, op }) {
+    const ack = JSON.stringify({ v: op.v, doc: docId }).length
+    // Updates with op.dup===true will not get sent to other clients, they only get acked.
+    const broadcast = op.dup ? 0 : JSON.stringify(op).length
+
+    const payload = JSON.stringify({
+      message: 'canary-applied-op',
+      payload: {
+        ack,
+        broadcast,
+        docId,
+        projectId,
+        source: op.meta.source,
+      },
+    })
+
+    // Publish on the editor-events channel of the project as real-time already listens to that before completing the connection startup.
+
+    // publish on separate channels for individual projects and docs when
+    // configured (needs realtime to be configured for this too).
+    if (Settings.publishOnIndividualChannels) {
+      return pubsubClient.publish(`editor-events:${projectId}`, payload)
+    } else {
+      return pubsubClient.publish('editor-events', payload)
+    }
   },
 
   sendData(data) {

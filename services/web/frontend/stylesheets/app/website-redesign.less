@@ -1,3 +1,9 @@
+@cta-card-bg-color: var(--dark-jungle-green);
+
+.website-redesign-overflow-unset {
+  overflow: unset !important;
+}
+
 .website-redesign {
   // hero section of features, enterprises, and universities will have an image that will overflow the page
   overflow-x: hidden;
@@ -9,25 +15,26 @@
   h3,
   h4,
   a,
-  strong,
-  span {
+  strong {
     font-family: 'Noto Sans', sans-serif;
   }
 
   h1 {
-    font-size: 3rem;
     font-weight: 600;
-    line-height: 4rem;
+    .heading-2xl();
+
+    @media (max-width: @screen-sm-max) {
+      .heading-xl();
+    }
   }
 
   h2 {
     font-weight: 600;
-    font-size: 2.25rem;
-    line-height: 1.333;
     margin-top: 0;
+    .heading-xl();
 
     @media (max-width: @screen-sm-max) {
-      font-size: 1.875rem;
+      .heading-lg();
     }
   }
 
@@ -140,7 +147,9 @@
       .info-card {
         border-radius: 8px;
         height: 100%;
-        box-shadow: 0px 2px 4px 0px #1e253014, 0px 4px 12px 0px #1e25301f;
+        box-shadow:
+          0px 2px 4px 0px #1e253014,
+          0px 4px 12px 0px #1e25301f;
         border-top: 8px solid var(--sapphire-blue);
         padding: 32px 40px 32px 40px;
 
@@ -227,13 +236,6 @@
   }
 
   .customer-story-content {
-    h1 {
-      @media (max-width: @screen-sm-max) {
-        font-size: 2.25rem;
-        line-height: 1.333;
-      }
-    }
-
     .table-of-contents-section {
       padding-right: 64px;
       @media (max-width: @screen-sm-max) {
@@ -345,7 +347,8 @@
       }
 
       video {
-        box-shadow: 0px 4px 6px 0px rgba(30, 37, 48, 0.12),
+        box-shadow:
+          0px 4px 6px 0px rgba(30, 37, 48, 0.12),
           0px 8px 16px 0px rgba(30, 37, 48, 0.12);
         max-height: 100%;
         width: auto;
@@ -416,6 +419,7 @@
 
           .label-premium {
             margin-left: 0;
+            font-family: 'Noto Sans', sans-serif;
           }
 
           @media (max-width: @screen-sm-max) {
@@ -457,11 +461,6 @@
       justify-content: center;
 
       h1 {
-        @media (max-width: @screen-sm-max) {
-          font-size: 2.25rem;
-          line-height: 1.333;
-        }
-
         &.features-card-hero-smaller-title {
           @media (min-width: @screen-lg-min) {
             // 3rem is the default, this is a workaround for big screen
@@ -587,6 +586,11 @@
       object-fit: contain;
       max-height: 62px;
 
+      &.samsung-logo {
+        max-height: 110px;
+        height: 110px;
+      }
+
       @media (max-width: @screen-md-max) {
         max-height: 40px;
         flex-basis: 34%;
@@ -645,7 +649,14 @@
     display: flex;
     justify-content: space-between;
     padding: 64px;
-    background: var(--dark-jungle-green);
+    background-image: linear-gradient(
+        to right,
+        rgba(0, 0, 0, 0.4) 0%,
+        @cta-card-bg-color 20%,
+        @cta-card-bg-color 100%
+      ),
+      url('../../../public/img/website-redesign/overleaf-pattern-purple.png');
+    background-size: cover;
     color: var(--white);
     border-radius: 8px;
 
@@ -678,8 +689,16 @@
     flex-direction: column;
     align-items: center;
     padding: 64px;
-    background: var(--dark-jungle-green);
     color: var(--white);
+    background-image: linear-gradient(
+        to right,
+        rgba(0, 0, 0, 0.4) 0%,
+        @cta-card-bg-color 25%,
+        @cta-card-bg-color 75%,
+        rgba(0, 0, 0, 0.4) 100%
+      ),
+      url('../../../public/img/website-redesign/overleaf-pattern-purple.png');
+    background-size: cover;
     border-radius: 8px;
 
     @media (max-width: @screen-sm-max) {
@@ -756,7 +775,7 @@
     }
 
     .quote-card-link {
-      color: var(--mint-green);
+      color: var(--green-30);
     }
 
     @media (max-width: @screen-sm-max) {
@@ -815,7 +834,7 @@
     }
 
     &.green-bg {
-      background-color: var(--mint-green);
+      background-color: var(--green-30);
     }
   }
 
@@ -887,6 +906,11 @@
 
   .dm-mono {
     font-family: 'DM Mono', monospace;
+    // We're using the "ss05" (stylistic set 5) version of the DM Mono, by setting the `font-feature-settings` rule
+    // https://developer.mozilla.org/en-US/docs/Web/CSS/font-feature-settings
+    // We use the ss05 specifically to remove the "squiggle" below the f letter.
+    // You can try removing the `font-feature-settings` rule and check what happens to the letter "f",
+    // as it's quite hard to describe it with sentences alone
     font-feature-settings: 'ss05';
   }
 
@@ -916,41 +940,53 @@
 
   .link-with-arrow {
     .dm-mono;
-    font-size: 1.125rem;
-    line-height: 1.333;
+    font-size: var(--font-size-04);
+    line-height: var(--line-height-03);
     font-weight: 500;
+    color: var(--green-50);
 
     i.material-symbols {
       vertical-align: middle;
       padding-bottom: 3px;
       font-size: 24px;
+      line-height: inherit;
+      margin-left: var(--spacing-02);
+    }
+
+    &:hover {
+      color: var(--green-60);
+    }
+  }
+
+  .link-monospace {
+    .dm-mono;
+    font-weight: 500;
+    color: var(--green-50);
+    &:hover {
+      color: var(--green-60);
     }
   }
 
   .green-link {
     .link-with-arrow;
-    color: var(--emerald-green);
-
-    &:hover {
-      color: var(--emerald-green-dark);
-      .right-arrow {
-        color: var(--emerald-green-dark);
-      }
-    }
+    // TODO: replace .green-link uses with .link-with-arrow
   }
 
   .inline-green-link {
-    color: var(--emerald-green);
+    color: var(--green-50);
+    padding: 0;
+    text-decoration: underline;
+    // text-decoration-;skip-ink is for letter with descender (like 'g' and 'y')
+    // this will force underline to not skip the descender
+    text-decoration-skip-ink: none;
 
     &:hover {
-      color: var(--emerald-green-dark);
+      color: var(--green-60);
     }
-    text-decoration: underline;
-  }
 
-  .white-link {
-    .link-with-arrow;
-    color: white;
+    &:focus {
+      &:extend(.input-focus-style);
+    }
   }
 
   .btn-blue {
@@ -963,11 +999,40 @@
   }
 
   .btn-primary {
-    background: var(--emerald-green);
-    color: var(--white);
+    &:not([disabled]) {
+      background: var(--green-50);
+      color: var(--white);
 
-    &:hover {
-      background: var(--emerald-green-dark);
+      &:hover {
+        background: var(--green-60);
+      }
+    }
+  }
+
+  a {
+    &:focus,
+    &:focus-visible {
+      outline: 0;
+    }
+
+    &:focus-visible {
+      .box-shadow-button-input();
+    }
+
+    i {
+      vertical-align: middle;
+      margin-left: var(--spacing-02);
+      padding-bottom: 3px;
+    }
+
+    &.link-lg {
+      font-size: var(--font-size-04);
+      line-height: var(--line-height-03);
+
+      i {
+        font-size: 24px;
+        line-height: inherit;
+      }
     }
   }
 
@@ -983,7 +1048,7 @@
 
   .green-round-background {
     .round-background;
-    background: var(--mint-green);
+    background: var(--green-30);
   }
 
   .blue-round-background {
@@ -998,7 +1063,7 @@
     font-size: 1.875rem;
     line-height: 1.333;
     font-weight: 600;
-    quotes: '\201C''\201D'; // override default quotes
+    quotes: '\201C' '\201D'; // override default quotes
     padding: unset;
     margin: unset;
     font-family: 'Noto Sans', sans-serif;
@@ -1056,11 +1121,7 @@
 
     @media (max-width: @screen-xs-max) {
       width: 100%;
-      // this is currently useful for responsive-button-container that has two buttons
-      // in our current implementation, all two-buttons container will have the same value (explore plan + sign up)
-      // we want to sign up to be on the right side on big screen, and on the top on small screen
-      // if we want to apply this style for different buttons scenario, we should change this
-      flex-direction: column-reverse;
+      flex-direction: column;
     }
   }
 

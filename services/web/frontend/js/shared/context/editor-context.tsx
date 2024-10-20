@@ -18,8 +18,7 @@ import getMeta from '../../utils/meta'
 import { useUserContext } from './user-context'
 import { saveProjectSettings } from '@/features/editor-left-menu/utils/api'
 import { PermissionsLevel } from '@/features/ide-react/types/permissions'
-
-type writefullAdButtons = '' | 'try-it' | 'log-in'
+import { useModalsContext } from '@/features/ide-react/context/modals-context'
 
 export const EditorContext = createContext<
   | {
@@ -43,13 +42,13 @@ export const EditorContext = createContext<
       insertSymbol?: (symbol: string) => void
       isProjectOwner: boolean
       isRestrictedTokenMember?: boolean
+      isPendingEditor: boolean
       permissionsLevel: 'readOnly' | 'readAndWrite' | 'owner'
       deactivateTutorial: (tutorial: string) => void
-      inactiveTutorials: [string]
+      inactiveTutorials: string[]
       currentPopup: string | null
       setCurrentPopup: Dispatch<SetStateAction<string | null>>
-      writefullAdClicked: writefullAdButtons
-      setWritefullAdClicked: Dispatch<SetStateAction<writefullAdButtons>>
+      setOutOfSync: (value: boolean) => void
     }
   | undefined
 >(undefined)
@@ -58,21 +57,23 @@ export const EditorProvider: FC = ({ children }) => {
   const ide = useIdeContext()
   const { id: userId } = useUserContext()
   const { role } = useDetachContext()
+  const { showGenericMessageModal } = useModalsContext()
 
-  const { owner, features, _id: projectId } = useProjectContext()
+  const { owner, features, _id: projectId, members } = useProjectContext()
 
   const cobranding = useMemo(() => {
+    const brandVariation = getMeta('ol-brandVariation')
     return (
-      window.brandVariation && {
-        logoImgUrl: window.brandVariation.logo_url,
-        brandVariationName: window.brandVariation.name,
-        brandVariationId: window.brandVariation.id,
-        brandId: window.brandVariation.brand_id,
-        brandVariationHomeUrl: window.brandVariation.home_url,
-        publishGuideHtml: window.brandVariation.publish_guide_html,
-        partner: window.brandVariation.partner,
-        brandedMenu: window.brandVariation.branded_menu,
-        submitBtnHtml: window.brandVariation.submit_button_html,
+      brandVariation && {
+        logoImgUrl: brandVariation.logo_url,
+        brandVariationName: brandVariation.name,
+        brandVariationId: brandVariation.id,
+        brandId: brandVariation.brand_id,
+        brandVariationHomeUrl: brandVariation.home_url,
+        publishGuideHtml: brandVariation.publish_guide_html,
+        partner: brandVariation.partner,
+        brandedMenu: brandVariation.branded_menu,
+        submitBtnHtml: brandVariation.submit_button_html,
       }
     )
   }, [])
@@ -81,17 +82,21 @@ export const EditorProvider: FC = ({ children }) => {
   const [projectName, setProjectName] = useScopeValue('project.name')
   const [permissionsLevel, setPermissionsLevel] =
     useScopeValue('permissionsLevel')
+  const [outOfSync, setOutOfSync] = useState(false)
   const [showSymbolPalette] = useScopeValue('editor.showSymbolPalette')
   const [toggleSymbolPalette] = useScopeValue('editor.toggleSymbolPalette')
 
-  const [inactiveTutorials, setInactiveTutorials] = useState(() =>
-    getMeta('ol-inactiveTutorials', [])
+  const [inactiveTutorials, setInactiveTutorials] = useState(
+    () => getMeta('ol-inactiveTutorials') || []
   )
 
-  const [writefullAdClicked, setWritefullAdClicked] =
-    useState<writefullAdButtons>('')
-
   const [currentPopup, setCurrentPopup] = useState<string | null>(null)
+
+  const isPendingEditor = useMemo(
+    () =>
+      members?.some(member => member._id === userId && member.pendingEditor),
+    [members, userId]
+  )
 
   const deactivateTutorial = useCallback(
     tutorialKey => {
@@ -116,24 +121,18 @@ export const EditorProvider: FC = ({ children }) => {
             (response: any) => {
               setProjectName(oldName)
               const { data, status } = response
-              if (status === 400) {
-                return ide.showGenericMessageModal(
-                  'Error renaming project',
-                  data
-                )
-              } else {
-                return ide.showGenericMessageModal(
-                  'Error renaming project',
-                  'Please try again in a moment'
-                )
-              }
+
+              showGenericMessageModal(
+                'Error renaming project',
+                status === 400 ? data : 'Please try again in a moment'
+              )
             }
           )
         }
         return newName
       })
     },
-    [ide, setProjectName, projectId]
+    [setProjectName, projectId, showGenericMessageModal]
   )
 
   const { setTitle } = useBrowserWindow()
@@ -150,7 +149,7 @@ export const EditorProvider: FC = ({ children }) => {
     }
 
     parts.push('Online LaTeX Editor')
-    parts.push(window.ExposedSettings.appName)
+    parts.push(getMeta('ol-ExposedSettings').appName)
 
     const title = parts.join(' ')
 
@@ -171,10 +170,11 @@ export const EditorProvider: FC = ({ children }) => {
       hasPremiumCompile: features?.compileGroup === 'priority',
       loading,
       renameProject,
-      permissionsLevel,
+      permissionsLevel: outOfSync ? 'readOnly' : permissionsLevel,
       setPermissionsLevel,
       isProjectOwner: owner?._id === userId,
       isRestrictedTokenMember: getMeta('ol-isRestrictedTokenMember'),
+      isPendingEditor,
       showSymbolPalette,
       toggleSymbolPalette,
       insertSymbol,
@@ -182,8 +182,7 @@ export const EditorProvider: FC = ({ children }) => {
       deactivateTutorial,
       currentPopup,
       setCurrentPopup,
-      writefullAdClicked,
-      setWritefullAdClicked,
+      setOutOfSync,
     }),
     [
       cobranding,
@@ -194,6 +193,7 @@ export const EditorProvider: FC = ({ children }) => {
       renameProject,
       permissionsLevel,
       setPermissionsLevel,
+      isPendingEditor,
       showSymbolPalette,
       toggleSymbolPalette,
       insertSymbol,
@@ -201,8 +201,8 @@ export const EditorProvider: FC = ({ children }) => {
       deactivateTutorial,
       currentPopup,
       setCurrentPopup,
-      writefullAdClicked,
-      setWritefullAdClicked,
+      outOfSync,
+      setOutOfSync,
     ]
   )
 

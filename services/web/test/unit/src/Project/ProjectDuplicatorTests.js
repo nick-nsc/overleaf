@@ -1,7 +1,7 @@
 const { expect } = require('chai')
 const sinon = require('sinon')
 const SandboxedModule = require('sandboxed-module')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 
 const MODULE_PATH = '../../../../app/src/Features/Project/ProjectDuplicator.js'
 
@@ -18,6 +18,7 @@ describe('ProjectDuplicator', function () {
     this.file2 = {
       name: 'file2',
       _id: 'file2',
+      created: '2024-07-05T14:18:31.401+00:00',
       linkedFileData: { provider: 'url' },
       hash: '123456',
     }

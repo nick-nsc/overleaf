@@ -26,11 +26,16 @@ const {
   TooLongError,
 } = require('../errors')
 const Range = require('../range')
+const ClearTrackingProps = require('../file_data/clear_tracking_props')
 const TrackingProps = require('../file_data/tracking_props')
+
 /**
- * @typedef {import('../file_data/string_file_data')} StringFileData
- * @typedef {import('../types').RawTextOperation} RawTextOperation
- * @typedef {import('../operation/scan_op').ScanOp} ScanOp
+ * @import StringFileData from '../file_data/string_file_data'
+ * @import { RawTextOperation, TrackingDirective } from '../types'
+ * @import { ScanOp } from '../operation/scan_op'
+ * @import TrackedChangeList from '../file_data/tracked_change_list'
+ *
+ * @typedef {{tracking?: TrackingProps, commentIds?: string[]}} InsertOptions
  */
 
 /**
@@ -65,6 +70,10 @@ class TextOperation extends EditOperation {
     this.targetLength = 0
   }
 
+  /**
+   * @param {TextOperation} other
+   * @return {boolean}
+   */
   equals(other) {
     if (this.baseLength !== other.baseLength) {
       return false
@@ -90,7 +99,7 @@ class TextOperation extends EditOperation {
   /**
    * Skip over a given number of characters.
    * @param {number | {r: number}} n
-   * @param {{tracking?: TrackingProps}} opts
+   * @param {{tracking?: TrackingDirective}} opts
    * @returns {TextOperation}
    */
   retain(n, opts = {}) {
@@ -125,7 +134,7 @@ class TextOperation extends EditOperation {
   /**
    * Insert a string at the current position.
    * @param {string | {i: string}} insertValue
-   * @param {{tracking?: TrackingProps, commentIds?: string[]}} opts
+   * @param {InsertOptions} opts
    * @returns {TextOperation}
    */
   insert(insertValue, opts = {}) {
@@ -324,6 +333,8 @@ class TextOperation extends EditOperation {
 
   /**
    * @inheritdoc
+   * @param {number} length of the original string; non-negative
+   * @return {number} length of the new string; non-negative
    */
   applyToLength(length) {
     const operation = this
@@ -375,11 +386,7 @@ class TextOperation extends EditOperation {
 
         let removeTrackingInfoIfNeeded
         if (op.tracking) {
-          removeTrackingInfoIfNeeded = new TrackingProps(
-            'none',
-            op.tracking.userId,
-            op.tracking.ts
-          )
+          removeTrackingInfoIfNeeded = new ClearTrackingProps()
         }
 
         for (const trackedChange of previousRanges) {
@@ -573,10 +580,16 @@ class TextOperation extends EditOperation {
           op1 = ops1[i1++]
         }
       } else if (op1 instanceof InsertOp && op2 instanceof RetainOp) {
+        /** @type InsertOptions */
         const opts = {
-          // Prefer the latter tracking info
-          tracking: op2.tracking ?? op1.tracking,
           commentIds: op1.commentIds,
+        }
+        if (op2.tracking instanceof TrackingProps) {
+          // Prefer the tracking info on the second operation
+          opts.tracking = op2.tracking
+        } else if (!(op2.tracking instanceof ClearTrackingProps)) {
+          // The second operation does not cancel the first operation's tracking
+          opts.tracking = op1.tracking
         }
         if (op1.insertion.length > op2.length) {
           operation.insert(op1.insertion.slice(0, op2.length), opts)
@@ -691,9 +704,9 @@ class TextOperation extends EditOperation {
         // Simple case: retain/retain
 
         // If both have tracking info, we use the one from op1
-        /** @type {TrackingProps | undefined} */
+        /** @type {TrackingProps | ClearTrackingProps | undefined} */
         let operation1primeTracking
-        /** @type {TrackingProps | undefined} */
+        /** @type {TrackingProps | ClearTrackingProps | undefined} */
         let operation2primeTracking
         if (op1.tracking) {
           operation1primeTracking = op1.tracking
@@ -792,8 +805,8 @@ function getSimpleOp(operation) {
       return ops[0] instanceof RetainOp
         ? ops[1]
         : ops[1] instanceof RetainOp
-        ? ops[0]
-        : null
+          ? ops[0]
+          : null
     case 3:
       if (ops[0] instanceof RetainOp && ops[2] instanceof RetainOp) {
         return ops[1]
@@ -802,6 +815,10 @@ function getSimpleOp(operation) {
   return null
 }
 
+/**
+ * @param {TextOperation} operation
+ * @return {number}
+ */
 function getStartIndex(operation) {
   if (operation.ops[0] instanceof RetainOp) {
     return operation.ops[0].length
@@ -826,7 +843,7 @@ function getStartIndex(operation) {
  * @param {number} cursor
  * @param {number} length
  * @param {import('../file_data/comment_list')} commentsList
- * @param {import('../file_data/tracked_change_list')} trackedChangeList
+ * @param {TrackedChangeList} trackedChangeList
  * @returns {{length: number, commentIds?: string[], tracking?: TrackingProps}[]}
  */
 function calculateTrackingCommentSegments(
@@ -838,7 +855,10 @@ function calculateTrackingCommentSegments(
   const breaks = new Set()
   const opStart = cursor
   const opEnd = cursor + length
-  // Utility function to limit breaks to the boundary set by the operation range
+  /**
+   * Utility function to limit breaks to the boundary set by the operation range
+   * @param {number} rangeBoundary
+   */
   function addBreak(rangeBoundary) {
     if (rangeBoundary < opStart || rangeBoundary > opEnd) {
       return
@@ -853,7 +873,7 @@ function calculateTrackingCommentSegments(
     }
   }
   // Add tracked change boundaries
-  for (const trackedChange of trackedChangeList.trackedChanges) {
+  for (const trackedChange of trackedChangeList.asSorted()) {
     addBreak(trackedChange.range.start)
     addBreak(trackedChange.range.end)
   }

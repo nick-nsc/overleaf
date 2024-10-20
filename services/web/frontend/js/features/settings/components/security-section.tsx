@@ -2,18 +2,16 @@ import MaterialIcon from '@/shared/components/material-icon'
 import { Trans, useTranslation } from 'react-i18next'
 import { GroupSSOLinkingStatus } from '../../../../../types/subscription/sso'
 import getMeta from '../../../utils/meta'
+import OLButton from '@/features/ui/components/ol/ol-button'
 
 function SecuritySection() {
   const { t } = useTranslation()
 
-  const memberOfSSOEnabledGroups = getMeta(
-    'ol-memberOfSSOEnabledGroups',
-    []
-  ) as GroupSSOLinkingStatus[]
+  const memberOfSSOEnabledGroups = getMeta('ol-memberOfSSOEnabledGroups') || []
 
   return (
     <>
-      {memberOfSSOEnabledGroups?.length > 0 ? (
+      {memberOfSSOEnabledGroups.length > 0 ? (
         <>
           <h3>{t('security')}</h3>
           {memberOfSSOEnabledGroups.map(
@@ -84,12 +82,12 @@ function SecuritySection() {
                 </div>
                 {linked ? null : (
                   <div className="button-column">
-                    <a
-                      className="btn btn-primary"
+                    <OLButton
+                      variant="primary"
                       href={`/subscription/${groupId}/sso_enrollment`}
                     >
                       {t('set_up_sso')}
-                    </a>
+                    </OLButton>
                   </div>
                 )}
               </div>

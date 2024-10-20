@@ -1,4 +1,10 @@
-import { ChangeEventHandler, useCallback } from 'react'
+import BootstrapVersionSwitcher from '@/features/ui/components/bootstrap-5/bootstrap-version-switcher'
+import OLFormGroup from '@/features/ui/components/ol/ol-form-group'
+import OLFormLabel from '@/features/ui/components/ol/ol-form-label'
+import OLFormSelect from '@/features/ui/components/ol/ol-form-select'
+import { ChangeEventHandler, useCallback, useEffect, useRef } from 'react'
+import { Spinner } from 'react-bootstrap-5'
+import { useEditorLeftMenuContext } from '@/features/editor-left-menu/components/editor-left-menu-context'
 
 type PossibleValue = string | number | boolean
 
@@ -22,6 +28,7 @@ type SettingsMenuSelectProps<T extends PossibleValue = string> = {
   loading?: boolean
   onChange: (val: T) => void
   value?: T
+  disabled?: boolean
 }
 
 export default function SettingsMenuSelect<T extends PossibleValue = string>({
@@ -32,6 +39,7 @@ export default function SettingsMenuSelect<T extends PossibleValue = string>({
   loading,
   onChange,
   value,
+  disabled = false,
 }: SettingsMenuSelectProps<T>) {
   const handleChange: ChangeEventHandler<HTMLSelectElement> = useCallback(
     event => {
@@ -47,19 +55,56 @@ export default function SettingsMenuSelect<T extends PossibleValue = string>({
     [onChange, value]
   )
 
+  const { settingToFocus } = useEditorLeftMenuContext()
+
+  const selectRef = useRef<HTMLSelectElement | null>(null)
+
+  useEffect(() => {
+    if (settingToFocus === name && selectRef.current) {
+      selectRef.current.scrollIntoView({
+        block: 'center',
+        behavior: 'smooth',
+      })
+      selectRef.current.focus()
+    }
+
+    // clear the focus setting
+    window.dispatchEvent(
+      new CustomEvent('ui.focus-setting', { detail: undefined })
+    )
+  }, [name, settingToFocus])
+
   return (
-    <div className="form-group left-menu-setting">
-      <label htmlFor={`settings-menu-${name}`}>{label}</label>
+    <OLFormGroup
+      controlId={`settings-menu-${name}`}
+      className="left-menu-setting"
+    >
+      <OLFormLabel>{label}</OLFormLabel>
       {loading ? (
-        <p className="loading pull-right">
-          <i className="fa fa-fw fa-spin fa-refresh" />
-        </p>
+        <BootstrapVersionSwitcher
+          bs3={
+            <p className="loading pull-right">
+              <i className="fa fa-fw fa-spin fa-refresh" />
+            </p>
+          }
+          bs5={
+            <p className="mb-0">
+              <Spinner
+                animation="border"
+                aria-hidden="true"
+                size="sm"
+                role="status"
+              />
+            </p>
+          }
+        />
       ) : (
-        <select
-          id={`settings-menu-${name}`}
-          className="form-control"
+        <OLFormSelect
+          size="sm"
           onChange={handleChange}
           value={value?.toString()}
+          disabled={disabled}
+          ref={selectRef}
         >
           {options.map(option => (
             <option
@@ -83,8 +128,8 @@ export default function SettingsMenuSelect<T extends PossibleValue = string>({
               ))}
             </optgroup>
           ) : null}
-        </select>
+        </OLFormSelect>
       )}
-    </div>
+    </OLFormGroup>
   )
 }

@@ -28,6 +28,17 @@
     }
   }
 
+  .toolbar-right .back-to-editor-btn {
+    margin-right: 27px;
+    display: flex;
+    align-items: center;
+    .btn-secondary;
+
+    .toolbar-label {
+      margin-bottom: 0;
+    }
+  }
+
   > a:focus,
   button:focus {
     outline: none;
@@ -38,7 +49,7 @@
   .toolbar-left > a:not(.btn),
   .toolbar-left > button,
   .toolbar-right > a:not(.btn),
-  .toolbar-right > button {
+  .toolbar-right > button:not(.back-to-editor-btn) {
     display: inline-block;
     color: @toolbar-icon-btn-color;
     background-color: transparent;
@@ -106,10 +117,6 @@
       height: @toolbar-height - 1;
       padding: 8px 10px;
     }
-  }
-  .btn-full-height-no-border {
-    border-right: 0;
-    border-left: 0;
   }
 
   .toolbar-left {
@@ -252,7 +259,9 @@
   user-select: none;
   color: @text-color;
   border-radius: @btn-border-radius-base;
-  transition: color 0.12s ease-out, background-color 0.12s ease-out,
+  transition:
+    color 0.12s ease-out,
+    background-color 0.12s ease-out,
     box-shadow 0.12s ease-out;
   overflow: hidden;
 
@@ -324,16 +333,22 @@
   }
 }
 
+.editor-switch-tooltip .tooltip-inner {
+  text-align: left;
+  max-width: 325px;
+  padding: 10px;
+
+  .tooltip-title {
+    font-weight: bold;
+    line-height: 22px;
+  }
+}
 /**************************************
 	Formatting buttons
 ***************************************/
 .formatting-buttons {
   width: 100%;
   overflow: hidden;
-}
-
-.formatting-buttons-wrapper {
-  display: flex;
 }
 
 .formatting-btn {
@@ -372,12 +387,12 @@
   }
 }
 
-.formatting-btn--icon {
+.formatting-btn-icon {
   min-width: 32px;
   width: 32px;
 }
 
-.formatting-btn--icon:last-of-type {
+.formatting-btn-icon:last-of-type {
   border-right: 1px solid @formatting-btn-border;
 }
 

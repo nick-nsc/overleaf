@@ -1,11 +1,4 @@
 import { useEffect, useState } from 'react'
-import {
-  Alert,
-  Button,
-  ControlLabel,
-  FormControl,
-  FormGroup,
-} from 'react-bootstrap'
 import { Trans, useTranslation } from 'react-i18next'
 import {
   getUserFacingMessage,
@@ -13,9 +6,13 @@ import {
   postJSON,
 } from '../../../infrastructure/fetch-json'
 import getMeta from '../../../utils/meta'
-import { ExposedSettings } from '../../../../../types/exposed-settings'
-import { PasswordStrengthOptions } from '../../../../../types/password-strength-options'
 import useAsync from '../../../shared/hooks/use-async'
+import OLButton from '@/features/ui/components/ol/ol-button'
+import OLNotification from '@/features/ui/components/ol/ol-notification'
+import OLFormGroup from '@/features/ui/components/ol/ol-form-group'
+import OLFormLabel from '@/features/ui/components/ol/ol-form-label'
+import OLFormControl from '@/features/ui/components/ol/ol-form-control'
+import OLFormText from '@/features/ui/components/ol/ol-form-text'
 
 type PasswordUpdateResult = {
   message?: {
@@ -25,7 +22,7 @@ type PasswordUpdateResult = {
 
 function PasswordSection() {
   const { t } = useTranslation()
-  const hideChangePassword = getMeta('ol-cannot-change-password') as boolean
+  const hideChangePassword = getMeta('ol-cannot-change-password')
   return (
     <>
       <h3>{t('change_password')}</h3>
@@ -54,11 +51,11 @@ function CanOnlyLogInThroughSSO() {
 
 function PasswordInnerSection() {
   const { t } = useTranslation()
-  const { isOverleaf } = getMeta('ol-ExposedSettings') as ExposedSettings
+  const { isOverleaf } = getMeta('ol-ExposedSettings')
   const isExternalAuthenticationSystemUsed = getMeta(
     'ol-isExternalAuthenticationSystemUsed'
-  ) as boolean
-  const hasPassword = getMeta('ol-hasPassword') as boolean
+  )
+  const hasPassword = getMeta('ol-hasPassword')
 
   if (isExternalAuthenticationSystemUsed && !isOverleaf) {
     return <p>{t('password_managed_externally')}</p>
@@ -79,9 +76,7 @@ function PasswordInnerSection() {
 
 function PasswordForm() {
   const { t } = useTranslation()
-  const passwordStrengthOptions = getMeta(
-    'ol-passwordStrengthOptions'
-  ) as PasswordStrengthOptions
+  const passwordStrengthOptions = getMeta('ol-passwordStrengthOptions')
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword1, setNewPassword1] = useState('')
@@ -160,52 +155,61 @@ function PasswordForm() {
         autoComplete="new-password"
       />
       {isSuccess && data?.message?.text ? (
-        <FormGroup>
-          <Alert bsStyle="success">{data.message.text}</Alert>
-        </FormGroup>
+        <OLFormGroup>
+          <OLNotification type="success" content={data.message.text} />
+        </OLFormGroup>
       ) : null}
       {isError ? (
-        <FormGroup>
-          <Alert bsStyle="danger">
-            {getErrorMessageKey(error) === 'password-must-be-strong' ? (
-              <>
-                <Trans
-                  i18nKey="password_was_detected_on_a_public_list_of_known_compromised_passwords"
-                  components={[
-                    /* eslint-disable-next-line jsx-a11y/anchor-has-content, react/jsx-key */
-                    <a
-                      href="https://haveibeenpwned.com"
-                      target="_blank"
-                      rel="noreferrer noopener"
-                    />,
-                  ]}
-                />
-                . {t('use_a_different_password')}.
-              </>
-            ) : getErrorMessageKey(error) === 'password-contains-email' ? (
-              <>
-                {t('invalid_password_contains_email')}.{' '}
-                {t('use_a_different_password')}.
-              </>
-            ) : getErrorMessageKey(error) === 'password-too-similar' ? (
-              <>
-                {t('invalid_password_too_similar')}.{' '}
-                {t('use_a_different_password')}.
-              </>
-            ) : (
-              getUserFacingMessage(error)
-            )}
-          </Alert>
-        </FormGroup>
+        <OLFormGroup>
+          <OLNotification
+            type="error"
+            content={
+              getErrorMessageKey(error) === 'password-must-be-strong' ? (
+                <>
+                  <Trans
+                    i18nKey="password_was_detected_on_a_public_list_of_known_compromised_passwords"
+                    components={[
+                      /* eslint-disable-next-line jsx-a11y/anchor-has-content, react/jsx-key */
+                      <a
+                        href="https://haveibeenpwned.com/passwords"
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      />,
+                    ]}
+                  />
+                  . {t('use_a_different_password')}.
+                </>
+              ) : getErrorMessageKey(error) === 'password-contains-email' ? (
+                <>
+                  {t('invalid_password_contains_email')}.{' '}
+                  {t('use_a_different_password')}.
+                </>
+              ) : getErrorMessageKey(error) === 'password-too-similar' ? (
+                <>
+                  {t('invalid_password_too_similar')}.{' '}
+                  {t('use_a_different_password')}.
+                </>
+              ) : (
+                (getUserFacingMessage(error) ?? '')
+              )
+            }
+          />
+        </OLFormGroup>
       ) : null}
-      <Button
-        form="password-change-form"
-        type="submit"
-        bsStyle="primary"
-        disabled={isLoading || !isFormValid}
-      >
-        {isLoading ? <>{t('saving')}…</> : t('change')}
-      </Button>
+      <OLFormGroup>
+        <OLButton
+          form="password-change-form"
+          type="submit"
+          variant="primary"
+          disabled={!isFormValid}
+          isLoading={isLoading}
+          bs3Props={{
+            loading: isLoading ? `${t('saving')}…` : t('change'),
+          }}
+        >
+          {t('change')}
+        </OLButton>
+      </OLFormGroup>
     </form>
   )
 }
@@ -232,25 +236,26 @@ function PasswordFormGroup({
   const [validationMessage, setValidationMessage] = useState('')
   const [hadInteraction, setHadInteraction] = useState(false)
 
-  const handleInvalid = (
-    event: React.InvalidEvent<HTMLInputElement & FormControl>
-  ) => {
+  const handleInvalid = (event: React.InvalidEvent<HTMLInputElement>) => {
     event.preventDefault()
   }
 
   const handleChangeAndValidity = (
-    event: React.ChangeEvent<HTMLInputElement & FormControl>
+    event: React.ChangeEvent<HTMLInputElement>
   ) => {
     handleChange(event)
     setHadInteraction(true)
     setValidationMessage(event.target.validationMessage)
   }
 
+  const isInvalid = Boolean(
+    hadInteraction && (parentValidationMessage || validationMessage)
+  )
+
   return (
-    <FormGroup>
-      <ControlLabel htmlFor={id}>{label}</ControlLabel>
-      <FormControl
-        id={id}
+    <OLFormGroup controlId={id}>
+      <OLFormLabel>{label}</OLFormLabel>
+      <OLFormControl
         type="password"
         placeholder="*********"
         autoComplete={autoComplete}
@@ -260,13 +265,14 @@ function PasswordFormGroup({
         onInvalid={handleInvalid}
         required={hadInteraction}
         minLength={minLength}
+        isInvalid={isInvalid}
       />
-      {hadInteraction && (parentValidationMessage || validationMessage) ? (
-        <span className="small text-danger">
+      {isInvalid && (
+        <OLFormText isError>
           {parentValidationMessage || validationMessage}
-        </span>
-      ) : null}
-    </FormGroup>
+        </OLFormText>
+      )}
+    </OLFormGroup>
   )
 }
 

@@ -7,42 +7,8 @@ const logger = require('@overleaf/logger')
 const metrics = require('@overleaf/metrics')
 const { promisify } = require('util')
 const { promisifyMultiResult } = require('@overleaf/promise-utils')
-
-module.exports = {
-  flushProjectToMongo,
-  flushMultipleProjectsToMongo,
-  flushProjectToMongoAndDelete,
-  flushDocToMongo,
-  deleteDoc,
-  getDocument,
-  setDocument,
-  getProjectDocsIfMatch,
-  clearProjectState,
-  acceptChanges,
-  deleteThread,
-  resyncProjectHistory,
-  updateProjectStructure,
-  promises: {
-    flushProjectToMongo: promisify(flushProjectToMongo),
-    flushMultipleProjectsToMongo: promisify(flushMultipleProjectsToMongo),
-    flushProjectToMongoAndDelete: promisify(flushProjectToMongoAndDelete),
-    flushDocToMongo: promisify(flushDocToMongo),
-    deleteDoc: promisify(deleteDoc),
-    getDocument: promisifyMultiResult(getDocument, [
-      'lines',
-      'version',
-      'ranges',
-      'ops',
-    ]),
-    setDocument: promisify(setDocument),
-    getProjectDocsIfMatch: promisify(getProjectDocsIfMatch),
-    clearProjectState: promisify(clearProjectState),
-    acceptChanges: promisify(acceptChanges),
-    deleteThread: promisify(deleteThread),
-    resyncProjectHistory: promisify(resyncProjectHistory),
-    updateProjectStructure: promisify(updateProjectStructure),
-  },
-}
+const ProjectGetter = require('../Project/ProjectGetter')
+const FileStoreHandler = require('../FileStore/FileStoreHandler')
 
 function flushProjectToMongo(projectId, callback) {
   _makeRequest(
@@ -212,6 +178,36 @@ function acceptChanges(projectId, docId, changeIds, callback) {
   )
 }
 
+function resolveThread(projectId, docId, threadId, userId, callback) {
+  _makeRequest(
+    {
+      path: `/project/${projectId}/doc/${docId}/comment/${threadId}/resolve`,
+      method: 'POST',
+      json: {
+        user_id: userId,
+      },
+    },
+    projectId,
+    'resolve-thread',
+    callback
+  )
+}
+
+function reopenThread(projectId, docId, threadId, userId, callback) {
+  _makeRequest(
+    {
+      path: `/project/${projectId}/doc/${docId}/comment/${threadId}/reopen`,
+      method: 'POST',
+      json: {
+        user_id: userId,
+      },
+    },
+    projectId,
+    'reopen-thread',
+    callback
+  )
+}
+
 function deleteThread(projectId, docId, threadId, userId, callback) {
   _makeRequest(
     {
@@ -232,18 +228,75 @@ function resyncProjectHistory(
   projectHistoryId,
   docs,
   files,
+  opts,
   callback
 ) {
+  docs = docs.map(doc => ({
+    doc: doc.doc._id,
+    path: doc.path,
+  }))
+  files = files.map(file => ({
+    file: file.file._id,
+    path: file.path,
+    url: FileStoreHandler._buildUrl(projectId, file.file._id),
+    _hash: file.file.hash,
+    metadata: buildFileMetadataForHistory(file.file),
+  }))
+
+  const body = { docs, files, projectHistoryId }
+  if (opts.historyRangesMigration) {
+    body.historyRangesMigration = opts.historyRangesMigration
+  }
   _makeRequest(
     {
       path: `/project/${projectId}/history/resync`,
-      json: { docs, files, projectHistoryId },
+      json: body,
       method: 'POST',
       timeout: 6 * 60 * 1000, // allow 6 minutes for resync
     },
     projectId,
     'resync-project-history',
     callback
+  )
+}
+
+/**
+ * Block a project from being loaded in docupdater
+ *
+ * @param {string} projectId
+ * @param {Callback} callback
+ */
+function blockProject(projectId, callback) {
+  _makeRequest(
+    { path: `/project/${projectId}/block`, method: 'POST', json: true },
+    projectId,
+    'block-project',
+    (err, body) => {
+      if (err) {
+        return callback(err)
+      }
+      callback(null, body.blocked)
+    }
+  )
+}
+
+/**
+ * Unblock a previously blocked project
+ *
+ * @param {string} projectId
+ * @param {Callback} callback
+ */
+function unblockProject(projectId, callback) {
+  _makeRequest(
+    { path: `/project/${projectId}/unblock`, method: 'POST', json: true },
+    projectId,
+    'unblock-project',
+    (err, body) => {
+      if (err) {
+        return callback(err)
+      }
+      callback(null, body.wasBlocked)
+    }
   )
 }
 
@@ -262,54 +315,78 @@ function updateProjectStructure(
     return callback()
   }
 
-  const {
-    deletes: docDeletes,
-    adds: docAdds,
-    renames: docRenames,
-  } = _getUpdates('doc', changes.oldDocs, changes.newDocs)
-  const {
-    deletes: fileDeletes,
-    adds: fileAdds,
-    renames: fileRenames,
-  } = _getUpdates('file', changes.oldFiles, changes.newFiles)
-  const updates = [].concat(
-    docDeletes,
-    fileDeletes,
-    docAdds,
-    fileAdds,
-    docRenames,
-    fileRenames
-  )
-  const projectVersion =
-    changes && changes.newProject && changes.newProject.version
-
-  if (updates.length < 1) {
-    return callback()
-  }
-
-  if (projectVersion == null) {
-    logger.warn(
-      { projectId, changes, projectVersion },
-      'did not receive project version in changes'
-    )
-    return callback(new Error('did not receive project version in changes'))
-  }
-
-  _makeRequest(
-    {
-      path: `/project/${projectId}`,
-      json: {
-        updates,
-        userId,
-        version: projectVersion,
-        projectHistoryId,
-        source,
-      },
-      method: 'POST',
-    },
+  ProjectGetter.getProjectWithoutLock(
     projectId,
-    'update-project-structure',
-    callback
+    { overleaf: true },
+    (err, project) => {
+      if (err) {
+        return callback(err)
+      }
+      const historyRangesSupport = _.get(
+        project,
+        'overleaf.history.rangesSupportEnabled',
+        false
+      )
+      const {
+        deletes: docDeletes,
+        adds: docAdds,
+        renames: docRenames,
+      } = _getUpdates(
+        'doc',
+        changes.oldDocs,
+        changes.newDocs,
+        historyRangesSupport
+      )
+      const {
+        deletes: fileDeletes,
+        adds: fileAdds,
+        renames: fileRenames,
+      } = _getUpdates(
+        'file',
+        changes.oldFiles,
+        changes.newFiles,
+        historyRangesSupport
+      )
+      const updates = [].concat(
+        docDeletes,
+        fileDeletes,
+        docAdds,
+        fileAdds,
+        docRenames,
+        fileRenames
+      )
+      const projectVersion =
+        changes && changes.newProject && changes.newProject.version
+
+      if (updates.length < 1) {
+        return callback()
+      }
+
+      if (projectVersion == null) {
+        logger.warn(
+          { projectId, changes, projectVersion },
+          'did not receive project version in changes'
+        )
+        return callback(new Error('did not receive project version in changes'))
+      }
+
+      _makeRequest(
+        {
+          path: `/project/${projectId}`,
+          json: {
+            updates,
+            userId,
+            version: projectVersion,
+            projectHistoryId,
+            source,
+          },
+          method: 'POST',
+        },
+        projectId,
+        'update-project-structure',
+        callback
+      )
+    }
   )
 }
 
@@ -346,7 +423,12 @@ function _makeRequest(options, projectId, metricsKey, callback) {
   )
 }
 
-function _getUpdates(entityType, oldEntities, newEntities) {
+function _getUpdates(
+  entityType,
+  oldEntities,
+  newEntities,
+  historyRangesSupport
+) {
   if (!oldEntities) {
     oldEntities = []
   }
@@ -397,8 +479,11 @@ function _getUpdates(entityType, oldEntities, newEntities) {
         id,
         pathname: newEntity.path,
         docLines: newEntity.docLines,
+        ranges: newEntity.ranges,
+        historyRangesSupport,
         url: newEntity.url,
         hash: newEntity.file != null ? newEntity.file.hash : undefined,
+        metadata: buildFileMetadataForHistory(newEntity.file),
       })
     } else if (newEntity.path !== oldEntity.path) {
       // entity renamed
@@ -412,4 +497,67 @@ function _getUpdates(entityType, oldEntities, newEntities) {
   }
 
   return { deletes, adds, renames }
+}
+
+function buildFileMetadataForHistory(file) {
+  if (!file?.linkedFileData) return undefined
+
+  const metadata = {
+    // Files do not have a created at timestamp in the history.
+    // For cloned projects, the importedAt timestamp needs to remain untouched.
+    // Record the timestamp in the metadata blob to keep everything self-contained.
+    importedAt: file.created,
+    ...file.linkedFileData,
+  }
+  if (metadata.provider === 'project_output_file') {
+    // The build-id and clsi-server-id are only used for downloading file.
+    // Omit them from history as they are not useful in the future.
+    delete metadata.build_id
+    delete metadata.clsiServerId
+  }
+  return metadata
+}
+
+module.exports = {
+  flushProjectToMongo,
+  flushMultipleProjectsToMongo,
+  flushProjectToMongoAndDelete,
+  flushDocToMongo,
+  deleteDoc,
+  getDocument,
+  setDocument,
+  getProjectDocsIfMatch,
+  clearProjectState,
+  acceptChanges,
+  resolveThread,
+  reopenThread,
+  deleteThread,
+  resyncProjectHistory,
+  blockProject,
+  unblockProject,
+  updateProjectStructure,
+  promises: {
+    flushProjectToMongo: promisify(flushProjectToMongo),
+    flushMultipleProjectsToMongo: promisify(flushMultipleProjectsToMongo),
+    flushProjectToMongoAndDelete: promisify(flushProjectToMongoAndDelete),
+    flushDocToMongo: promisify(flushDocToMongo),
+    deleteDoc: promisify(deleteDoc),
+    getDocument: promisifyMultiResult(getDocument, [
+      'lines',
+      'version',
+      'ranges',
+      'ops',
+    ]),
+    setDocument: promisify(setDocument),
+    getProjectDocsIfMatch: promisify(getProjectDocsIfMatch),
+    clearProjectState: promisify(clearProjectState),
+    acceptChanges: promisify(acceptChanges),
+    resolveThread: promisify(resolveThread),
+    reopenThread: promisify(reopenThread),
+    deleteThread: promisify(deleteThread),
+    resyncProjectHistory: promisify(resyncProjectHistory),
+    blockProject: promisify(blockProject),
+    unblockProject: promisify(unblockProject),
+    updateProjectStructure: promisify(updateProjectStructure),
+  },
 }

@@ -69,7 +69,7 @@ const wrapRangeInList = (
   ]
 
   // map through the prefix
-  range = EditorSelection.cursor(range.to).map(state.changes(changes), 1)
+  range = EditorSelection.cursor(range.to, -1).map(state.changes(changes), 1)
 
   changes.push({
     from: toLine.to,
@@ -343,5 +343,7 @@ export const toggleListForRanges =
 
 export const wrapInBulletList = wrapRangesInList('itemize')
 export const wrapInNumberedList = wrapRangesInList('enumerate')
+export const wrapInDescriptionList = wrapRangesInList('description')
 export const unwrapBulletList = unwrapRangesFromList('itemize')
 export const unwrapNumberedList = unwrapRangesFromList('enumerate')
+export const unwrapDescriptionList = unwrapRangesFromList('description')

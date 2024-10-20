@@ -58,6 +58,8 @@ const Features = {
         )
       case 'registration':
         return Boolean(Settings.overleaf)
+      case 'chat':
+        return Boolean(Settings.disableChat) === false
       case 'github-sync':
         return Boolean(Settings.enableGithubSync)
       case 'git-bridge':
@@ -65,12 +67,10 @@ const Features = {
       case 'oauth':
         return Boolean(Settings.oauth)
       case 'templates-server-pro':
-        return Boolean(Settings.templates)
+        return Boolean(Settings.templates?.user_id)
       case 'affiliations':
       case 'analytics':
         return Boolean(_.get(Settings, ['apis', 'v1', 'url']))
-      case 'overleaf-integration':
-        return Boolean(Settings.overleaf)
       case 'references':
         return Boolean(_.get(Settings, ['apis', 'references', 'url']))
       case 'saml':

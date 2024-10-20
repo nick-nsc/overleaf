@@ -2,7 +2,7 @@ const { callbackify } = require('util')
 const { callbackifyMultiResult } = require('@overleaf/promise-utils')
 const logger = require('@overleaf/logger')
 const path = require('path')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 const Settings = require('@overleaf/settings')
 const OError = require('@overleaf/o-error')
 const CooldownManager = require('../Cooldown/CooldownManager')
@@ -265,9 +265,8 @@ async function mkdirp(projectId, path, options = {}) {
   // to make matching case-sensitive
   const folders = path.split('/').filter(folder => folder.length !== 0)
 
-  const project = await ProjectGetter.promises.getProjectWithOnlyFolders(
-    projectId
-  )
+  const project =
+    await ProjectGetter.promises.getProjectWithOnlyFolders(projectId)
   if (path === '/') {
     return { newFolders: [], folder: project.rootFolder[0] }
   }
@@ -619,7 +618,7 @@ function _checkValidElementName(folder, name) {
     .concat(folder.folders || [])
   for (const element of elements) {
     if (element.name === name) {
-      throw new Errors.InvalidNameError('file already exists')
+      throw new Errors.DuplicateNameError('file already exists')
     }
   }
 }

@@ -340,17 +340,17 @@ describe('UserSessionsManager', function () {
     })
   })
 
-  describe('revokeAllUserSessions', function () {
+  describe('removeSessionsFromRedis', function () {
     beforeEach(function () {
       this.sessionKeys = ['sess:one', 'sess:two']
-      this.retain = []
+      this.currentSessionID = undefined
       this.rclient.smembers.callsArgWith(1, null, this.sessionKeys)
       this.rclient.del = sinon.stub().callsArgWith(1, null)
       this.rclient.srem = sinon.stub().callsArgWith(2, null)
       return (this.call = callback => {
-        return this.UserSessionsManager.revokeAllUserSessions(
+        return this.UserSessionsManager.removeSessionsFromRedis(
           this.user,
-          this.retain,
+          this.currentSessionID,
           callback
         )
       })
@@ -359,6 +359,14 @@ describe('UserSessionsManager', function () {
     it('should not produce an error', function (done) {
       return this.call(err => {
         expect(err).to.not.exist
+        return done()
+      })
+    })
+
+    it('should yield the number of purged sessions', function (done) {
+      return this.call((err, n) => {
+        expect(err).to.not.exist
+        expect(n).to.equal(this.sessionKeys.length)
         return done()
       })
     })
@@ -387,13 +395,13 @@ describe('UserSessionsManager', function () {
     describe('when a session is retained', function () {
       beforeEach(function () {
         this.sessionKeys = ['sess:one', 'sess:two', 'sess:three', 'sess:four']
-        this.retain = ['two']
+        this.currentSessionID = 'two'
         this.rclient.smembers.callsArgWith(1, null, this.sessionKeys)
         this.rclient.del = sinon.stub().callsArgWith(1, null)
         return (this.call = callback => {
-          return this.UserSessionsManager.revokeAllUserSessions(
+          return this.UserSessionsManager.removeSessionsFromRedis(
             this.user,
-            this.retain,
+            this.currentSessionID,
             callback
           )
         })
@@ -457,17 +465,19 @@ describe('UserSessionsManager', function () {
     describe('when no user is supplied', function () {
       beforeEach(function () {
         return (this.call = callback => {
-          return this.UserSessionsManager.revokeAllUserSessions(
+          return this.UserSessionsManager.removeSessionsFromRedis(
             null,
-            this.retain,
+            this.currentSessionID,
             callback
           )
         })
       })
 
-      it('should not produce an error', function (done) {
+      it('should produce an error', function (done) {
         return this.call(err => {
-          expect(err).to.not.exist
+          expect(err).to.match(
+            /bug: user not passed to removeSessionsFromRedis/
+          )
           return done()
         })
       })

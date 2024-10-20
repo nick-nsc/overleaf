@@ -1,7 +1,7 @@
-// @ts-ignore
-import MockedSocket from 'socket.io-mock'
+import '../../../helpers/bootstrap-3'
 import FileTreeRoot from '../../../../../frontend/js/features/file-tree/components/file-tree-root'
 import { EditorProviders } from '../../../helpers/editor-providers'
+import { SocketIOMock } from '@/ide/connection/SocketIoShim'
 
 describe('FileTree Delete Entity Flow', function () {
   beforeEach(function () {
@@ -11,7 +11,9 @@ describe('FileTree Delete Entity Flow', function () {
   })
 
   describe('single entity', function () {
+    let socket: SocketIOMock
     beforeEach(function () {
+      socket = new SocketIOMock()
       const rootFolder = [
         {
           _id: 'root-folder-id',
@@ -30,11 +32,10 @@ describe('FileTree Delete Entity Flow', function () {
           <EditorProviders
             rootFolder={rootFolder as any}
             projectId="123abc"
-            socket={new MockedSocket()}
+            socket={socket}
           >
             <FileTreeRoot
               refProviders={{}}
-              reindexReferences={cy.stub().as('reindexReferences')}
               setRefProviderEnabled={cy.stub()}
               setStartedFreeTrial={cy.stub()}
               onSelect={cy.stub()}
@@ -46,7 +47,7 @@ describe('FileTree Delete Entity Flow', function () {
       )
 
       cy.findByRole('treeitem', { name: 'main.tex' }).click()
-      cy.findByRole('button', { name: 'Menu' }).click()
+      cy.findByRole('button', { name: 'Open main.tex action menu' }).click()
       cy.findByRole('menuitem', { name: 'Delete' }).click()
     })
 
@@ -64,9 +65,8 @@ describe('FileTree Delete Entity Flow', function () {
 
       cy.wait('@deleteDoc')
 
-      cy.window().then(win => {
-        // @ts-ignore
-        win._ide.socket.socketClient.emit('removeEntity', '456def')
+      cy.then(() => {
+        socket.emitToClient('removeEntity', '456def')
       })
 
       cy.findByRole('treeitem', {
@@ -84,7 +84,6 @@ describe('FileTree Delete Entity Flow', function () {
       ).should('not.exist')
 
       cy.get('@deleteDoc.all').should('have.length', 1)
-      cy.get('@reindexReferences').should('not.have.been.called')
     })
 
     it('continues delete on 404s', function () {
@@ -99,9 +98,8 @@ describe('FileTree Delete Entity Flow', function () {
 
       cy.findByRole('button', { name: 'Delete' }).click()
 
-      cy.window().then(win => {
-        // @ts-ignore
-        win._ide.socket.socketClient.emit('removeEntity', '456def')
+      cy.then(() => {
+        socket.emitToClient('removeEntity', '456def')
       })
 
       cy.findByRole('treeitem', {
@@ -133,7 +131,9 @@ describe('FileTree Delete Entity Flow', function () {
   })
 
   describe('folders', function () {
+    let socket: SocketIOMock
     beforeEach(function () {
+      socket = new SocketIOMock()
       const rootFolder = [
         {
           _id: 'root-folder-id',
@@ -157,11 +157,10 @@ describe('FileTree Delete Entity Flow', function () {
           <EditorProviders
             rootFolder={rootFolder as any}
             projectId="123abc"
-            socket={new MockedSocket()}
+            socket={socket}
           >
             <FileTreeRoot
               refProviders={{}}
-              reindexReferences={cy.stub().as('reindexReferences')}
               setRefProviderEnabled={cy.stub()}
               setStartedFreeTrial={cy.stub()}
               onSelect={cy.stub()}
@@ -179,9 +178,8 @@ describe('FileTree Delete Entity Flow', function () {
         cmdKey: true,
       })
 
-      cy.window().then(win => {
-        // @ts-ignore
-        win._ide.socket.socketClient.emit('removeEntity', '123abc')
+      cy.then(() => {
+        socket.emitToClient('removeEntity', '123abc')
       })
     })
 
@@ -197,14 +195,16 @@ describe('FileTree Delete Entity Flow', function () {
       // as a proxy to check that the child entity has been unselect we start
       // a delete and ensure the modal is displayed (the cancel button can be
       // selected) This is needed to make sure the test fail.
-      cy.findByRole('button', { name: 'Menu' }).click()
+      cy.findByRole('button', { name: 'Open main.tex action menu' }).click()
       cy.findByRole('menuitem', { name: 'Delete' }).click()
       cy.findByRole('button', { name: 'Cancel' })
     })
   })
 
   describe('multiple entities', function () {
+    let socket: SocketIOMock
     beforeEach(function () {
+      socket = new SocketIOMock()
       const rootFolder = [
         {
           _id: 'root-folder-id',
@@ -220,11 +220,10 @@ describe('FileTree Delete Entity Flow', function () {
           <EditorProviders
             rootFolder={rootFolder as any}
             projectId="123abc"
-            socket={new MockedSocket()}
+            socket={socket}
           >
             <FileTreeRoot
               refProviders={{}}
-              reindexReferences={cy.stub().as('reindexReferences')}
               setRefProviderEnabled={cy.stub()}
               setStartedFreeTrial={cy.stub()}
               onSelect={cy.stub()}
@@ -264,11 +263,9 @@ describe('FileTree Delete Entity Flow', function () {
 
       cy.findByRole('button', { name: 'Delete' }).click()
 
-      cy.window().then(win => {
-        // @ts-ignore
-        win._ide.socket.socketClient.emit('removeEntity', '456def')
-        // @ts-ignore
-        win._ide.socket.socketClient.emit('removeEntity', '789ghi')
+      cy.then(() => {
+        socket.emitToClient('removeEntity', '456def')
+        socket.emitToClient('removeEntity', '789ghi')
       })
 
       for (const name of ['main.tex', 'my.bib']) {
@@ -282,7 +279,6 @@ describe('FileTree Delete Entity Flow', function () {
 
       cy.get('@deleteDoc.all').should('have.length', 1)
       cy.get('@deleteFile.all').should('have.length', 1)
-      cy.get('@reindexReferences').should('have.been.calledOnce')
     })
   })
 })

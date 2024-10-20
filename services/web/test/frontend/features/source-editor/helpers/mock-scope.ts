@@ -41,10 +41,12 @@ export const mockScope = (content?: string) => {
                 {
                   _id: figureId,
                   name: 'frog.jpg',
+                  hash: '42',
                 },
                 {
                   _id: 'fake-figure-id',
                   name: 'unicorn.png',
+                  hash: '43',
                 },
               ],
             },
@@ -55,6 +57,8 @@ export const mockScope = (content?: string) => {
       features: {
         trackChanges: true,
       },
+      trackChangesState: {},
+      members: [],
     },
     permissions: {
       comment: true,
@@ -78,10 +82,5 @@ export const mockScope = (content?: string) => {
     $on: cy.stub().log(false),
     $broadcast: cy.stub().log(false),
     $emit: cy.stub().log(false),
-    $root: {
-      _references: {
-        keys: ['foo'],
-      },
-    },
   }
 }

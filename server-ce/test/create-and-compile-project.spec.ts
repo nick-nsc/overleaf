@@ -1,19 +1,24 @@
-import { login } from './helpers/login'
+import { ensureUserExists, login } from './helpers/login'
 import { createProject } from './helpers/project'
+import { isExcludedBySharding, startWith } from './helpers/config'
+import { throttledRecompile } from './helpers/compile'
 
 describe('Project creation and compilation', function () {
+  if (isExcludedBySharding('CE_DEFAULT')) return
+  startWith({})
+  ensureUserExists({ email: 'user@example.com' })
+  ensureUserExists({ email: 'collaborator@example.com' })
+
   it('users can create project and compile it', function () {
     login('user@example.com')
     cy.visit('/project')
     // this is the first project created, the welcome screen is displayed instead of the project list
-    createProject('test-project', { isFirstProject: true })
+    createProject('test-project')
     cy.url().should('match', /\/project\/[a-fA-F0-9]{24}/)
+    const recompile = throttledRecompile()
     cy.findByText('\\maketitle').parent().click()
     cy.findByText('\\maketitle').parent().type('\n\\section{{}Test Section}')
-    // Wait for the PDF compilation throttling
-    // eslint-disable-next-line cypress/no-unnecessary-waiting
-    cy.wait(3000)
-    cy.findByText('Recompile').click()
+    recompile()
     cy.get('.pdf-viewer').should('contain.text', 'Test Section')
   })
 
@@ -24,7 +29,7 @@ describe('Project creation and compilation', function () {
     cy.visit('/project')
     createProject('test-project')
     // FIXME: Add aria-label maybe? or at least data-test-id
-    cy.findByText('New File').click({ force: true })
+    cy.findByText('New file').click({ force: true })
     cy.findByRole('dialog').within(() => {
       cy.get('input').clear()
       cy.get('input').type(fileName)
@@ -54,9 +59,9 @@ describe('Project creation and compilation', function () {
     createProject(targetProjectName)
 
     // link the image from `projectName` into this project
-    cy.findByText('New File').click({ force: true })
+    cy.findByText('New file').click({ force: true })
     cy.findByRole('dialog').within(() => {
-      cy.findByText('From Another Project').click()
+      cy.findByText('From another project').click()
       cy.findByLabelText('Select a Project').select(sourceProjectName)
       cy.findByLabelText('Select a File').select('frog.jpg')
       cy.findByText('Create').click()
@@ -85,9 +90,9 @@ describe('Project creation and compilation', function () {
     createProject(targetProjectName).as('targetProjectId')
 
     // link the image from `projectName` into this project
-    cy.findByText('New File').click({ force: true })
+    cy.findByText('New file').click({ force: true })
     cy.findByRole('dialog').within(() => {
-      cy.findByText('From Another Project').click()
+      cy.findByText('From another project').click()
       cy.findByLabelText('Select a Project').select(sourceProjectName)
       cy.findByLabelText('Select a File').select('frog.jpg')
       cy.findByText('Create').click()
@@ -105,12 +110,12 @@ describe('Project creation and compilation', function () {
 
     login('collaborator@example.com')
     cy.visit('/project')
-    // FIXME: Should  have data-test-id
     cy.findByText(targetProjectName)
       .parent()
       .parent()
-      .find('button.btn-info')
-      .click()
+      .within(() => {
+        cy.findByText('Join Project').click()
+      })
     cy.findByText('Open Project').click()
     cy.url().should('match', /\/project\/[a-fA-F0-9]{24}/)
     cy.get('@targetProjectId').then(targetProjectId => {

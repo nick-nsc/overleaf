@@ -1,10 +1,13 @@
 import { memo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Label } from 'react-bootstrap'
-import Tooltip from '../../../shared/components/tooltip'
-import Icon from '../../../shared/components/icon'
-import { useDetachCompileContext as useCompileContext } from '../../../shared/context/detach-compile-context'
-import * as eventTracking from '../../../infrastructure/event-tracking'
+import Icon from '@/shared/components/icon'
+import MaterialIcon from '@/shared/components/material-icon'
+import { useDetachCompileContext as useCompileContext } from '@/shared/context/detach-compile-context'
+import * as eventTracking from '@/infrastructure/event-tracking'
+import OLTooltip from '@/features/ui/components/ol/ol-tooltip'
+import OLButton from '@/features/ui/components/ol/ol-button'
+import OLBadge from '@/features/ui/components/ol/ol-badge'
+import BootstrapVersionSwitcher from '@/features/ui/components/bootstrap-5/bootstrap-version-switcher'
 
 function PdfHybridLogsButton() {
   const { error, logEntries, toggleLogs, showLogs, stoppedOnFirstError } =
@@ -25,29 +28,32 @@ function PdfHybridLogsButton() {
   const totalCount = errorCount + warningCount
 
   return (
-    <Tooltip
+    <OLTooltip
       id="logs-toggle"
       description={t('logs_and_output_files')}
       overlayProps={{ placement: 'bottom' }}
     >
-      <Button
-        bsStyle="link"
+      <OLButton
+        variant="link"
         disabled={Boolean(error || stoppedOnFirstError)}
         active={showLogs}
-        className="toolbar-item log-btn"
+        className="pdf-toolbar-btn toolbar-item log-btn"
         onClick={handleClick}
         style={{ position: 'relative' }}
         aria-label={showLogs ? t('view_pdf') : t('view_logs')}
       >
-        <Icon type="file-text-o" fw />
+        <BootstrapVersionSwitcher
+          bs3={<Icon type="file-text-o" fw />}
+          bs5={<MaterialIcon type="description" />}
+        />
 
         {!showLogs && totalCount > 0 && (
-          <Label bsStyle={errorCount === 0 ? 'warning' : 'danger'}>
+          <OLBadge bg={errorCount === 0 ? 'warning' : 'danger'}>
             {totalCount}
-          </Label>
+          </OLBadge>
         )}
-      </Button>
-    </Tooltip>
+      </OLButton>
+    </OLTooltip>
   )
 }
 

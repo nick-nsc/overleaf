@@ -8,7 +8,6 @@ import { renderWithProjectListContext } from '../../helpers/render-with-context'
 describe('<TagsList />', function () {
   beforeEach(async function () {
     global.localStorage.clear()
-    window.metaAttributesCache = new Map()
     window.metaAttributesCache.set('ol-tags', [
       {
         _id: 'abc123def456',
@@ -42,9 +41,9 @@ describe('<TagsList />', function () {
   })
 
   it('displays the tags list', function () {
-    screen.getByRole('heading', {
-      name: 'Organize Projects',
-    })
+    const header = screen.getByTestId('organize-projects')
+    expect(header.textContent).to.equal('Organize Projects')
+
     screen.getByRole('button', {
       name: 'New Tag',
     })

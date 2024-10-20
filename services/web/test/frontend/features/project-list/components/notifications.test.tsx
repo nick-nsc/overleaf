@@ -28,6 +28,7 @@ import ConfirmEmail from '../../../../../frontend/js/features/project-list/compo
 import ReconfirmationInfo from '../../../../../frontend/js/features/project-list/components/notifications/groups/affiliation/reconfirmation-info'
 import UserNotifications from '../../../../../frontend/js/features/project-list/components/notifications/user-notifications'
 import { ProjectListProvider } from '../../../../../frontend/js/features/project-list/context/project-list-context'
+import { SplitTestProvider } from '@/shared/context/split-test-context'
 import {
   Notification,
   Institution as InstitutionType,
@@ -44,12 +45,15 @@ import {
   groupSubscription,
   individualSubscription,
 } from '../fixtures/user-subscriptions'
+import getMeta from '@/utils/meta'
 
 const renderWithinProjectListProvider = (Component: React.ComponentType) => {
   render(<Component />, {
     wrapper: ({ children }) => (
       <ProjectListProvider>
-        <ul className="list-unstyled">{children}</ul>
+        <SplitTestProvider>
+          <ul className="list-unstyled">{children}</ul>
+        </SplitTestProvider>
       </ProjectListProvider>
     ),
   })
@@ -62,7 +66,6 @@ describe('<UserNotifications />', function () {
   }
 
   beforeEach(function () {
-    window.metaAttributesCache = window.metaAttributesCache || new Map()
     fetchMock.reset()
 
     // at least one project is required to show some notifications
@@ -77,18 +80,16 @@ describe('<UserNotifications />', function () {
   })
 
   afterEach(function () {
-    window.metaAttributesCache = new Map()
     fetchMock.reset()
   })
 
   describe('<Common>', function () {
     beforeEach(function () {
-      window.metaAttributesCache = window.metaAttributesCache || new Map()
-      window.metaAttributesCache.set('ol-ExposedSettings', exposedSettings)
+      window.metaAttributesCache.set('ol-user', {})
+      Object.assign(getMeta('ol-ExposedSettings'), exposedSettings)
     })
 
     afterEach(function () {
-      window.metaAttributesCache = new Map()
       fetchMock.reset()
     })
 
@@ -294,14 +295,12 @@ describe('<UserNotifications />', function () {
 
       screen.getByRole('alert')
       screen.getByText(/file limit/i)
-      screen.getByText(
-        /please decrease the size of your project to prevent further errors/i
-      )
+      screen.getByText(/You can't add more files to the project or sync it/i)
 
       const accountSettings = screen.getByRole('link', {
-        name: /account settings/i,
+        name: /Open project/i,
       })
-      expect(accountSettings.getAttribute('href')).to.equal('/user/settings')
+      expect(accountSettings.getAttribute('href')).to.equal('/project/123')
       const closeBtn = screen.getByRole('button', { name: /close/i })
       fireEvent.click(closeBtn)
 
@@ -415,8 +414,9 @@ describe('<UserNotifications />', function () {
           await fetchMock.flush(true)
           fetchMock.delete(`/notifications/${notificationGroupInvite._id}`, 200)
           screen.getByRole('alert')
+          screen.getByText('inviter@overleaf.com')
           screen.getByText(
-            /inviter@overleaf.com has invited you to join a group subscription on Overleaf/
+            /has invited you to join a group subscription on Overleaf/
           )
           screen.getByRole('button', { name: 'Join now' })
           screen.getByRole('button', { name: /close/i })
@@ -461,8 +461,7 @@ describe('<UserNotifications />', function () {
 
   describe('<Institution>', function () {
     beforeEach(function () {
-      window.metaAttributesCache = window.metaAttributesCache || new Map()
-      window.metaAttributesCache.set('ol-ExposedSettings', exposedSettings)
+      Object.assign(getMeta('ol-ExposedSettings'), exposedSettings)
       fetchMock.reset()
     })
 
@@ -592,7 +591,7 @@ describe('<UserNotifications />', function () {
 
   describe('<ConfirmEmail/>', function () {
     beforeEach(async function () {
-      window.metaAttributesCache.set('ol-ExposedSettings', {
+      Object.assign(getMeta('ol-ExposedSettings'), {
         emailConfirmationDisabled: false,
       })
       window.metaAttributesCache.set('ol-userEmails', [unconfirmedUserData])
@@ -693,18 +692,17 @@ describe('<UserNotifications />', function () {
     let assignStub: sinon.SinonStub
 
     beforeEach(function () {
-      window.metaAttributesCache = window.metaAttributesCache || new Map()
-      window.metaAttributesCache.set('ol-ExposedSettings', exposedSettings)
+      Object.assign(getMeta('ol-ExposedSettings'), exposedSettings)
       assignStub = sinon.stub()
       this.locationStub = sinon.stub(useLocationModule, 'useLocation').returns({
         assign: assignStub,
+        replace: sinon.stub(),
         reload: sinon.stub(),
       })
       fetchMock.reset()
     })
 
     afterEach(function () {
-      window.metaAttributesCache = new Map()
       this.locationStub.restore()
       fetchMock.reset()
     })
@@ -787,7 +785,6 @@ describe('<UserNotifications />', function () {
 
   describe('<GroupsAndEnterpriseBanner />', function () {
     beforeEach(function () {
-      window.metaAttributesCache = window.metaAttributesCache || new Map()
       localStorage.clear()
       fetchMock.reset()
 
@@ -803,13 +800,12 @@ describe('<UserNotifications />', function () {
 
       window.metaAttributesCache.set(
         'ol-groupsAndEnterpriseBannerVariant',
-        'did-you-know'
+        'on-premise'
       )
     })
 
     afterEach(function () {
       fetchMock.reset()
-      window.metaAttributesCache = window.metaAttributesCache || new Map()
     })
 
     it('does not show the banner for users that are in group or are affiliated', async function () {
@@ -883,28 +879,10 @@ describe('<UserNotifications />', function () {
 
       afterEach(function () {
         fetchMock.reset()
-        window.metaAttributesCache = window.metaAttributesCache || new Map()
       })
 
       after(function () {
         localStorage.clear()
-      })
-
-      it('will show the correct text for the `did-you-know` variant', async function () {
-        window.metaAttributesCache.set(
-          'ol-groupsAndEnterpriseBannerVariant',
-          'did-you-know'
-        )
-
-        renderWithinProjectListProvider(GroupsAndEnterpriseBanner)
-        await fetchMock.flush(true)
-
-        screen.getByText(
-          'Did you know that Overleaf offers group and organization-wide subscription options? Request information or a quote.'
-        )
-        const link = screen.getByRole('link', { name: 'Contact Sales' })
-
-        expect(link.getAttribute('href')).to.equal(`/for/contact-sales-1`)
       })
 
       it('will show the correct text for the `on-premise` variant', async function () {
@@ -922,23 +900,6 @@ describe('<UserNotifications />', function () {
         const link = screen.getByRole('link', { name: 'Contact Sales' })
 
         expect(link.getAttribute('href')).to.equal(`/for/contact-sales-2`)
-      })
-
-      it('will show the correct text for the `people` variant', async function () {
-        window.metaAttributesCache.set(
-          'ol-groupsAndEnterpriseBannerVariant',
-          'people'
-        )
-
-        renderWithinProjectListProvider(GroupsAndEnterpriseBanner)
-        await fetchMock.flush(true)
-
-        screen.getByText(
-          'Other people at your company may already be using Overleaf. Save money with Overleaf group and company-wide subscriptions. Request more information.'
-        )
-        const link = screen.getByRole('link', { name: 'Contact Sales' })
-
-        expect(link.getAttribute('href')).to.equal(`/for/contact-sales-3`)
       })
 
       it('will show the correct text for the `FOMO` variant', async function () {
@@ -962,8 +923,7 @@ describe('<UserNotifications />', function () {
 
   describe('<WritefullPromoBanner>', function () {
     beforeEach(function () {
-      window.metaAttributesCache = window.metaAttributesCache || new Map()
-      window.metaAttributesCache.set('ol-ExposedSettings', exposedSettings)
+      Object.assign(getMeta('ol-ExposedSettings'), exposedSettings)
       window.metaAttributesCache.set('ol-showWritefullPromoBanner', true)
 
       // The older banner is only shown to Chrome users
@@ -971,10 +931,6 @@ describe('<UserNotifications />', function () {
       navigator.userAgentData = { brands: [{ brand: 'Chromium' }] }
 
       localStorage.clear()
-    })
-
-    afterEach(function () {
-      window.metaAttributesCache = window.metaAttributesCache || new Map()
     })
 
     describe('when the writefull integration is enabled', function () {
@@ -996,7 +952,12 @@ describe('<UserNotifications />', function () {
       it('dismisses the banner when the close button is clicked', function () {
         renderWithinProjectListProvider(UserNotifications)
         screen.getByRole('link', { name: /Writefull/ })
-        const closeButton = screen.getByRole('button', { name: 'Close' })
+        const WritefullPromoBanner = screen.getByTestId(
+          'writefull-premium-promo-banner'
+        )
+        const closeButton = within(WritefullPromoBanner).getByRole('button', {
+          name: 'Close',
+        })
         fireEvent.click(closeButton)
         expect(screen.queryByRole('link', { name: /Writefull/ })).to.be.null
         expect(localStorage.getItem('has_dismissed_writefull_promo_banner')).to
@@ -1028,14 +989,6 @@ describe('<UserNotifications />', function () {
   })
 
   describe('GroupSsoSetupSuccess', function () {
-    beforeEach(function () {
-      window.metaAttributesCache = window.metaAttributesCache || new Map()
-    })
-
-    afterEach(function () {
-      window.metaAttributesCache = window.metaAttributesCache || new Map()
-    })
-
     it('shows group SSO linked notification', function () {
       window.metaAttributesCache.set('ol-groupSsoSetupSuccess', true)
       renderWithinProjectListProvider(GroupSsoSetupSuccess)

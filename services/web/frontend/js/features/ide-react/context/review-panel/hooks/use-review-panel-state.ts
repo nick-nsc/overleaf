@@ -24,7 +24,6 @@ import {
   useEditorManagerContext,
 } from '@/features/ide-react/context/editor-manager-context'
 import { debugConsole } from '@/utils/debugging'
-import { useEditorContext } from '@/shared/context/editor-context'
 import { deleteJSON, getJSON, postJSON } from '@/infrastructure/fetch-json'
 import ColorManager from '@/ide/colors/ColorManager'
 import RangesTracker from '@overleaf/ranges-tracker'
@@ -65,6 +64,8 @@ import {
   EditOperation,
 } from '../../../../../../../types/change'
 import { RangesTrackerWithResolvedThreadIds } from '@/features/ide-react/editor/document-container'
+import getMeta from '@/utils/meta'
+import { useEditorContext } from '@/shared/context/editor-context'
 
 const dispatchReviewPanelEvent = (type: string, payload?: any) => {
   window.dispatchEvent(
@@ -89,7 +90,7 @@ const formatUser = (user: any): any => {
       avatar_text: 'A',
     }
   }
-  if (id === window.user_id) {
+  if (id === getMeta('ol-user_id')) {
     name = 'You'
     isSelf = true
   } else {
@@ -170,10 +171,7 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
     ReviewPanel.Value<'commentThreads'>
   >({})
   const [entries, setEntries] = useState<ReviewPanel.Value<'entries'>>({})
-  const [users, setUsers] = useScopeValue<ReviewPanel.Value<'users'>>(
-    'users',
-    true
-  )
+  const [users, setUsers] = useScopeValue<ReviewPanel.Value<'users'>>('users')
   const [resolvedComments, setResolvedComments] = useState<
     ReviewPanel.Value<'resolvedComments'>
   >({})
@@ -226,8 +224,8 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
             MergeAndOverride<
               ReviewPanelCommentThread,
               ReviewPanelCommentThreadsApi[ThreadId]
-            >
-          ]
+            >,
+          ],
         ]
         for (const [threadId, thread] of threadsEntries) {
           for (const comment of thread.messages) {
@@ -282,7 +280,7 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
           const tempUsers = {} as ReviewPanel.Value<'users'>
           // Always include ourself, since if we submit an op, we might need to display info
           // about it locally before it has been flushed through the server
-          if (user) {
+          if (user?.id) {
             tempUsers[user.id] = formatUser(user)
           }
 
@@ -428,17 +426,15 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
 
       let localResolvedThreadIds = resolvedThreadIds
 
-      if (!isRestrictedTokenMember) {
-        if (rangesTracker.comments.length > 0) {
-          const threadsLoadResult = await ensureThreadsAreLoaded()
-          if (threadsLoadResult?.resolvedThreadIds) {
-            localResolvedThreadIds = threadsLoadResult.resolvedThreadIds
-          }
-        } else if (loadingThreads) {
-          // ensure that tracked changes are highlighted even if no comments are loaded
-          setLoadingThreads(false)
-          dispatchReviewPanelEvent('loaded_threads')
+      if (!isRestrictedTokenMember && rangesTracker.comments.length > 0) {
+        const threadsLoadResult = await ensureThreadsAreLoaded()
+        if (threadsLoadResult?.resolvedThreadIds) {
+          localResolvedThreadIds = threadsLoadResult.resolvedThreadIds
         }
+      } else if (loadingThreads) {
+        // ensure that tracked changes are highlighted even if no comments are loaded
+        setLoadingThreads(false)
+        dispatchReviewPanelEvent('loaded_threads')
       }
 
       if (!loadingThreadsInProgressRef.current) {
@@ -487,13 +483,13 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
       getChangeTracker,
       getDocEntries,
       getDocResolvedComments,
-      isRestrictedTokenMember,
       refreshChangeUsers,
       resolvedThreadIds,
       users,
       ensureThreadsAreLoaded,
       loadingThreads,
       setLoadingThreads,
+      isRestrictedTokenMember,
     ]
   )
 
@@ -534,7 +530,6 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
     if (!user) {
       return 'anonymous'
     }
-    // FIXME: check this
     if (project.owner._id === user.id) {
       return 'member'
     }
@@ -565,8 +560,8 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
           [
             UserId,
             NonNullable<
-              typeof trackChangesState[keyof typeof trackChangesState]
-            >
+              (typeof trackChangesState)[keyof typeof trackChangesState]
+            >,
           ]
         >
         for (const [userId, { value }] of entries) {
@@ -605,7 +600,7 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
       }
       const state =
         newTrackChangesState[userId] ??
-        ({} as NonNullable<typeof newTrackChangesState[UserId]>)
+        ({} as NonNullable<(typeof newTrackChangesState)[UserId]>)
       newTrackChangesState[userId] = state
 
       if (state.syncState == null || state.syncState === 'synced') {
@@ -723,7 +718,7 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
   )
 
   const applyTrackChangesStateToClient = useCallback(
-    (state: boolean | ReviewPanel.Value<'trackChangesState'>) => {
+    (state: boolean | Record<UserId | '__guests__', boolean>) => {
       if (typeof state === 'boolean') {
         setEveryoneTCState(state)
         setGuestsTCState(state)
@@ -898,7 +893,9 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
         },
       }))
 
-      postJSON(`/project/${projectId}/thread/${entry.thread_id}/resolve`)
+      postJSON(
+        `/project/${projectId}/doc/${docId}/thread/${entry.thread_id}/resolve`
+      )
       onCommentResolved(entry.thread_id, user)
       sendMB('rp-comment-resolve', { view })
     },
@@ -925,9 +922,9 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
   )
 
   const unresolveComment = useCallback(
-    (threadId: ThreadId) => {
+    (docId: DocId, threadId: ThreadId) => {
       onCommentReopened(threadId)
-      const url = `/project/${projectId}/thread/${threadId}/reopen`
+      const url = `/project/${projectId}/doc/${docId}/thread/${threadId}/reopen`
       postJSON(url).catch(debugConsole.error)
       sendMB('rp-comment-reopen')
     },
@@ -1186,8 +1183,8 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
   // listen for events from the CodeMirror 6 track changes extension
   useEffect(() => {
     const toggleTrackChangesFromKbdShortcut = () => {
-      if (trackChangesVisible && trackChanges) {
-        const userId: UserId = user.id
+      const userId = user.id
+      if (trackChangesVisible && trackChanges && userId) {
         const state = trackChangesState[userId]
         if (state) {
           toggleTrackChangesForUser(!state.value, userId)
@@ -1456,6 +1453,27 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
       [getThread]
     )
   )
+  useSocketListener(
+    socket,
+    'new-comment-threads',
+    useCallback(
+      (threads: ReviewPanelCommentThreadsApi) => {
+        setCommentThreads(prevState => {
+          const newThreads = { ...prevState }
+          for (const threadIdString of Object.keys(threads)) {
+            const threadId = threadIdString as ThreadId
+            const { submitting: _, ...thread } = getThread(threadId)
+            // Replace already loaded messages with the server provided ones
+            thread.messages = threads[threadId].messages.map(formatComment)
+            newThreads[threadId] = thread
+          }
+          return newThreads
+        })
+        handleLayoutChange({ async: true })
+      },
+      [getThread]
+    )
+  )
 
   const openSubView = useRef<typeof subView>('cur_file')
   useEffect(() => {
@@ -1473,17 +1491,6 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
   }, [reviewPanelOpen])
 
   const canRefreshRanges = useRef(false)
-  useEffect(() => {
-    if (subView === 'overview' && canRefreshRanges.current) {
-      canRefreshRanges.current = false
-
-      setIsOverviewLoading(true)
-      refreshRanges().finally(() => {
-        setIsOverviewLoading(false)
-      })
-    }
-  }, [subView, refreshRanges])
-
   const prevSubView = useRef(subView)
   const initializedPrevSubView = useRef(false)
   useEffect(() => {
@@ -1496,6 +1503,17 @@ function useReviewPanelState(): ReviewPanel.ReviewPanelState {
     // Allow refreshing ranges once for each `subView` change
     canRefreshRanges.current = true
   }, [subView])
+
+  useEffect(() => {
+    if (subView === 'overview' && canRefreshRanges.current) {
+      canRefreshRanges.current = false
+
+      setIsOverviewLoading(true)
+      refreshRanges().finally(() => {
+        setIsOverviewLoading(false)
+      })
+    }
+  }, [subView, refreshRanges])
 
   useEffect(() => {
     if (subView === 'cur_file' && prevSubView.current === 'overview') {

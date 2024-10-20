@@ -1,5 +1,9 @@
 const EditOperation = require('./edit_operation')
 
+/**
+ * @import { RawEditNoOperation } from '../types'
+ */
+
 class EditNoOperation extends EditOperation {
   /**
    * @inheritdoc
@@ -9,7 +13,7 @@ class EditNoOperation extends EditOperation {
 
   /**
    * @inheritdoc
-   * @returns {object}
+   * @returns {RawEditNoOperation}
    */
   toJSON() {
     return {

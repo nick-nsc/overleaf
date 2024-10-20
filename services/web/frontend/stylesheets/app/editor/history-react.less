@@ -44,7 +44,12 @@ history-root {
     .doc-container {
       flex: 1;
       overflow-y: auto;
+      display: flex;
     }
+  }
+
+  .doc-container .loading {
+    margin: 10rem auto auto;
   }
 
   .change-list {
@@ -102,6 +107,7 @@ history-root {
   }
 
   .history-version-details {
+    display: flow-root;
     padding-top: 8px;
     padding-bottom: 8px;
     position: relative;
@@ -162,6 +168,10 @@ history-root {
     list-style: none;
   }
 
+  .history-version-restore-file {
+    margin-bottom: 8px;
+  }
+
   .history-version-metadata-users {
     display: inline;
 
@@ -207,6 +217,7 @@ history-root {
   .history-version-change-doc {
     color: @neutral-90;
     overflow-wrap: anywhere;
+    white-space: pre-wrap;
   }
 
   .history-version-divider-container {
@@ -235,20 +246,15 @@ history-root {
   }
 
   .loading {
-    padding-top: 10rem;
     font-family: @font-family-serif;
-    text-align: center;
   }
 
-  & > .loading {
-    flex: 1;
-  }
-
-  .history-all-versions-scroller .loading {
+  .history-all-versions-loading {
     position: sticky;
     bottom: 0;
     padding: @line-height-computed / 2 0;
     background-color: @gray-lightest;
+    text-align: center;
   }
 
   .history-version-saved-by {
@@ -266,8 +272,11 @@ history-root {
 
   .history-compare-btn,
   .history-version-dropdown-menu-btn {
+    .reset-button;
+
     @size: 30px;
     padding: 0;
+    border-radius: @btn-border-radius-large;
     width: @size;
     height: @size;
     line-height: 1;
@@ -422,6 +431,9 @@ history-root {
   color: @neutral-10;
   vertical-align: top;
 }
+.history-restore-promo-icon {
+  vertical-align: middle;
+}
 
 .history-file-tree {
   display: flex !important; // To work around jQuery layout's inline styles
@@ -502,6 +514,7 @@ history-root {
             text-align: left;
             font-weight: normal;
             flex-grow: 1;
+            white-space: pre;
 
             &.strikethrough {
               text-decoration: line-through;

@@ -18,6 +18,12 @@ export const environments = new Map([
 \\end{array}`,
   ],
   ['center', snippet('center')],
+  [
+    'description',
+    `\\begin{description}
+\t\\item[$1] $2
+\\end{description}`,
+  ],
   ['document', snippetNoIndent('document')],
   ['equation', snippet('equation')],
   ['equation*', snippet('equation*')],
@@ -31,7 +37,7 @@ export const environments = new Map([
     'figure',
     `\\begin{figure}
 \t\\centering
-\t\\includegraphics{$1}
+\t\\includegraphics[width=0.5\\linewidth]{$1}
 \t\\caption{\${2:Caption}}
 \t\\label{\${3:fig:enter-label}}
 \\end{figure}`,

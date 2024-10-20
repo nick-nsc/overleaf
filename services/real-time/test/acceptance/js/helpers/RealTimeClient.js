@@ -47,9 +47,20 @@ module.exports = Client = {
       if (error != null) {
         return callback(error)
       }
-      const secret = Settings.security.sessionSecret
-      const cookieKey = 's:' + signature.sign(sessionId, secret)
-      Client.cookie = `${Settings.cookieName}=${cookieKey}`
+      Client.cookieSignedWith = {}
+      // prepare cookie strings for all supported session secrets
+      for (const secretName of [
+        'sessionSecret',
+        'sessionSecretFallback',
+        'sessionSecretUpcoming',
+      ]) {
+        const secret = Settings.security[secretName]
+        const cookieKey = 's:' + signature.sign(sessionId, secret)
+        Client.cookieSignedWith[secretName] =
+          `${Settings.cookieName}=${cookieKey}`
+      }
+      // default to the current session secret
+      Client.cookie = Client.cookieSignedWith.sessionSecret
       return callback()
     })
   },
@@ -74,7 +85,7 @@ module.exports = Client = {
   },
 
   connect(projectId, callback) {
-    const client = io.connect('http://localhost:3026', {
+    const client = io.connect('http://127.0.0.1:3026', {
       'force new connection': true,
       query: new URLSearchParams({ projectId }).toString(),
     })
@@ -105,7 +116,7 @@ module.exports = Client = {
     }
     return request.get(
       {
-        url: 'http://localhost:3026/clients',
+        url: 'http://127.0.0.1:3026/clients',
         json: true,
       },
       (error, response, data) => callback(error, data)
@@ -118,7 +129,7 @@ module.exports = Client = {
     }
     return request.get(
       {
-        url: `http://localhost:3026/clients/${clientId}`,
+        url: `http://127.0.0.1:3026/clients/${clientId}`,
         json: true,
       },
       (error, response, data) => {
@@ -134,7 +145,7 @@ module.exports = Client = {
   disconnectClient(clientId, callback) {
     request.post(
       {
-        url: `http://localhost:3026/client/${clientId}/disconnect`,
+        url: `http://127.0.0.1:3026/client/${clientId}/disconnect`,
       },
       (error, response, data) => callback(error, data)
     )

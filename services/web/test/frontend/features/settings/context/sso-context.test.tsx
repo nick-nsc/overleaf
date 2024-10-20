@@ -22,11 +22,6 @@ const mockOauthProviders = {
     name: 'ORCID',
     linkPath: '/auth/orcid',
   },
-  twitter: {
-    hideWhenNotLinked: true,
-    name: 'Twitter',
-    linkPath: '/auth/twitter',
-  },
 }
 
 describe('SSOContext', function () {
@@ -36,7 +31,6 @@ describe('SSOContext', function () {
     })
 
   beforeEach(function () {
-    window.metaAttributesCache = new Map()
     window.metaAttributesCache.set('ol-thirdPartyIds', {
       google: 'google-id',
     })

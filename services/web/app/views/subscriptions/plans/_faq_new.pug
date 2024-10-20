@@ -1,0 +1,65 @@
+include ./_plans_faq_tabs
+include ../../_mixins/eyebrow
+
+- var managingYourSubscription = 'managingYourSubscription'
+- var overleafIndividualPlans = 'overleafIndividualPlans'
+- var overleafGroupPlans = 'overleafGroupPlans'
+.plans-faq
+	.row.row-spaced-extra-large
+		.col-md-12.faq-heading-container
+			h2
+				+eyebrow(translate("frequently_asked_questions"))
+				| #{translate("your_questions_answered")}
+
+	.row
+		.col-xs-12
+			.ol-tabs-scrollable
+				.nav-tabs-container
+					ul.nav.nav-tabs(role="tablist")
+						li.active(role="presentation")
+							a(
+								role="tab"
+								data-toggle="tab"
+								href='#' + managingYourSubscription
+								aria-controls=managingYourSubscription
+							)
+								| #{translate('managing_your_subscription')}
+						li(role="presentation")
+							a(
+								role="tab"
+								data-toggle="tab"
+								href='#' + overleafIndividualPlans
+								aria-controls=overleafIndividualPlans
+							)
+								| #{translate('overleaf_individual_plans')}
+						li(role="presentation")
+							a(
+								role="tab"
+								data-toggle="tab"
+								href='#' + overleafGroupPlans
+								aria-controls=overleafGroupPlans
+							)
+								| #{translate('overleaf_group_plans')}
+
+				.tab-content
+					.tab-pane.active(
+						role="tabpanel"
+						id=managingYourSubscription
+					)
+						+managingYourSubscription()
+					.tab-pane(
+						role="tabpanel"
+						id=overleafIndividualPlans
+					)
+						+overleafIndividualPlans()
+					.tab-pane(
+						role="tabpanel"
+						id=overleafGroupPlans
+					)
+						+overleafGroupPlans()
+
+	.row.plans-faq-support
+		span #{translate('still_have_questions')}
+		button(data-ol-open-contact-form-modal="general")
+			span(style="margin-right: 4px") #{translate('contact_support')}
+			i.icon-md.material-symbols.material-symbols-rounded.material-symbols-arrow-right(aria-hidden="true") arrow_right_alt

@@ -11,8 +11,10 @@
 @import './editor/search.less';
 @import './editor/publish-template.less';
 @import './editor/online-users.less';
+@import './editor/math-preview.less';
 @import './editor/hotkeys.less';
 @import './editor/review-panel.less';
+@import './editor/review-panel-new.less';
 @import './editor/publish-modal.less';
 @import './editor/outline.less';
 @import './editor/logs.less';
@@ -654,24 +656,24 @@ CodeMirror
 .compile-time-warning {
   padding: @padding-sm;
   background-color: @ol-green;
-  width: 420px;
+  max-width: 420px;
   box-shadow: 5px 5px 6px rgba(0, 0, 0, 0.3);
 
   .warning-content {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-right: 32px;
+    flex-wrap: wrap;
+    gap: @alert-padding;
   }
 
   .warning-text {
-    max-width: 300px;
-    padding-right: @alert-padding;
     display: inline-block;
     font-size: @font-size-small;
   }
   .upgrade-prompt {
     display: inline-flex;
+    margin-left: auto;
   }
 
   button.btn {
@@ -713,7 +715,6 @@ CodeMirror
   }
 }
 
-.grammarly-advert,
 .legacy-editor-warning {
   width: 500px;
 
@@ -751,11 +752,4 @@ grammarly-extension[data-grammarly-shadow-root='true'] {
   margin: 48px 64px;
   width: 80%;
   max-width: 560px;
-}
-
-/* If the container is smaller than 400px */
-@container (max-width: 400px) {
-  .editor-notification {
-    display: none;
-  }
 }

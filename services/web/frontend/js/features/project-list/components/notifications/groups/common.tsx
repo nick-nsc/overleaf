@@ -1,22 +1,20 @@
 import { useTranslation, Trans } from 'react-i18next'
-import { Button } from 'react-bootstrap'
 import Notification from '../notification'
 import Icon from '../../../../../shared/components/icon'
 import getMeta from '../../../../../utils/meta'
 import useAsyncDismiss from '../hooks/useAsyncDismiss'
 import useAsync from '../../../../../shared/hooks/use-async'
 import { FetchError, postJSON } from '../../../../../infrastructure/fetch-json'
-import { ExposedSettings } from '../../../../../../../types/exposed-settings'
 import {
   NotificationProjectInvite,
   Notification as NotificationType,
 } from '../../../../../../../types/project/dashboard/notification'
-import { User } from '../../../../../../../types/user'
 import GroupInvitationNotification from './group-invitation/group-invitation'
 import { debugConsole } from '@/utils/debugging'
+import OLButton from '@/features/ui/components/ol/ol-button'
 
 function Common() {
-  const notifications = getMeta('ol-notifications', []) as NotificationType[]
+  const notifications = getMeta('ol-notifications') || []
   if (!notifications.length) {
     return null
   }
@@ -36,12 +34,8 @@ type CommonNotificationProps = {
 
 function CommonNotification({ notification }: CommonNotificationProps) {
   const { t } = useTranslation()
-  const { samlInitPath } = getMeta('ol-ExposedSettings') as ExposedSettings
-  const user = getMeta('ol-user', []) as Pick<User, 'features'>
-  const newNotificationStyle = getMeta(
-    'ol-newNotificationStyle',
-    false
-  ) as boolean
+  const { samlInitPath } = getMeta('ol-ExposedSettings')
+  const user = getMeta('ol-user')
   const { isLoading, isSuccess, error, runAsync } = useAsync<
     never,
     FetchError
@@ -63,18 +57,13 @@ function CommonNotification({ notification }: CommonNotificationProps) {
 
   const { _id: id, templateKey, html } = notification
 
-  // Temporarily remove IEEE Collabratec notification
-  if (templateKey === 'notification_ieee_collabratec_retirement') {
-    return null
-  }
-
   return (
     <>
       {templateKey === 'notification_project_invite' ? (
         <Notification
-          bsStyle="info"
+          type="info"
           onDismiss={() => id && handleDismiss(id)}
-          body={
+          content={
             accepted ? (
               <Trans
                 i18nKey="notification_project_invite_accepted_message"
@@ -98,42 +87,36 @@ function CommonNotification({ notification }: CommonNotificationProps) {
           }
           action={
             accepted ? (
-              <Button
-                bsStyle={newNotificationStyle ? null : 'info'}
-                bsSize="sm"
-                className={
-                  newNotificationStyle ? 'btn-secondary' : 'pull-right'
-                }
+              <OLButton
+                variant="secondary"
                 href={`/project/${notification.messageOpts.projectId}`}
               >
                 {t('open_project')}
-              </Button>
+              </OLButton>
             ) : (
-              <Button
-                bsStyle={newNotificationStyle ? null : 'info'}
-                className={
-                  newNotificationStyle ? 'btn-secondary' : 'pull-right'
-                }
-                bsSize="sm"
+              <OLButton
+                variant="secondary"
+                bs3Props={{
+                  loading: isLoading ? (
+                    <>
+                      <Icon type="spinner" spin /> {t('joining')}&hellip;
+                    </>
+                  ) : null,
+                }}
+                isLoading={isLoading}
                 disabled={isLoading}
                 onClick={() => handleAcceptInvite(notification)}
               >
-                {isLoading ? (
-                  <>
-                    <Icon type="spinner" spin /> {t('joining')}&hellip;
-                  </>
-                ) : (
-                  t('join_project')
-                )}
-              </Button>
+                {t('join_project')}
+              </OLButton>
             )
           }
         />
       ) : templateKey === 'wfh_2020_upgrade_offer' ? (
         <Notification
-          bsStyle="info"
+          type="info"
           onDismiss={() => id && handleDismiss(id)}
-          body={
+          content={
             <>
               Important notice: Your free WFH2020 upgrade came to an end on June
               30th 2020. We're still providing a number of special initiatives
@@ -141,21 +124,19 @@ function CommonNotification({ notification }: CommonNotificationProps) {
             </>
           }
           action={
-            <Button
-              bsStyle={newNotificationStyle ? null : 'info'}
-              bsSize="sm"
-              className={newNotificationStyle ? 'btn-secondary' : 'pull-right'}
+            <OLButton
+              variant="secondary"
               href="https://www.overleaf.com/events/wfh2020"
             >
               View
-            </Button>
+            </OLButton>
           }
         />
       ) : templateKey === 'notification_ip_matched_affiliation' ? (
         <Notification
-          bsStyle="info"
+          type="info"
           onDismiss={() => id && handleDismiss(id)}
-          body={
+          content={
             <>
               <Trans
                 i18nKey="looks_like_youre_at"
@@ -202,10 +183,8 @@ function CommonNotification({ notification }: CommonNotificationProps) {
             </>
           }
           action={
-            <Button
-              bsStyle={newNotificationStyle ? null : 'info'}
-              bsSize="sm"
-              className={newNotificationStyle ? 'btn-secondary' : 'pull-right'}
+            <OLButton
+              variant="secondary"
               href={
                 notification.messageOpts.ssoEnabled
                   ? `${samlInitPath}?university_id=${notification.messageOpts.institutionId}&auto=/project`
@@ -215,38 +194,37 @@ function CommonNotification({ notification }: CommonNotificationProps) {
               {notification.messageOpts.ssoEnabled
                 ? t('link_account')
                 : t('add_affiliation')}
-            </Button>
+            </OLButton>
           }
         />
       ) : templateKey === 'notification_tpds_file_limit' ? (
         <Notification
-          bsStyle="danger"
+          type="error"
           onDismiss={() => id && handleDismiss(id)}
-          body={
+          title={`${notification?.messageOpts?.projectName || 'A project'} exceeds the 2000 file limit`}
+          content={
             <>
-              Error: Your project {notification.messageOpts.projectName} has
-              gone over the 2000 file limit using an integration (e.g. Dropbox
-              or GitHub) <br />
-              Please decrease the size of your project to prevent further
-              errors.
+              You can't add more files to the project or sync it with any
+              integrations until you reduce the number of files.
             </>
           }
           action={
-            <Button
-              bsStyle={newNotificationStyle ? null : 'danger'}
-              bsSize="sm"
-              className={newNotificationStyle ? 'btn-secondary' : 'pull-right'}
-              href="/user/settings"
-            >
-              Account Settings
-            </Button>
+            notification.messageOpts.projectId ? (
+              <OLButton
+                variant="secondary"
+                onClick={() => id && handleDismiss(id)}
+                href={`/project/${notification.messageOpts.projectId}`}
+              >
+                Open project
+              </OLButton>
+            ) : undefined
           }
         />
       ) : templateKey === 'notification_dropbox_duplicate_project_names' ? (
         <Notification
-          bsStyle="warning"
+          type="warning"
           onDismiss={() => id && handleDismiss(id)}
-          body={
+          content={
             <>
               <p>
                 <Trans
@@ -276,9 +254,9 @@ function CommonNotification({ notification }: CommonNotificationProps) {
       ) : templateKey ===
         'notification_dropbox_unlinked_due_to_lapsed_reconfirmation' ? (
         <Notification
-          bsStyle="info"
+          type="info"
           onDismiss={() => id && handleDismiss(id)}
-          body={
+          content={
             <>
               <Trans
                 i18nKey="dropbox_unlinked_premium_feature"
@@ -304,27 +282,11 @@ function CommonNotification({ notification }: CommonNotificationProps) {
         />
       ) : templateKey === 'notification_group_invitation' ? (
         <GroupInvitationNotification notification={notification} />
-      ) : templateKey === 'notification_ieee_collabratec_retirement' ? (
-        <Notification
-          bsStyle="warning"
-          onDismiss={() => id && handleDismiss(id)}
-          body={
-            <Trans
-              i18nKey="notification_ieee_collabratec_retirement_message"
-              components={[
-                // eslint-disable-next-line jsx-a11y/anchor-has-content,react/jsx-key
-                <a href="mailto:authors@ieee.org" />,
-                // eslint-disable-next-line jsx-a11y/anchor-has-content,react/jsx-key
-                <a href="/user/subscription" />,
-              ]}
-            />
-          }
-        />
       ) : templateKey === 'notification_personal_and_group_subscriptions' ? (
         <Notification
-          bsStyle="warning"
+          type="warning"
           onDismiss={() => id && handleDismiss(id)}
-          body={
+          content={
             <Trans
               i18nKey="notification_personal_and_group_subscriptions"
               /* eslint-disable-next-line jsx-a11y/anchor-has-content, react/jsx-key */
@@ -334,9 +296,9 @@ function CommonNotification({ notification }: CommonNotificationProps) {
         />
       ) : (
         <Notification
-          bsStyle="info"
+          type="info"
           onDismiss={() => id && handleDismiss(id)}
-          body={html}
+          content={html}
         />
       )}
     </>

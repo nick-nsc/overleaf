@@ -3,18 +3,15 @@
   "version": "1.0.2",
   "description": "Module for storing objects in multiple backends, with fallback on 404 to assist migration between them",
   "main": "index.js",
-  "types": "types/index.d.ts",
   "scripts": {
     "test": "npm run lint && npm run format && npm run types:check && npm run test:unit",
     "test:unit": "mocha --exit test/**/*.{js,cjs}",
-    "lint": "eslint --ext .js --ext .cjs --max-warnings 0 --format unix .",
-    "lint:fix": "eslint --fix --ext .js --ext .cjs .",
-    "format": "prettier --list-different $PWD/'**/*.{js,cjs}'",
-    "format:fix": "prettier --write $PWD/'**/*.{js,cjs}'",
+    "lint": "eslint --ext .js --ext .cjs --ext .ts --max-warnings 0 --format unix .",
+    "lint:fix": "eslint --fix --ext .js --ext .cjs --ext .ts .",
+    "format": "prettier --list-different $PWD/'**/*.{js,cjs,ts}'",
+    "format:fix": "prettier --write $PWD/'**/*.{js,cjs,ts}'",
     "test:ci": "npm run test:unit",
-    "types:build": "[ -d types ] || tsc --noEmit false --emitDeclarationOnly",
-    "types:check": "tsc --noEmit",
-    "types:rebuild": "rm -rf types && npm run types:build"
+    "types:check": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
@@ -22,11 +19,10 @@
   },
   "author": "Overleaf (https://www.overleaf.com/)",
   "license": "AGPL-3.0",
-  "peerDependencies": {
-    "@overleaf/logger": "*"
-  },
   "dependencies": {
     "@google-cloud/storage": "^6.10.1",
+    "@overleaf/logger": "*",
+    "@overleaf/metrics": "*",
     "@overleaf/o-error": "*",
     "aws-sdk": "^2.718.0",
     "fast-crc32c": "overleaf/node-fast-crc32c#aae6b2a4c7a7a159395df9cc6c38dfde702d6f51",
@@ -35,7 +31,6 @@
     "tiny-async-pool": "^1.1.0"
   },
   "devDependencies": {
-    "@overleaf/logger": "*",
     "chai": "^4.3.6",
     "chai-as-promised": "^7.1.1",
     "mocha": "^10.2.0",

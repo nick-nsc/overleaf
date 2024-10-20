@@ -2,9 +2,10 @@ import ProjectListTable from '../../js/features/project-list/components/table/pr
 import { ProjectListProvider } from '../../js/features/project-list/context/project-list-context'
 import useFetchMock from '../hooks/use-fetch-mock'
 import { projectsData } from '../../../test/frontend/features/project-list/fixtures/projects-data'
+import { bsVersionDecorator } from '../../../.storybook/utils/with-bootstrap-switcher'
 
 export const Successful = (args: any) => {
-  window.user_id = '624333f147cfd8002622a1d3'
+  window.metaAttributesCache.set('ol-user_id', '624333f147cfd8002622a1d3')
   useFetchMock(fetchMock => {
     fetchMock.post(/\/api\/project/, {
       projects: projectsData,
@@ -32,7 +33,7 @@ export const Successful = (args: any) => {
 }
 
 export const Failure = (args: any) => {
-  window.user_id = '624333f147cfd8002622a1d3'
+  window.metaAttributesCache.set('ol-user_id', '624333f147cfd8002622a1d3')
   useFetchMock(fetchMock => {
     fetchMock.post(/\/api\/project/, {
       projects: projectsData,
@@ -62,4 +63,7 @@ export default {
       </div>
     ),
   ],
+  argTypes: {
+    ...bsVersionDecorator.argTypes,
+  },
 }

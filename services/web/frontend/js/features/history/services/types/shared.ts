@@ -13,13 +13,25 @@ export interface Meta {
   end_ts: number
   type?: 'external' // TODO
   source?: 'git-bridge' // TODO
-  origin?: {
-    kind:
-      | 'dropbox'
-      | 'upload'
-      | 'git-bridge'
-      | 'github'
-      | 'history-resync'
-      | 'history-migration'
-  }
+  origin?:
+    | {
+        kind:
+          | 'dropbox'
+          | 'upload'
+          | 'git-bridge'
+          | 'github'
+          | 'history-resync'
+          | 'history-migration'
+      }
+    | {
+        kind: 'file-restore'
+        path: string
+        timestamp: number
+        version: number
+      }
+    | {
+        kind: 'project-restore'
+        timestamp: number
+        version: number
+      }
 }

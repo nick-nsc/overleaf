@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import Icon from '../../../../../shared/components/icon'
-import Tooltip from '../../../../../shared/components/tooltip'
 import { getOwnerName } from '../../../util/project'
 import { Project } from '../../../../../../../types/project/dashboard/api'
+import OLTooltip from '@/features/ui/components/ol/ol-tooltip'
+import BootstrapVersionSwitcher from '@/features/ui/components/bootstrap-5/bootstrap-version-switcher'
+import MaterialIcon from '@/shared/components/material-icon'
 
 type LinkSharingIconProps = {
   prependSpace: boolean
@@ -17,7 +19,7 @@ function LinkSharingIcon({
 }: LinkSharingIconProps) {
   const { t } = useTranslation()
   return (
-    <Tooltip
+    <OLTooltip
       key={`tooltip-link-sharing-${project.id}`}
       id={`tooltip-link-sharing-${project.id}`}
       description={t('link_sharing')}
@@ -26,13 +28,24 @@ function LinkSharingIcon({
       {/* OverlayTrigger won't fire unless icon is wrapped in a span */}
       <span className={className}>
         {prependSpace ? ' ' : ''}
-        <Icon
-          type="link"
-          className="small"
-          accessibilityLabel={t('link_sharing')}
+        <BootstrapVersionSwitcher
+          bs3={
+            <Icon
+              type="link"
+              className="small"
+              accessibilityLabel={t('link_sharing')}
+            />
+          }
+          bs5={
+            <MaterialIcon
+              type="link"
+              className="align-text-bottom"
+              accessibilityLabel={t('link_sharing')}
+            />
+          }
         />
       </span>
-    </Tooltip>
+    </OLTooltip>
   )
 }
 
@@ -41,19 +54,15 @@ type OwnerCellProps = {
 }
 
 export default function OwnerCell({ project }: OwnerCellProps) {
+  const { t } = useTranslation()
+
   const ownerName = getOwnerName(project)
 
   return (
     <>
-      {ownerName}
-      {project.source === 'token' ? (
-        <LinkSharingIcon
-          className="hidden-xs"
-          project={project}
-          prependSpace={!!project.owner}
-        />
-      ) : (
-        ''
+      {ownerName === 'You' ? t('you') : ownerName}
+      {project.source === 'token' && (
+        <LinkSharingIcon project={project} prependSpace={!!project.owner} />
       )}
     </>
   )

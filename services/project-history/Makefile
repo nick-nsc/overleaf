@@ -14,15 +14,16 @@ DOCKER_COMPOSE := BUILD_NUMBER=$(BUILD_NUMBER) \
 	MOCHA_GREP=${MOCHA_GREP} \
 	docker compose ${DOCKER_COMPOSE_FLAGS}
 
+COMPOSE_PROJECT_NAME_TEST_ACCEPTANCE ?= test_acceptance_$(BUILD_DIR_NAME)
 DOCKER_COMPOSE_TEST_ACCEPTANCE = \
-	COMPOSE_PROJECT_NAME=test_acceptance_$(BUILD_DIR_NAME) $(DOCKER_COMPOSE)
+	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME_TEST_ACCEPTANCE) $(DOCKER_COMPOSE)
 
+COMPOSE_PROJECT_NAME_TEST_UNIT ?= test_unit_$(BUILD_DIR_NAME)
 DOCKER_COMPOSE_TEST_UNIT = \
-	COMPOSE_PROJECT_NAME=test_unit_$(BUILD_DIR_NAME) $(DOCKER_COMPOSE)
+	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME_TEST_UNIT) $(DOCKER_COMPOSE)
 
 clean:
 	-docker rmi ci/$(PROJECT_NAME):$(BRANCH_NAME)-$(BUILD_NUMBER)
-	-docker rmi gcr.io/overleaf-ops/$(PROJECT_NAME):$(BRANCH_NAME)-$(BUILD_NUMBER)
 	-docker rmi us-east1-docker.pkg.dev/overleaf-ops/ol-docker/$(PROJECT_NAME):$(BRANCH_NAME)-$(BUILD_NUMBER)
 	-$(DOCKER_COMPOSE_TEST_UNIT) down --rmi local
 	-$(DOCKER_COMPOSE_TEST_ACCEPTANCE) down --rmi local
@@ -31,13 +32,18 @@ HERE=$(shell pwd)
 MONOREPO=$(shell cd ../../ && pwd)
 # Run the linting commands in the scope of the monorepo.
 # Eslint and prettier (plus some configs) are on the root.
-RUN_LINTING = docker run --rm -v $(MONOREPO):$(MONOREPO) -w $(HERE) node:18.19.1 npm run --silent
+RUN_LINTING = docker run --rm -v $(MONOREPO):$(MONOREPO) -w $(HERE) node:18.20.2 npm run --silent
+
+RUN_LINTING_CI = docker run --rm --volume $(MONOREPO)/.editorconfig:/overleaf/.editorconfig --volume $(MONOREPO)/.eslintignore:/overleaf/.eslintignore --volume $(MONOREPO)/.eslintrc:/overleaf/.eslintrc --volume $(MONOREPO)/.prettierignore:/overleaf/.prettierignore --volume $(MONOREPO)/.prettierrc:/overleaf/.prettierrc --volume $(MONOREPO)/tsconfig.backend.json:/overleaf/tsconfig.backend.json --volume $(MONOREPO)/services/document-updater/app/js/types.ts:/overleaf/services/document-updater/app/js/types.ts ci/$(PROJECT_NAME):$(BRANCH_NAME)-$(BUILD_NUMBER) npm run --silent
 
 # Same but from the top of the monorepo
-RUN_LINTING_MONOREPO = docker run --rm -v $(MONOREPO):$(MONOREPO) -w $(MONOREPO) node:18.19.1 npm run --silent
+RUN_LINTING_MONOREPO = docker run --rm -v $(MONOREPO):$(MONOREPO) -w $(MONOREPO) node:18.20.2 npm run --silent
 
 format:
 	$(RUN_LINTING) format
+
+format_ci:
+	$(RUN_LINTING_CI) format
 
 format_fix:
 	$(RUN_LINTING) format:fix
@@ -45,14 +51,17 @@ format_fix:
 lint:
 	$(RUN_LINTING) lint
 
+lint_ci:
+	$(RUN_LINTING_CI) lint
+
 lint_fix:
 	$(RUN_LINTING) lint:fix
 
-build_types:
-	$(RUN_LINTING_MONOREPO) --workspaces --if-present types:build
-
-typecheck: build_types
+typecheck:
 	$(RUN_LINTING) types:check
+
+typecheck_ci:
+	$(RUN_LINTING_CI) types:check
 
 test: format lint typecheck test_unit test_acceptance
 
@@ -104,9 +113,14 @@ benchmarks:
 	$(DOCKER_COMPOSE_TEST_ACCEPTANCE) run --rm test_acceptance npm run benchmarks
 
 build:
-	docker build --pull --tag ci/$(PROJECT_NAME):$(BRANCH_NAME)-$(BUILD_NUMBER) \
-		--tag gcr.io/overleaf-ops/$(PROJECT_NAME):$(BRANCH_NAME)-$(BUILD_NUMBER) \
+	docker build \
+		--pull \
+		--build-arg BUILDKIT_INLINE_CACHE=1 \
+		--tag ci/$(PROJECT_NAME):$(BRANCH_NAME)-$(BUILD_NUMBER) \
 		--tag us-east1-docker.pkg.dev/overleaf-ops/ol-docker/$(PROJECT_NAME):$(BRANCH_NAME)-$(BUILD_NUMBER) \
+		--tag us-east1-docker.pkg.dev/overleaf-ops/ol-docker/$(PROJECT_NAME):$(BRANCH_NAME) \
+		--cache-from us-east1-docker.pkg.dev/overleaf-ops/ol-docker/$(PROJECT_NAME):$(BRANCH_NAME) \
+		--cache-from us-east1-docker.pkg.dev/overleaf-ops/ol-docker/$(PROJECT_NAME):main \
 		--file Dockerfile \
 		../..
 
@@ -122,6 +136,7 @@ publish:
 	format format_fix \
 	lint lint_fix \
 	build_types typecheck \
+	lint_ci format_ci typecheck_ci \
 	test test_clean test_unit test_unit_clean \
 	test_acceptance test_acceptance_debug test_acceptance_pre_run \
 	test_acceptance_run test_acceptance_run_debug test_acceptance_clean \

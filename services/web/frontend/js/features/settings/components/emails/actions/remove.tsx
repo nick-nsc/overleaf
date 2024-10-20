@@ -1,24 +1,34 @@
-import Icon from '../../../../../shared/components/icon'
-import Tooltip from '../../../../../shared/components/tooltip'
-import { Button } from 'react-bootstrap'
 import { useTranslation } from 'react-i18next'
 import { UserEmailData } from '../../../../../../../types/user-email'
 import { useUserEmailsContext } from '../../../context/user-email-context'
 import { postJSON } from '../../../../../infrastructure/fetch-json'
 import { UseAsyncReturnType } from '../../../../../shared/hooks/use-async'
+import OLTooltip from '@/features/ui/components/ol/ol-tooltip'
+import OLIconButton, {
+  OLIconButtonProps,
+} from '@/features/ui/components/ol/ol-icon-button'
+import { bsVersion } from '@/features/utils/bootstrap-5'
+import getMeta from '@/utils/meta'
 
-function DeleteButton({ children, disabled, onClick }: Button.ButtonProps) {
+type DeleteButtonProps = Pick<
+  OLIconButtonProps,
+  'disabled' | 'isLoading' | 'onClick'
+>
+
+function DeleteButton({ disabled, isLoading, onClick }: DeleteButtonProps) {
   const { t } = useTranslation()
 
   return (
-    <Button
-      bsSize="small"
-      bsStyle="danger"
+    <OLIconButton
+      variant="danger"
       disabled={disabled}
+      isLoading={isLoading}
+      size="sm"
       onClick={onClick}
-    >
-      <Icon type="trash" fw accessibilityLabel={t('remove')} />
-    </Button>
+      accessibilityLabel={t('remove') || ''}
+      icon={bsVersion({ bs5: 'delete', bs3: 'trash' })}
+      bs3Props={{ fw: true }}
+    />
   )
 }
 
@@ -31,6 +41,16 @@ function Remove({ userEmailData, deleteEmailAsync }: RemoveProps) {
   const { t } = useTranslation()
   const { state, deleteEmail, resetLeaversSurveyExpiration } =
     useUserEmailsContext()
+  const isManaged = getMeta('ol-isManagedAccount')
+
+  const getTooltipText = () => {
+    if (isManaged) {
+      return t('your_account_is_managed_by_your_group_admin')
+    }
+    return userEmailData.default
+      ? t('please_change_primary_to_remove')
+      : t('remove')
+  }
 
   const handleRemoveUserEmail = () => {
     deleteEmailAsync
@@ -49,17 +69,13 @@ function Remove({ userEmailData, deleteEmailAsync }: RemoveProps) {
   }
 
   if (deleteEmailAsync.isLoading) {
-    return <DeleteButton disabled />
+    return <DeleteButton isLoading />
   }
 
   return (
-    <Tooltip
+    <OLTooltip
       id={userEmailData.email}
-      description={
-        userEmailData.default
-          ? t('please_change_primary_to_remove')
-          : t('remove')
-      }
+      description={getTooltipText()}
       overlayProps={{ placement: userEmailData.default ? 'left' : 'top' }}
     >
       <span>
@@ -68,7 +84,7 @@ function Remove({ userEmailData, deleteEmailAsync }: RemoveProps) {
           onClick={handleRemoveUserEmail}
         />
       </span>
-    </Tooltip>
+    </OLTooltip>
   )
 }
 

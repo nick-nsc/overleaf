@@ -84,6 +84,7 @@ describe('HttpController', function () {
       json: sinon.stub(),
       send: sinon.stub(),
       sendStatus: sinon.stub(),
+      setHeader: sinon.stub(),
     }
   })
 
@@ -91,9 +92,10 @@ describe('HttpController', function () {
     beforeEach(function () {
       this.blobHash = 'abcd'
       this.stream = {}
+      this.historyId = 1337
       this.HistoryStoreManager.getProjectBlobStream.yields(null, this.stream)
       this.HttpController.getProjectBlob(
-        { params: { project_id: this.projectId, hash: this.blobHash } },
+        { params: { history_id: this.historyId, hash: this.blobHash } },
         this.res,
         this.next
       )
@@ -101,9 +103,16 @@ describe('HttpController', function () {
 
     it('should get a blob stream', function () {
       this.HistoryStoreManager.getProjectBlobStream
-        .calledWith(this.projectId, this.blobHash)
+        .calledWith(this.historyId, this.blobHash)
         .should.equal(true)
       this.pipeline.should.have.been.calledWith(this.stream, this.res)
+    })
+
+    it('should set caching header', function () {
+      this.res.setHeader.should.have.been.calledWith(
+        'Cache-Control',
+        'private, max-age=86400'
+      )
     })
   })
 
@@ -403,13 +412,13 @@ describe('HttpController', function () {
       this.req = {
         params: {
           project_id: this.projectId,
-          user_id: this.userId,
         },
         body: {
           version: (this.version = 'label-1'),
           comment: (this.comment = 'a comment'),
           created_at: (this.created_at = Date.now().toString()),
           validate_exists: true,
+          user_id: this.userId,
         },
       }
       this.label = { _id: new ObjectId() }

@@ -8,85 +8,74 @@ const Range = require('../lib/range')
 
 describe('commentList', function () {
   it('checks if toRaw() returns a correct comment list', function () {
-    const commentList = new CommentList(
-      new Map([
-        ['comm1', new Comment([new Range(5, 10)])],
-        ['comm2', new Comment([new Range(20, 5)])],
-        ['comm3', new Comment([new Range(30, 15)])],
-      ])
-    )
+    const commentList = new CommentList([
+      new Comment('comm1', [new Range(5, 10)]),
+      new Comment('comm2', [new Range(20, 5)]),
+      new Comment('comm3', [new Range(30, 15)]),
+    ])
 
-    expect(commentList.getComments()).to.eql([
-      { id: 'comm1', ranges: [{ pos: 5, length: 10 }], resolved: false },
-      { id: 'comm2', ranges: [{ pos: 20, length: 5 }], resolved: false },
+    expect(commentList.toRaw()).to.eql([
+      { id: 'comm1', ranges: [{ pos: 5, length: 10 }] },
+      { id: 'comm2', ranges: [{ pos: 20, length: 5 }] },
       {
         id: 'comm3',
         ranges: [{ pos: 30, length: 15 }],
-        resolved: false,
       },
     ])
   })
 
   it('should get a comment by id', function () {
-    const commentList = new CommentList(
-      new Map([
-        ['comm1', new Comment([new Range(5, 10)])],
-        ['comm3', new Comment([new Range(30, 15)])],
-        ['comm2', new Comment([new Range(20, 5)])],
-      ])
-    )
+    const commentList = new CommentList([
+      new Comment('comm1', [new Range(5, 10)]),
+      new Comment('comm3', [new Range(30, 15)]),
+      new Comment('comm2', [new Range(20, 5)]),
+    ])
 
     const comment = commentList.getComment('comm2')
     expect(comment?.toRaw()).to.eql({
+      id: 'comm2',
       ranges: [
         {
           pos: 20,
           length: 5,
         },
       ],
-      resolved: false,
     })
   })
 
   it('should add new comment to the list', function () {
-    const commentList = new CommentList(
-      new Map([
-        ['comm1', new Comment([new Range(5, 10)])],
-        ['comm2', new Comment([new Range(20, 5)])],
-        ['comm3', new Comment([new Range(30, 15)])],
-      ])
-    )
+    const commentList = new CommentList([
+      new Comment('comm1', [new Range(5, 10)]),
+      new Comment('comm2', [new Range(20, 5)]),
+      new Comment('comm3', [new Range(30, 15)]),
+    ])
 
-    commentList.add('comm4', new Comment([new Range(40, 10)]))
-    expect(commentList.getComments()).to.eql([
-      { id: 'comm1', ranges: [{ pos: 5, length: 10 }], resolved: false },
-      { id: 'comm2', ranges: [{ pos: 20, length: 5 }], resolved: false },
+    commentList.add(new Comment('comm4', [new Range(40, 10)]))
+    expect(commentList.toRaw()).to.eql([
+      { id: 'comm1', ranges: [{ pos: 5, length: 10 }] },
+      { id: 'comm2', ranges: [{ pos: 20, length: 5 }] },
       {
         id: 'comm3',
         ranges: [{ pos: 30, length: 15 }],
-        resolved: false,
       },
       {
         id: 'comm4',
         ranges: [{ pos: 40, length: 10 }],
-        resolved: false,
       },
     ])
   })
 
   it('should overwrite existing comment if new one is added', function () {
-    const commentList = new CommentList(
-      new Map([
-        ['comm1', new Comment([new Range(5, 10)], false)],
-        ['comm2', new Comment([new Range(20, 5)], true)],
-        ['comm3', new Comment([new Range(30, 15)])],
-      ])
-    )
+    const commentList = new CommentList([
+      new Comment('comm1', [new Range(5, 10)], false),
+      new Comment('comm2', [new Range(20, 5)], true),
+      new Comment('comm3', [new Range(30, 15)]),
+    ])
 
-    commentList.add('comm1', new Comment([new Range(5, 10)], true))
-    commentList.add('comm2', new Comment([new Range(40, 10)], true))
+    commentList.add(new Comment('comm1', [new Range(5, 10)], true))
+    commentList.add(new Comment('comm2', [new Range(40, 10)], true))
 
-    expect(commentList.getComments()).to.eql([
+    expect(commentList.toRaw()).to.eql([
       { id: 'comm1', ranges: [{ pos: 5, length: 10 }], resolved: true },
       {
         id: 'comm2',
@@ -96,47 +85,47 @@ describe('commentList', function () {
       {
         id: 'comm3',
         ranges: [{ pos: 30, length: 15 }],
-        resolved: false,
       },
     ])
   })
 
   it('should delete a comment from the list', function () {
-    const commentList = new CommentList(
-      new Map([
-        ['comm1', new Comment([new Range(5, 10)])],
-        ['comm2', new Comment([new Range(20, 5)])],
-        ['comm3', new Comment([new Range(30, 15)])],
-      ])
-    )
+    const commentList = new CommentList([
+      new Comment('comm1', [new Range(5, 10)]),
+      new Comment('comm2', [new Range(20, 5)]),
+      new Comment('comm3', [new Range(30, 15)]),
+    ])
 
     commentList.delete('comm3')
-    expect(commentList.getComments()).to.eql([
-      { id: 'comm1', ranges: [{ pos: 5, length: 10 }], resolved: false },
-      { id: 'comm2', ranges: [{ pos: 20, length: 5 }], resolved: false },
+    expect(commentList.toRaw()).to.eql([
+      { id: 'comm1', ranges: [{ pos: 5, length: 10 }] },
+      { id: 'comm2', ranges: [{ pos: 20, length: 5 }] },
     ])
   })
 
   it('should not throw an error if comment id does not exist', function () {
-    const commentList = new CommentList(
-      new Map([
-        ['comm1', new Comment([new Range(5, 10)])],
-        ['comm2', new Comment([new Range(20, 5)])],
-        ['comm3', new Comment([new Range(30, 15)])],
-      ])
-    )
+    const commentList = new CommentList([
+      new Comment('comm1', [new Range(5, 10)]),
+      new Comment('comm2', [new Range(20, 5)]),
+      new Comment('comm3', [new Range(30, 15)]),
+    ])
 
     commentList.delete('comm5')
 
-    expect(commentList.getComments()).to.eql([
-      { id: 'comm1', ranges: [{ pos: 5, length: 10 }], resolved: false },
-      { id: 'comm2', ranges: [{ pos: 20, length: 5 }], resolved: false },
+    expect(commentList.toRaw()).to.eql([
+      { id: 'comm1', ranges: [{ pos: 5, length: 10 }] },
+      { id: 'comm2', ranges: [{ pos: 20, length: 5 }] },
       {
         id: 'comm3',
         ranges: [{ pos: 30, length: 15 }],
-        resolved: false,
       },
     ])
+  })
+
+  it('should be iterable', function () {
+    const comment = new Comment('comm1', [new Range(5, 10)])
+    const commentList = new CommentList([comment])
+    expect(Array.from(commentList)).to.deep.equal([comment])
   })
 
   describe('inserting a comment between ranges', function () {
@@ -153,9 +142,9 @@ describe('commentList', function () {
       ])
 
       commentList.applyInsert(new Range(15, 5), { commentIds: ['comm1'] })
-      expect(commentList.getComments()).to.eql([
-        { id: 'comm1', ranges: [{ pos: 5, length: 15 }], resolved: false },
-        { id: 'comm2', ranges: [{ pos: 20, length: 10 }], resolved: false },
+      expect(commentList.toRaw()).to.eql([
+        { id: 'comm1', ranges: [{ pos: 5, length: 15 }] },
+        { id: 'comm2', ranges: [{ pos: 20, length: 10 }] },
       ])
     })
 
@@ -172,9 +161,9 @@ describe('commentList', function () {
       ])
 
       commentList.applyInsert(new Range(15, 5), { commentIds: ['comm2'] })
-      expect(commentList.getComments()).to.eql([
-        { id: 'comm1', ranges: [{ pos: 5, length: 10 }], resolved: false },
-        { id: 'comm2', ranges: [{ pos: 15, length: 15 }], resolved: false },
+      expect(commentList.toRaw()).to.eql([
+        { id: 'comm1', ranges: [{ pos: 5, length: 10 }] },
+        { id: 'comm2', ranges: [{ pos: 15, length: 15 }] },
       ])
     })
   })
@@ -192,9 +181,9 @@ describe('commentList', function () {
     ])
 
     commentList.applyDelete(new Range(10, 10)) // 10-19
-    expect(commentList.getComments()).to.eql([
-      { id: 'comm1', ranges: [{ pos: 5, length: 5 }], resolved: false },
-      { id: 'comm2', ranges: [{ pos: 10, length: 5 }], resolved: false },
+    expect(commentList.toRaw()).to.eql([
+      { id: 'comm1', ranges: [{ pos: 5, length: 5 }] },
+      { id: 'comm2', ranges: [{ pos: 10, length: 5 }] },
     ])
   })
 
@@ -216,10 +205,10 @@ describe('commentList', function () {
       ])
 
       commentList.applyInsert(new Range(7, 5), { commentIds: ['comm1'] })
-      expect(commentList.getComments()).to.eql([
-        { id: 'comm1', ranges: [{ pos: 5, length: 15 }], resolved: false },
-        { id: 'comm2', ranges: [{ pos: 25, length: 5 }], resolved: false },
-        { id: 'comm3', ranges: [{ pos: 35, length: 15 }], resolved: false },
+      expect(commentList.toRaw()).to.eql([
+        { id: 'comm1', ranges: [{ pos: 5, length: 15 }] },
+        { id: 'comm2', ranges: [{ pos: 25, length: 5 }] },
+        { id: 'comm3', ranges: [{ pos: 35, length: 15 }] },
       ])
     })
 
@@ -240,14 +229,13 @@ describe('commentList', function () {
       ])
 
       commentList.applyInsert(new Range(7, 5), { commentIds: ['comm2'] })
-      expect(commentList.getComments()).to.eql([
+      expect(commentList.toRaw()).to.eql([
         {
           id: 'comm1',
           ranges: [
             { pos: 5, length: 2 },
             { pos: 12, length: 8 },
           ],
-          resolved: false,
         },
         {
           id: 'comm2',
@@ -255,9 +243,8 @@ describe('commentList', function () {
             { pos: 7, length: 5 },
             { pos: 25, length: 5 },
           ],
-          resolved: false,
         },
-        { id: 'comm3', ranges: [{ pos: 35, length: 15 }], resolved: false },
+        { id: 'comm3', ranges: [{ pos: 35, length: 15 }] },
       ])
     })
 
@@ -280,11 +267,10 @@ describe('commentList', function () {
       commentList.applyInsert(new Range(7, 5), {
         commentIds: ['comm1', 'comm2'],
       })
-      expect(commentList.getComments()).to.eql([
+      expect(commentList.toRaw()).to.eql([
         {
           id: 'comm1',
           ranges: [{ pos: 5, length: 20 }],
-          resolved: false,
         },
         {
           id: 'comm2',
@@ -292,9 +278,8 @@ describe('commentList', function () {
             { pos: 7, length: 5 },
             { pos: 25, length: 5 },
           ],
-          resolved: false,
         },
-        { id: 'comm3', ranges: [{ pos: 35, length: 15 }], resolved: false },
+        { id: 'comm3', ranges: [{ pos: 35, length: 15 }] },
       ])
     })
 
@@ -315,10 +300,10 @@ describe('commentList', function () {
       ])
 
       commentList.applyInsert(new Range(16, 5))
-      expect(commentList.getComments()).to.eql([
-        { id: 'comm1', ranges: [{ pos: 5, length: 10 }], resolved: false },
-        { id: 'comm2', ranges: [{ pos: 25, length: 5 }], resolved: false },
-        { id: 'comm3', ranges: [{ pos: 35, length: 15 }], resolved: false },
+      expect(commentList.toRaw()).to.eql([
+        { id: 'comm1', ranges: [{ pos: 5, length: 10 }] },
+        { id: 'comm2', ranges: [{ pos: 25, length: 5 }] },
+        { id: 'comm3', ranges: [{ pos: 35, length: 15 }] },
       ])
     })
 
@@ -339,10 +324,10 @@ describe('commentList', function () {
       ])
 
       commentList.applyInsert(new Range(50, 5))
-      expect(commentList.getComments()).to.eql([
-        { id: 'comm1', ranges: [{ pos: 5, length: 10 }], resolved: false },
-        { id: 'comm2', ranges: [{ pos: 20, length: 5 }], resolved: false },
-        { id: 'comm3', ranges: [{ pos: 30, length: 15 }], resolved: false },
+      expect(commentList.toRaw()).to.eql([
+        { id: 'comm1', ranges: [{ pos: 5, length: 10 }] },
+        { id: 'comm2', ranges: [{ pos: 20, length: 5 }] },
+        { id: 'comm3', ranges: [{ pos: 30, length: 15 }] },
       ])
     })
 
@@ -363,10 +348,10 @@ describe('commentList', function () {
       ])
 
       commentList.applyDelete(new Range(0, 4))
-      expect(commentList.getComments()).to.eql([
-        { id: 'comm1', ranges: [{ pos: 1, length: 10 }], resolved: false },
-        { id: 'comm2', ranges: [{ pos: 16, length: 5 }], resolved: false },
-        { id: 'comm3', ranges: [{ pos: 26, length: 15 }], resolved: false },
+      expect(commentList.toRaw()).to.eql([
+        { id: 'comm1', ranges: [{ pos: 1, length: 10 }] },
+        { id: 'comm2', ranges: [{ pos: 16, length: 5 }] },
+        { id: 'comm3', ranges: [{ pos: 26, length: 15 }] },
       ])
     })
 
@@ -380,8 +365,8 @@ describe('commentList', function () {
         ])
 
         commentList.applyDelete(new Range(0, 6))
-        expect(commentList.getComments()).to.eql([
-          { id: 'comm1', ranges: [{ pos: 0, length: 9 }], resolved: false },
+        expect(commentList.toRaw()).to.eql([
+          { id: 'comm1', ranges: [{ pos: 0, length: 9 }] },
         ])
       })
 
@@ -393,8 +378,8 @@ describe('commentList', function () {
           },
         ])
         commentList.applyDelete(new Range(7, 10))
-        expect(commentList.getComments()).to.eql([
-          { id: 'comm1', ranges: [{ pos: 5, length: 2 }], resolved: false },
+        expect(commentList.toRaw()).to.eql([
+          { id: 'comm1', ranges: [{ pos: 5, length: 2 }] },
         ])
       })
 
@@ -406,8 +391,8 @@ describe('commentList', function () {
           },
         ])
         commentList.applyDelete(new Range(6, 2))
-        expect(commentList.getComments()).to.eql([
-          { id: 'comm1', ranges: [{ pos: 5, length: 8 }], resolved: false },
+        expect(commentList.toRaw()).to.eql([
+          { id: 'comm1', ranges: [{ pos: 5, length: 8 }] },
         ])
       })
     })
@@ -429,17 +414,15 @@ describe('commentList', function () {
       ])
 
       commentList.applyDelete(new Range(19, 10))
-      expect(commentList.getComments()).to.eql([
+      expect(commentList.toRaw()).to.eql([
         {
           id: 'comm1',
           ranges: [{ pos: 5, length: 10 }],
-          resolved: false,
         },
-        { id: 'comm2', ranges: [], resolved: false },
+        { id: 'comm2', ranges: [] },
         {
           id: 'comm3',
           ranges: [{ pos: 20, length: 15 }],
-          resolved: false,
         },
       ])
     })

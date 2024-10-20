@@ -5,7 +5,7 @@ const AuthorizationManager = require('../Authorization/AuthorizationManager')
 const ProjectEditorHandler = require('../Project/ProjectEditorHandler')
 const Metrics = require('@overleaf/metrics')
 const CollaboratorsGetter = require('../Collaborators/CollaboratorsGetter')
-const CollaboratorsInviteHandler = require('../Collaborators/CollaboratorsInviteHandler')
+const CollaboratorsInviteGetter = require('../Collaborators/CollaboratorsInviteGetter')
 const CollaboratorsHandler = require('../Collaborators/CollaboratorsHandler')
 const PrivilegeLevels = require('../Authorization/PrivilegeLevels')
 const SessionManager = require('../Authentication/SessionManager')
@@ -13,12 +13,6 @@ const Errors = require('../Errors/Errors')
 const DocstoreManager = require('../Docstore/DocstoreManager')
 const logger = require('@overleaf/logger')
 const { expressify } = require('@overleaf/promise-utils')
-const SplitTestHandler = require('../SplitTests/SplitTestHandler')
-const {
-  NEW_COMPILE_TIMEOUT_ENFORCED_CUTOFF,
-  NEW_COMPILE_TIMEOUT_ENFORCED_CUTOFF_DEFAULT_BASELINE,
-} = require('../Compile/CompileManager')
-const UserGetter = require('../User/UserGetter')
 
 module.exports = {
   joinProject: expressify(joinProject),
@@ -72,58 +66,6 @@ async function joinProject(req, res, next) {
   if (!project) {
     return res.sendStatus(403)
   }
-  // Compile timeout 20s test
-  if (project.features?.compileTimeout <= 60) {
-    const compileAssignment =
-      await SplitTestHandler.promises.getAssignmentForUser(
-        project.owner._id,
-        'compile-backend-class-n2d'
-      )
-    if (compileAssignment?.variant === 'n2d') {
-      const timeoutAssignment =
-        await SplitTestHandler.promises.getAssignmentForUser(
-          project.owner._id,
-          'compile-timeout-20s'
-        )
-      if (timeoutAssignment?.variant === '20s') {
-        // users who were on the 'default' servers at time of original rollout
-        // will have a later cutoff date for the 20s timeout in the next phase
-        // we check the backend class at version 8 (baseline)
-        const owner = await UserGetter.promises.getUser(project.owner._id, {
-          _id: 1,
-          'splitTests.compile-backend-class-n2d': 1,
-        })
-        const backendClassHistory =
-          owner.splitTests?.['compile-backend-class-n2d'] || []
-        const backendClassBaselineVariant = backendClassHistory.find(
-          version => {
-            return version.versionNumber === 8
-          }
-        )?.variantName
-        const timeoutEnforcedCutoff =
-          backendClassBaselineVariant === 'default'
-            ? NEW_COMPILE_TIMEOUT_ENFORCED_CUTOFF_DEFAULT_BASELINE
-            : NEW_COMPILE_TIMEOUT_ENFORCED_CUTOFF
-        if (project.owner.signUpDate > timeoutEnforcedCutoff) {
-          // New users will see a 10s warning and compile fail at 20s
-          project.showNewCompileTimeoutUI = 'active'
-        } else {
-          const existingUserTimeoutAssignment =
-            await SplitTestHandler.promises.getAssignmentForUser(
-              project.owner._id,
-              'compile-timeout-20s-existing-users'
-            )
-          if (existingUserTimeoutAssignment?.variant === '20s') {
-            // Older users in treatment see 10s warning and compile fail at 20s
-            project.showNewCompileTimeoutUI = 'active'
-          } else {
-            // Older users in control aren't limited to 20s, but will see a notice of upcoming changes if compile >20s
-            project.showNewCompileTimeoutUI = 'changing'
-          }
-        }
-      }
-    }
-  }
   // Hide sensitive data if the user is restricted
   if (isRestrictedUser) {
     project.owner = { _id: project.owner._id }
@@ -137,6 +79,7 @@ async function joinProject(req, res, next) {
   // disable spellchecking for currently unsupported spell check languages
   // preserve the value in the db so they can use it again once we add back
   // support.
+  // TODO: allow these if in client-side spell check split test
   if (
     unsupportedSpellcheckLanguages.indexOf(project.spellCheckLanguage) !== -1
   ) {
@@ -152,17 +95,15 @@ async function joinProject(req, res, next) {
 }
 
 async function _buildJoinProjectView(req, projectId, userId) {
-  const project = await ProjectGetter.promises.getProjectWithoutDocLines(
-    projectId
-  )
+  const project =
+    await ProjectGetter.promises.getProjectWithoutDocLines(projectId)
   if (project == null) {
     throw new Errors.NotFoundError('project not found')
   }
   let deletedDocsFromDocstore = []
   try {
-    deletedDocsFromDocstore = await DocstoreManager.promises.getAllDeletedDocs(
-      projectId
-    )
+    deletedDocsFromDocstore =
+      await DocstoreManager.promises.getAllDeletedDocs(projectId)
   } catch (err) {
     // The query in docstore is not optimized at this time and fails for
     // projects with many very large, deleted documents.
@@ -187,9 +128,8 @@ async function _buildJoinProjectView(req, projectId, userId) {
   if (privilegeLevel == null || privilegeLevel === PrivilegeLevels.NONE) {
     return { project: null, privilegeLevel: null, isRestrictedUser: false }
   }
-  const invites = await CollaboratorsInviteHandler.promises.getAllInvites(
-    projectId
-  )
+  const invites =
+    await CollaboratorsInviteGetter.promises.getAllInvites(projectId)
   const isTokenMember = await CollaboratorsHandler.promises.userIsTokenMember(
     userId,
     projectId

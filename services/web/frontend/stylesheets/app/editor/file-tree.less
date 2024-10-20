@@ -112,6 +112,7 @@
           text-overflow: ellipsis;
           text-align: left;
           padding-right: 32px;
+          white-space: pre;
         }
       }
 
@@ -396,6 +397,7 @@
   padding: 0;
   table {
     width: 100%;
+    table-layout: fixed;
     td {
       vertical-align: top;
     }
@@ -420,7 +422,7 @@
     }
   }
 }
-.modal-new-file--list {
+.modal-new-file-list {
   background-color: @modal-footer-background-color;
   width: 220px;
   ul {
@@ -471,24 +473,24 @@
 }
 
 .file-tree-modal-alert {
-  margin-top: 10px;
-  margin-bottom: 0px;
+  margin-top: 12.5px;
 }
 
 .btn.modal-new-file-mode {
   text-align: left;
+  width: 100%;
 }
 
-.modal-new-file--body {
+.modal-new-file-body {
   padding: 20px;
   padding-top: (@line-height-computed / 4);
 }
 
-.modal-new-file--body-upload {
+.modal-new-file-body-upload {
   padding-top: 20px;
 }
 
-.modal-new-file--body-conflict {
+.modal-new-file-body-conflict {
   background-color: @red-10;
   border: 1px dashed @red-50;
   min-height: 400px;
@@ -510,11 +512,11 @@
   }
 }
 
-.modal-new-file--body-upload .uppy-Root {
+.modal-new-file-body-upload .uppy-Root {
   font-family: inherit;
 }
 
-.modal-new-file--body-upload .uppy-Dashboard {
+.modal-new-file-body-upload .uppy-Dashboard {
   .uppy-Dashboard-inner {
     border: none;
   }
@@ -537,5 +539,6 @@
 
   .uppy-Dashboard-AddFiles-title {
     width: 26em; // sized to create a wrap between the sentences
+    max-width: 100%;
   }
 }

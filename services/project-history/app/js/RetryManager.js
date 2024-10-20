@@ -20,6 +20,7 @@ const TEMPORARY_FAILURES = [
 
 const HARD_FAILURES = [
   'Error: history store a non-success status code: 422',
+  'OError: history store a non-success status code: 422',
   'OpsOutOfOrderError: project structure version out of order',
   'OpsOutOfOrderError: project structure version out of order on incoming updates',
   'OpsOutOfOrderError: doc version out of order',
@@ -175,9 +176,8 @@ async function checkProjectHasHistoryId(projectId) {
 
 async function waitUntilRedisQueueIsEmpty(projectId) {
   for (let attempts = 0; attempts < 30; attempts++) {
-    const updatesCount = await RedisManager.promises.countUnprocessedUpdates(
-      projectId
-    )
+    const updatesCount =
+      await RedisManager.promises.countUnprocessedUpdates(projectId)
     if (updatesCount === 0) {
       return
     }

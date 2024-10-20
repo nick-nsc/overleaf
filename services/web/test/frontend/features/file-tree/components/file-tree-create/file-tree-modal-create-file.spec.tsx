@@ -1,9 +1,11 @@
+import '../../../../helpers/bootstrap-3'
 import { useEffect } from 'react'
 import FileTreeModalCreateFile from '../../../../../../frontend/js/features/file-tree/components/modals/file-tree-modal-create-file'
 import { useFileTreeActionable } from '../../../../../../frontend/js/features/file-tree/contexts/file-tree-actionable'
 import { useFileTreeData } from '../../../../../../frontend/js/shared/context/file-tree-data-context'
 import { EditorProviders } from '../../../../helpers/editor-providers'
 import { FileTreeProvider } from '../../helpers/file-tree-provider'
+import getMeta from '@/utils/meta'
 
 describe('<FileTreeModalCreateFile/>', function () {
   it('handles invalid file names', function () {
@@ -36,9 +38,7 @@ describe('<FileTreeModalCreateFile/>', function () {
   })
 
   it('displays an error when the file limit is reached', function () {
-    cy.window().then(win => {
-      win.ExposedSettings.maxEntitiesPerProject = 10
-    })
+    getMeta('ol-ExposedSettings').maxEntitiesPerProject = 10
 
     const rootFolder = [
       {
@@ -66,9 +66,7 @@ describe('<FileTreeModalCreateFile/>', function () {
   })
 
   it('displays a warning when the file limit is nearly reached', function () {
-    cy.window().then(win => {
-      win.ExposedSettings.maxEntitiesPerProject = 10
-    })
+    getMeta('ol-ExposedSettings').maxEntitiesPerProject = 10
 
     const rootFolder = [
       {
@@ -94,9 +92,7 @@ describe('<FileTreeModalCreateFile/>', function () {
   })
 
   it('counts files in nested folders', function () {
-    cy.window().then(win => {
-      win.ExposedSettings.maxEntitiesPerProject = 10
-    })
+    getMeta('ol-ExposedSettings').maxEntitiesPerProject = 10
 
     const rootFolder = [
       {
@@ -138,9 +134,7 @@ describe('<FileTreeModalCreateFile/>', function () {
   })
 
   it('counts folders toward the limit', function () {
-    cy.window().then(win => {
-      win.ExposedSettings.maxEntitiesPerProject = 10
-    })
+    getMeta('ol-ExposedSettings').maxEntitiesPerProject = 10
 
     const rootFolder = [
       {
@@ -197,10 +191,8 @@ describe('<FileTreeModalCreateFile/>', function () {
   })
 
   it('imports a new file from a project', function () {
-    cy.window().then(win => {
-      win.ExposedSettings.hasLinkedProjectFileFeature = true
-      win.ExposedSettings.hasLinkedProjectOutputFileFeature = true
-    })
+    getMeta('ol-ExposedSettings').hasLinkedProjectFileFeature = true
+    getMeta('ol-ExposedSettings').hasLinkedProjectOutputFileFeature = true
 
     cy.intercept('/user/projects', {
       body: {
@@ -315,10 +307,8 @@ describe('<FileTreeModalCreateFile/>', function () {
 
   describe('when the output files feature is not available', function () {
     beforeEach(function () {
-      cy.window().then(win => {
-        win.ExposedSettings.hasLinkedProjectFileFeature = true
-        win.ExposedSettings.hasLinkedProjectOutputFileFeature = false
-      })
+      getMeta('ol-ExposedSettings').hasLinkedProjectFileFeature = true
+      getMeta('ol-ExposedSettings').hasLinkedProjectOutputFileFeature = false
     })
 
     it('should not show the import from output file mode', function () {

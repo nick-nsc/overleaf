@@ -77,11 +77,16 @@ h3.group-settings-title {
     color: @gray-dark;
     font-size: @font-size-small;
     padding-left: 0;
+    text-wrap: wrap;
   }
 
   .btn {
     width: 100%;
     margin: 8px 0;
+  }
+  .btn-link-logout {
+    width: auto;
+    margin: 0;
   }
 }
 
@@ -153,6 +158,10 @@ h3.group-settings-title {
   .sso-config-info-section {
     margin-bottom: @margin-md;
     padding: 0 @padding-base-horizontal;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
   }
 
   .sso-config-info-label {
@@ -314,20 +323,41 @@ h3.group-settings-title {
         }
       }
     }
+
+    .payload-content-user-info-item {
+      margin-bottom: @margin-xs;
+      display: inline-block;
+      width: 100%;
+      overflow-wrap: break-word;
+    }
   }
 }
 
 .certificate-wrapper {
-  display: flex;
-  align-items: baseline;
-
-  &.certificate-full {
-    flex-wrap: wrap;
+  .certificate-delete {
+    text-decoration: none;
+    margin-left: 16px;
+    span {
+      vertical-align: middle;
+    }
   }
 
+  .certificate-delete,
+  .view-more {
+    padding: 0;
+  }
+}
+
+.certificate-truncated {
+  display: flex;
+  align-items: center;
   .view-more {
     flex-grow: 0;
     flex-shrink: 0;
+    margin-left: 16px;
+  }
+  .certificate-delete {
+    display: inline-flex;
   }
 }
 
@@ -343,11 +373,7 @@ h3.group-settings-title {
   }
   .certificate-full & {
     word-break: break-all;
-
-    .break {
-      flex-basis: 100%;
-      height: 0;
-    }
+    display: block;
   }
 }
 

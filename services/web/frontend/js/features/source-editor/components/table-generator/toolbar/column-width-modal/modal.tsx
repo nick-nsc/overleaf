@@ -16,7 +16,7 @@ import { useSelectionContext } from '../../contexts/selection-context'
 import { useTableContext } from '../../contexts/table-context'
 import { setColumnWidth } from '../commands'
 import { UNITS, WidthSelection, WidthUnit } from './column-width'
-import { useCodeMirrorViewContext } from '../../../codemirror-editor'
+import { useCodeMirrorViewContext } from '../../../codemirror-context'
 import { CopyToClipboard } from '@/shared/components/copy-to-clipboard'
 import Tooltip from '@/shared/components/tooltip'
 import Icon from '@/shared/components/icon'
@@ -158,7 +158,7 @@ const ColumnWidthModalBody = () => {
                 }
                 items={UNITS}
                 itemToKey={x => x ?? ''}
-                itemToString={x => (x === 'custom' ? t('custom') : x ?? '')}
+                itemToString={x => (x === 'custom' ? t('custom') : (x ?? ''))}
                 onSelectedItemChanged={item => setCurrentUnit(item)}
                 defaultItem={currentUnit}
               />

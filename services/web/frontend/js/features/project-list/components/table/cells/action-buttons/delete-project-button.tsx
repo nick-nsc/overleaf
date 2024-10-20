@@ -1,12 +1,14 @@
 import { memo, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Project } from '../../../../../../../../types/project/dashboard/api'
-import Icon from '../../../../../../shared/components/icon'
-import Tooltip from '../../../../../../shared/components/tooltip'
 import DeleteProjectModal from '../../../modals/delete-project-modal'
 import useIsMounted from '../../../../../../shared/hooks/use-is-mounted'
 import { deleteProject } from '../../../../util/api'
 import { useProjectListContext } from '../../../../context/project-list-context'
+import getMeta from '@/utils/meta'
+import OLTooltip from '@/features/ui/components/ol/ol-tooltip'
+import OLIconButton from '@/features/ui/components/ol/ol-icon-button'
+import { bsVersion } from '@/features/utils/bootstrap-5'
 
 type DeleteProjectButtonProps = {
   project: Project
@@ -31,7 +33,7 @@ function DeleteProjectButton({ project, children }: DeleteProjectButtonProps) {
   }, [isMounted])
 
   const isOwner = useMemo(() => {
-    return project.owner && window.user_id === project.owner.id
+    return project.owner && getMeta('ol-user_id') === project.owner.id
   }, [project])
 
   const handleDeleteProject = useCallback(async () => {
@@ -62,20 +64,23 @@ const DeleteProjectButtonTooltip = memo(function DeleteProjectButtonTooltip({
   return (
     <DeleteProjectButton project={project}>
       {(text, handleOpenModal) => (
-        <Tooltip
+        <OLTooltip
           key={`tooltip-delete-project-${project.id}`}
           id={`delete-project-${project.id}`}
           description={text}
           overlayProps={{ placement: 'top', trigger: ['hover', 'focus'] }}
         >
-          <button
-            className="btn btn-link action-btn"
-            aria-label={text}
-            onClick={handleOpenModal}
-          >
-            <Icon type="ban" fw />
-          </button>
-        </Tooltip>
+          <span>
+            <OLIconButton
+              onClick={handleOpenModal}
+              variant="link"
+              accessibilityLabel={text}
+              className="action-btn"
+              icon={bsVersion({ bs5: 'block', bs3: 'ban' })}
+              bs3Props={{ fw: true }}
+            />
+          </span>
+        </OLTooltip>
       )}
     </DeleteProjectButton>
   )

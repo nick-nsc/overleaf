@@ -70,11 +70,11 @@ async function changePassword(req, res, next) {
   metrics.inc('user.password-change')
   const userId = SessionManager.getLoggedInUserId(req.session)
 
-  const user = await AuthenticationManager.promises.authenticate(
+  const { user } = await AuthenticationManager.promises.authenticate(
     { _id: userId },
     req.body.currentPassword,
     null,
-    { skipHIBPCheck: true }
+    { enforceHIBPCheck: false }
   )
   if (!user) {
     return HttpErrorHandler.badRequest(
@@ -130,9 +130,10 @@ async function changePassword(req, res, next) {
   // no need to wait, errors are logged and not passed back
   _sendSecurityAlertPasswordChanged(user)
 
-  await UserSessionsManager.promises.revokeAllUserSessions(user, [
-    req.sessionID,
-  ])
+  await UserSessionsManager.promises.removeSessionsFromRedis(
+    user,
+    req.sessionID // remove all sessions except the current session
+  )
 
   await OneTimeTokenHandler.promises.expireAllTokensForUser(
     userId.toString(),
@@ -162,9 +163,10 @@ async function clearSessions(req, res, next) {
     req.ip,
     { sessions }
   )
-  await UserSessionsManager.promises.revokeAllUserSessions(user, [
-    req.sessionID,
-  ])
+  await UserSessionsManager.promises.removeSessionsFromRedis(
+    user,
+    req.sessionID // remove all sessions except the current session
+  )
 
   await _sendSecurityAlertClearedSessions(user)
 
@@ -223,17 +225,30 @@ async function tryDeleteUser(req, res, next) {
   const { password } = req.body
   req.logger.addFields({ userId })
 
+  logger.debug({ userId }, 'trying to delete user account')
   if (password == null || password === '') {
     logger.err({ userId }, 'no password supplied for attempt to delete account')
     return res.sendStatus(403)
   }
 
-  const user = await AuthenticationManager.promises.authenticate(
-    { _id: userId },
-    password,
-    null,
-    { skipHIBPCheck: true }
-  )
+  let user
+  try {
+    user = (
+      await AuthenticationManager.promises.authenticate(
+        { _id: userId },
+        password,
+        null,
+        { enforceHIBPCheck: false }
+      )
+    ).user
+  } catch (err) {
+    throw OError.tag(
+      err,
+      'error authenticating during attempt to delete account',
+      { userId }
+    )
+  }
+
   if (!user) {
     logger.err({ userId }, 'auth failed during attempt to delete account')
     return res.sendStatus(403)
@@ -263,9 +278,11 @@ async function tryDeleteUser(req, res, next) {
         errorData.info.public
       )
     } else {
-      throw err
+      throw OError.tag(err, errorData.message, errorData.info)
     }
   }
+
+  await Modules.promises.hooks.fire('tryDeleteV1Account', user)
 
   const sessionId = req.sessionID
 
@@ -369,6 +386,9 @@ async function updateUserSettings(req, res, next) {
   }
   if (req.body.lineHeight != null) {
     user.ace.lineHeight = req.body.lineHeight
+  }
+  if (req.body.mathPreview != null) {
+    user.ace.mathPreview = req.body.mathPreview
   }
   await user.save()
 

@@ -1,5 +1,9 @@
 extends ../layout-marketing
 
+block vars
+	- bootstrap5PageStatus = 'enabled' // One of 'disabled', 'enabled', and 'queryStringOnly'
+	- bootstrap5PageSplitTest = 'bootstrap-5-subscription'
+
 block entrypointVar
 	- entrypoint = 'pages/user/subscription/dashboard'
 
@@ -8,6 +12,7 @@ block head-scripts
 
 block append meta
 	meta(name="ol-subscription" data-type="json" content=personalSubscription)
+	meta(name="ol-userCanExtendTrial" data-type="boolean" content=userCanExtendTrial)
 	meta(name="ol-managedGroupSubscriptions" data-type="json" content=managedGroupSubscriptions)
 	meta(name="ol-memberGroupSubscriptions" data-type="json" content=memberGroupSubscriptions)
 	meta(name="ol-managedInstitutions" data-type="json" content=managedInstitutions)
@@ -18,6 +23,7 @@ block append meta
 	meta(name="ol-fromPlansPage" data-type="boolean" content=fromPlansPage)
 	meta(name="ol-plans", data-type="json" content=plans)
 	meta(name="ol-groupSettingsEnabledFor", data-type="json" content=groupSettingsEnabledFor)
+	meta(name="ol-user" data-type="json" content=user)
 	if (personalSubscription && personalSubscription.recurly)
 		meta(name="ol-recurlyApiKey" content=settings.apis.recurly.publicKey)
 		meta(name="ol-recommendedCurrency" content=personalSubscription.recurly.currency)

@@ -1,7 +1,8 @@
 import { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button } from 'react-bootstrap'
 import { sendMB } from '@/infrastructure/event-tracking'
+import OLBadge from '@/features/ui/components/ol/ol-badge'
+import OLButton from '@/features/ui/components/ol/ol-button'
 
 function trackUpgradeClick() {
   sendMB('settings-upgrade-click')
@@ -48,7 +49,7 @@ export function EnableWidget({
         <div className="title-row">
           <h4>{title}</h4>
           {!hasFeature && isPremiumFeature && (
-            <span className="label label-info">{t('premium_feature')}</span>
+            <OLBadge bg="info">{t('premium_feature')}</OLBadge>
           )}
         </div>
         <p className="small">
@@ -91,36 +92,33 @@ function ActionButton({
   const { t } = useTranslation()
   if (!hasFeature) {
     return (
-      <Button
-        bsStyle={null}
-        className="btn-primary"
+      <OLButton
+        variant="primary"
         href="/user/subscription/plans"
         onClick={trackUpgradeClick}
       >
         <span className="text-capitalize">{t('upgrade')}</span>
-      </Button>
+      </OLButton>
     )
   } else if (linked) {
     return (
-      <Button
-        className="btn-danger-ghost"
+      <OLButton
+        variant="danger-ghost"
         onClick={handleUnlinkClick}
-        bsStyle={null}
         disabled={disabled}
       >
         {t('turn_off')}
-      </Button>
+      </OLButton>
     )
   } else {
     return (
-      <Button
+      <OLButton
+        variant="secondary"
         disabled={disabled}
-        bsStyle={null}
         onClick={handleLinkClick}
-        className="btn btn-secondary-info btn-secondary text-capitalize"
       >
         {t('turn_on')}
-      </Button>
+      </OLButton>
     )
   }
 }

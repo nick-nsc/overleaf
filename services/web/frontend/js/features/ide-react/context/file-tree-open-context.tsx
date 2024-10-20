@@ -21,6 +21,9 @@ import {
 } from '@/features/ide-react/types/file-tree'
 import { debugConsole } from '@/utils/debugging'
 import { convertFileRefToBinaryFile } from '@/features/ide-react/util/file-view'
+import { sendMB } from '@/infrastructure/event-tracking'
+import { FileRef } from '../../../../../types/file-ref'
+import useEventListener from '@/shared/hooks/use-event-listener'
 
 const FileTreeOpenContext = createContext<
   | {
@@ -34,7 +37,7 @@ const FileTreeOpenContext = createContext<
 >(undefined)
 
 export const FileTreeOpenProvider: FC = ({ children }) => {
-  const { rootDocId } = useProjectContext()
+  const { rootDocId, owner } = useProjectContext()
   const { eventEmitter, projectJoined } = useIdeReactContext()
   const {
     openDocId: openDocWithId,
@@ -70,9 +73,15 @@ export const FileTreeOpenProvider: FC = ({ children }) => {
 
       setOpenEntity(selected)
       if (selected.type === 'doc' && fileTreeReady) {
-        openDocWithId(selected.entity._id)
+        openDocWithId(selected.entity._id, { keepCurrentView: true })
+        if (selected.entity.name.endsWith('.bib')) {
+          sendMB('open-bib-file', {
+            projectOwner: owner._id,
+            isSampleFile: selected.entity.name === 'sample.bib',
+            linkedFileProvider: null,
+          })
+        }
       }
-
       // Keep openFile scope value in sync with the file tree
       const openFile =
         selected.type === 'fileRef'
@@ -80,10 +89,18 @@ export const FileTreeOpenProvider: FC = ({ children }) => {
           : null
       setOpenFile(openFile)
       if (openFile) {
+        if (selected?.entity?.name?.endsWith('.bib')) {
+          sendMB('open-bib-file', {
+            projectOwner: owner._id,
+            isSampleFile: false,
+            linkedFileProvider: (selected.entity as FileRef).linkedFileData
+              ?.provider,
+          })
+        }
         window.dispatchEvent(new CustomEvent('file-view:file-opened'))
       }
     },
-    [fileTreeReady, setOpenFile, openDocWithId]
+    [fileTreeReady, setOpenFile, openDocWithId, owner]
   )
 
   const handleFileTreeDelete = useCallback(
@@ -97,21 +114,19 @@ export const FileTreeOpenProvider: FC = ({ children }) => {
     [eventEmitter, openDocId, openDocWithId, rootDocId]
   )
 
-  const openDocIdRef = useRef<typeof openDocId | null>(null)
-
   // Synchronize the file tree when openDoc or openDocId is called on the editor
   // manager context from elsewhere. If the file tree does change, it will
   // trigger the onSelect handler in this component, which will update the local
   // state.
-  useEffect(() => {
-    if (openDocId !== openDocIdRef.current) {
-      debugConsole.log(`openDocId changed to ${openDocId}`)
-      openDocIdRef.current = openDocId
-      if (openDocId !== null) {
-        selectEntity(openDocId)
-      }
-    }
-  }, [openDocId, selectEntity])
+  useEventListener(
+    'doc:after-opened',
+    useCallback(
+      (event: CustomEvent<{ docId: string }>) => {
+        selectEntity(event.detail.docId)
+      },
+      [selectEntity]
+    )
+  )
 
   // Open a document once the file tree and project are ready
   const initialOpenDoneRef = useRef(false)

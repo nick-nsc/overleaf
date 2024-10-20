@@ -1,9 +1,15 @@
+import '../../helpers/bootstrap-3'
 import { EditorProviders } from '../../helpers/editor-providers'
 import PdfLogsEntries from '../../../../frontend/js/features/pdf-preview/components/pdf-logs-entries'
 import { detachChannel, testDetachChannel } from '../../helpers/detach-channel'
 import { FileTreePathContext } from '@/features/file-tree/contexts/file-tree-path'
 import { FindResult } from '@/features/file-tree/util/path'
 import { FC } from 'react'
+import {
+  EditorManager,
+  EditorManagerContext,
+} from '@/features/ide-react/context/editor-manager-context'
+import { EditorView } from '@codemirror/view'
 
 describe('<PdfLogsEntries/>', function () {
   const fakeFindEntityResult: FindResult = {
@@ -27,6 +33,18 @@ describe('<PdfLogsEntries/>', function () {
     </FileTreePathContext.Provider>
   )
 
+  const EditorManagerProvider: FC = ({ children }) => {
+    const value = {
+      openDocId: cy.spy().as('openDocId'),
+    } as unknown as EditorManager
+
+    return (
+      <EditorManagerContext.Provider value={value}>
+        {children}
+      </EditorManagerContext.Provider>
+    )
+  }
+
   const logEntries = [
     {
       file: 'main.tex',
@@ -41,22 +59,18 @@ describe('<PdfLogsEntries/>', function () {
     },
   ]
 
-  let props: Record<string, any>
+  const scope = {
+    'editor.view': new EditorView({ doc: '\\documentclass{article}' }),
+  }
 
   beforeEach(function () {
-    props = {
-      editorManager: {
-        openDocId: cy.spy().as('openDocId'),
-      },
-    }
-
     cy.interceptCompile()
     cy.interceptEvents()
   })
 
   it('displays human readable hint', function () {
     cy.mount(
-      <EditorProviders {...props}>
+      <EditorProviders scope={scope}>
         <PdfLogsEntries entries={logEntries} />
       </EditorProviders>
     )
@@ -66,7 +80,10 @@ describe('<PdfLogsEntries/>', function () {
 
   it('opens doc on click', function () {
     cy.mount(
-      <EditorProviders {...props} providers={{ FileTreePathProvider }}>
+      <EditorProviders
+        scope={scope}
+        providers={{ EditorManagerProvider, FileTreePathProvider }}
+      >
         <PdfLogsEntries entries={logEntries} />
       </EditorProviders>
     )
@@ -75,24 +92,28 @@ describe('<PdfLogsEntries/>', function () {
       name: 'Navigate to log position in source code: main.tex, 9',
     }).click()
 
-    cy.get('@findEntityByPath').should('have.been.calledOnce')
+    cy.get('@findEntityByPath').should('have.been.calledOnceWith', 'main.tex')
     cy.get('@openDocId').should(
       'have.been.calledOnceWith',
       fakeFindEntityResult.entity._id,
       {
         gotoLine: 9,
         gotoColumn: 8,
+        keepCurrentView: false,
       }
     )
   })
 
   it('opens doc via detached action', function () {
     cy.window().then(win => {
-      win.metaAttributesCache = new Map([['ol-detachRole', 'detacher']])
+      win.metaAttributesCache.set('ol-detachRole', 'detacher')
     })
 
     cy.mount(
-      <EditorProviders {...props} providers={{ FileTreePathProvider }}>
+      <EditorProviders
+        scope={scope}
+        providers={{ EditorManagerProvider, FileTreePathProvider }}
+      >
         <PdfLogsEntries entries={logEntries} />
       </EditorProviders>
     ).then(() => {
@@ -118,17 +139,21 @@ describe('<PdfLogsEntries/>', function () {
       {
         gotoLine: 7,
         gotoColumn: 6,
+        keepCurrentView: false,
       }
     )
   })
 
   it('sends open doc clicks via detached action', function () {
     cy.window().then(win => {
-      win.metaAttributesCache = new Map([['ol-detachRole', 'detached']])
+      win.metaAttributesCache.set('ol-detachRole', 'detached')
     })
 
     cy.mount(
-      <EditorProviders {...props} providers={{ FileTreePathProvider }}>
+      <EditorProviders
+        scope={scope}
+        providers={{ EditorManagerProvider, FileTreePathProvider }}
+      >
         <PdfLogsEntries entries={logEntries} />
       </EditorProviders>
     )

@@ -1,4 +1,4 @@
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 const EmailHandler = require('../Email/EmailHandler')
 const Errors = require('../Errors/Errors')
 const InstitutionsAPI = require('../Institutions/InstitutionsAPI')
@@ -32,9 +32,8 @@ async function _ensureCanAddIdentifier(userId, institutionEmail, providerId) {
     throw new Errors.SAMLAlreadyLinkedError()
   }
 
-  const userWithEmail = await UserGetter.promises.getUserByAnyEmail(
-    institutionEmail
-  )
+  const userWithEmail =
+    await UserGetter.promises.getUserByAnyEmail(institutionEmail)
 
   if (!userWithEmail) {
     // email doesn't exist; all good

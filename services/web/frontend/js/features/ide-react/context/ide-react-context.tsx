@@ -22,9 +22,10 @@ import { populateEditorScope } from '@/features/ide-react/scope-adapters/editor-
 import { postJSON } from '@/infrastructure/fetch-json'
 import { EventLog } from '@/features/ide-react/editor/event-log'
 import { populateOnlineUsersScope } from '@/features/ide-react/context/online-users-context'
-import { populateReferenceScope } from '@/features/ide-react/context/references-context'
 import { ReactScopeEventEmitter } from '@/features/ide-react/scope-event-emitter/react-scope-event-emitter'
 import getMeta from '@/utils/meta'
+
+const LOADED_AT = new Date()
 
 type IdeReactContextValue = {
   projectId: string
@@ -38,11 +39,12 @@ type IdeReactContextValue = {
   projectJoined: boolean
 }
 
-const IdeReactContext = createContext<IdeReactContextValue | undefined>(
+export const IdeReactContext = createContext<IdeReactContextValue | undefined>(
   undefined
 )
 
 function populateIdeReactScope(store: ReactScopeValueStore) {
+  store.set('settings', {})
   store.set('sync_tex_error', false)
 }
 
@@ -61,7 +63,7 @@ function populatePdfScope(store: ReactScopeValueStore) {
   store.allowNonExistentPath('pdf', true)
 }
 
-function createReactScopeValueStore(projectId: string) {
+export function createReactScopeValueStore(projectId: string) {
   const scopeStore = new ReactScopeValueStore()
 
   // Populate the scope value store with default values that will be used by
@@ -75,7 +77,6 @@ function createReactScopeValueStore(projectId: string) {
   populateProjectScope(scopeStore)
   populatePdfScope(scopeStore)
   populateOnlineUsersScope(scopeStore)
-  populateReferenceScope(scopeStore)
   populateReviewPanelScope(scopeStore)
 
   scopeStore.allowNonExistentPath('hasLintingError')
@@ -84,9 +85,8 @@ function createReactScopeValueStore(projectId: string) {
   return scopeStore
 }
 
-const projectId = window.project_id
-
 export const IdeReactProvider: FC = ({ children }) => {
+  const projectId = getMeta('ol-project_id')
   const [scopeStore] = useState(() => createReactScopeValueStore(projectId))
   const [eventEmitter] = useState(createIdeEventEmitter)
   const [scopeEventEmitter] = useState(
@@ -94,6 +94,7 @@ export const IdeReactProvider: FC = ({ children }) => {
   )
   const [eventLog] = useState(() => new EventLog())
   const [startedFreeTrial, setStartedFreeTrial] = useState(false)
+  const release = getMeta('ol-ExposedSettings')?.sentryRelease ?? null
 
   // Set to true only after project:joined has fired and all its listeners have
   // been called
@@ -107,11 +108,11 @@ export const IdeReactProvider: FC = ({ children }) => {
         ...meta,
         user_id: getMeta('ol-user_id'),
         project_id: projectId,
-        // @ts-ignore
         client_id: socket.socket?.sessionid,
-        // @ts-ignore
         transport: socket.socket?.transport?.name,
         client_now: new Date(),
+        release,
+        client_load: LOADED_AT,
       }
 
       const errorObj: Record<string, any> = {}
@@ -126,11 +127,10 @@ export const IdeReactProvider: FC = ({ children }) => {
         body: {
           error: errorObj,
           meta: metadata,
-          _csrf: window.csrfToken,
         },
       })
     },
-    [socket.socket]
+    [socket.socket, release, projectId]
   )
 
   // Populate scope values when joining project, then fire project:joined event
@@ -172,7 +172,14 @@ export const IdeReactProvider: FC = ({ children }) => {
       reportError,
       projectJoined,
     }),
-    [eventEmitter, eventLog, projectJoined, reportError, startedFreeTrial]
+    [
+      eventEmitter,
+      eventLog,
+      projectId,
+      projectJoined,
+      reportError,
+      startedFreeTrial,
+    ]
   )
 
   return (

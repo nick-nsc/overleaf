@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Button, ButtonProps } from 'react-bootstrap'
+import OLButton, { OLButtonProps } from '@/features/ui/components/ol/ol-button'
 
 const isValidEmail = (email: string) => {
   return Boolean(email)
@@ -7,20 +7,25 @@ const isValidEmail = (email: string) => {
 
 type AddNewEmailColProps = {
   email: string
-} & ButtonProps
+} & OLButtonProps
 
-function AddNewEmailBtn({ email, disabled, ...props }: AddNewEmailColProps) {
+function AddNewEmailBtn({
+  email,
+  disabled,
+  isLoading,
+  ...props
+}: AddNewEmailColProps) {
   const { t } = useTranslation()
 
   return (
-    <Button
-      bsSize="small"
-      bsStyle="primary"
-      disabled={disabled || !isValidEmail(email)}
+    <OLButton
+      variant="primary"
+      disabled={(disabled && !isLoading) || !isValidEmail(email)}
+      isLoading={isLoading}
       {...props}
     >
       {t('add_new_email')}
-    </Button>
+    </OLButton>
   )
 }
 

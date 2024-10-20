@@ -1,0 +1,145 @@
+// Button
+
+@mixin ol-button-size(
+  $font-size,
+  $line-height,
+  $padding-y,
+  $padding-x: var(--spacing-06)
+) {
+  --bs-btn-font-size: #{$font-size};
+  --bs-btn-line-height: #{$line-height};
+  --bs-btn-padding-y: #{$padding-y};
+  --bs-btn-padding-x: #{$padding-x};
+}
+
+@mixin ol-button-variant(
+  $color,
+  $background,
+  $border: $background,
+  $hover-background: $background,
+  $hover-border: $hover-background,
+  $borderless: true
+) {
+  --bs-btn-color: #{$color};
+  --bs-btn-bg: #{$background};
+  --bs-btn-border-color: #{$border};
+  --bs-btn-hover-color: #{$color};
+  --bs-btn-hover-bg: #{$hover-background};
+  --bs-btn-hover-border-color: #{$hover-border};
+  --bs-btn-active-color: #{$color};
+  --bs-btn-active-bg: #{$hover-background};
+  --bs-btn-active-border-color: #{$hover-border};
+  --bs-btn-disabled-color: var(--content-disabled);
+  --bs-btn-disabled-bg: var(--bg-light-disabled);
+  --bs-btn-disabled-border-color: var(--bg-light-disabled);
+
+  @if $borderless {
+    --bs-btn-border-width: 0;
+  }
+
+  // Use the default state colors when in a loading state
+  &[data-ol-loading='true'] {
+    color: var(--bs-btn-color);
+    background-color: var(--bs-btn-bg);
+    border-color: var(--bs-btn-border-color);
+  }
+}
+
+@mixin action-button {
+  font-size: 0;
+  line-height: 1;
+  border-radius: 50%;
+  color: var(--content-primary);
+  background-color: transparent;
+
+  &:hover,
+  &:active,
+  &[aria-expanded='true'] {
+    background-color: rgb($neutral-90, 0.08);
+  }
+}
+
+@mixin reset-button() {
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  appearance: none;
+}
+
+@mixin modal-lg {
+  max-width: 960px;
+}
+
+@mixin modal-md {
+  max-width: 640px;
+}
+
+@mixin modal-sm {
+  max-width: 480px;
+}
+
+// Toolbar
+@mixin toolbar-sm-height {
+  height: var(--toolbar-small-height);
+}
+
+@mixin toolbar-alt-bg() {
+  background-color: var(--toolbar-alt-bg-color);
+}
+
+@mixin theme($name) {
+  @if index($themes, $name) {
+    [data-theme='#{$name}'] {
+      @content;
+    }
+  } @else {
+    @error 'Theme "#{$name}" is not supported. Supported themes are: #{$themes}.';
+  }
+}
+
+@mixin box-shadow-button-input {
+  box-shadow: 0 0 0 2px var(--blue-30);
+}
+
+@mixin animation($animation) {
+  animation: $animation;
+}
+
+@mixin striped($color: rgba(255, 255, 255, 0.15), $angle: 45deg) {
+  background-image: linear-gradient(
+    $angle,
+    $color 25%,
+    transparent 25%,
+    transparent 50%,
+    $color 50%,
+    $color 75%,
+    transparent 75%,
+    transparent
+  );
+}
+
+@mixin mask-image($gradient) {
+  // mask-image isn't supported without the -webkit prefix on all browsers we support yet
+  -webkit-mask-image: $gradient;
+  mask-image: $gradient;
+}
+
+@mixin premium-background {
+  background-image: var(--premium-gradient);
+}
+
+@mixin premium-text {
+  @include premium-background;
+
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--white); // Fallback
+  background-color: var(--blue-70); // Fallback
+}
+
+@mixin dark-bg {
+  --link-color: var(--link-color-dark);
+  --link-hover-color: var(--link-hover-color-dark);
+  --link-visited-color: var(--link-visited-color-dark);
+}

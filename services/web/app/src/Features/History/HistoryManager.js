@@ -3,6 +3,7 @@ const { fetchJson, fetchNothing } = require('@overleaf/fetch-utils')
 const settings = require('@overleaf/settings')
 const OError = require('@overleaf/o-error')
 const UserGetter = require('../User/UserGetter')
+const ProjectGetter = require('../Project/ProjectGetter')
 
 async function initializeProject(projectId) {
   const body = await fetchJson(`${settings.apis.project_history.url}/project`, {
@@ -49,6 +50,9 @@ async function resyncProject(projectId, options = {}) {
   }
   if (options.origin) {
     body.origin = options.origin
+  }
+  if (options.historyRangesMigration) {
+    body.historyRangesMigration = options.historyRangesMigration
   }
   try {
     await fetchNothing(
@@ -107,6 +111,72 @@ async function _deleteProjectInFullProjectHistory(historyId) {
   }
 }
 
+/**
+ * Warning: Don't use this method for large projects. It will eagerly load all
+ * the history data and apply all operations.
+ * @param {string} projectId
+ * @returns Promise<object>
+ */
+async function getCurrentContent(projectId) {
+  const project = await ProjectGetter.promises.getProject(projectId, {
+    overleaf: true,
+  })
+  const historyId = project?.overleaf?.history?.id
+  if (!historyId) {
+    throw new OError('project does not have a history id', { projectId })
+  }
+  try {
+    return await fetchJson(
+      `${settings.apis.v1_history.url}/projects/${historyId}/latest/content`,
+      {
+        method: 'GET',
+        basicAuth: {
+          user: settings.apis.v1_history.user,
+          password: settings.apis.v1_history.pass,
+        },
+      }
+    )
+  } catch (err) {
+    throw OError.tag(err, 'failed to load project history', { historyId })
+  }
+}
+
+/**
+ * Warning: Don't use this method for large projects. It will eagerly load all
+ * the history data and apply all operations.
+ * @param {string} projectId
+ * @param {number} version
+ *
+ * @returns Promise<object>
+ */
+async function getContentAtVersion(projectId, version) {
+  const project = await ProjectGetter.promises.getProject(projectId, {
+    overleaf: true,
+  })
+  const historyId = project?.overleaf?.history?.id
+  if (!historyId) {
+    throw new OError('project does not have a history id', { projectId })
+  }
+  try {
+    return await fetchJson(
+      `${settings.apis.v1_history.url}/projects/${historyId}/versions/${version}/content`,
+      {
+        method: 'GET',
+        basicAuth: {
+          user: settings.apis.v1_history.user,
+          password: settings.apis.v1_history.pass,
+        },
+      }
+    )
+  } catch (err) {
+    throw OError.tag(
+      err,
+      'failed to load project history snapshot at version',
+      { historyId, version }
+    )
+  }
+}
+
 async function injectUserDetails(data) {
   // data can be either:
   // {
@@ -138,8 +208,8 @@ async function injectUserDetails(data) {
   const entries = Array.isArray(data.diff)
     ? data.diff
     : Array.isArray(data.updates)
-    ? data.updates
-    : []
+      ? data.updates
+      : []
   for (const entry of entries) {
     for (const user of (entry.meta && entry.meta.users) || []) {
       if (typeof user === 'string') {
@@ -192,6 +262,7 @@ module.exports = {
   deleteProject: callbackify(deleteProject),
   deleteProjectHistory: callbackify(deleteProjectHistory),
   injectUserDetails: callbackify(injectUserDetails),
+  getCurrentContent: callbackify(getCurrentContent),
   promises: {
     initializeProject,
     flushProject,
@@ -199,5 +270,7 @@ module.exports = {
     deleteProject,
     injectUserDetails,
     deleteProjectHistory,
+    getCurrentContent,
+    getContentAtVersion,
   },
 }

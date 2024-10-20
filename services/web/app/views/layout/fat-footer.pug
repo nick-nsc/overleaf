@@ -49,7 +49,12 @@ footer.fat-footer.hidden-print
 					li
 						a(href="/for/universities") #{translate('for_universities')}
 					li
-						a(href="/user/subscription/plans?itm_referrer=footer-for-students#view=student") #{translate('for_students')}
+						a(
+							data-ol-for-students-link
+							href="/user/subscription/plans?itm_referrer=footer-for-students#student-annual"
+						) #{translate('for_students')}
+					li
+						a(href="/for/government") #{translate('for_government')}
 						
 			.footer-section
 				h2.footer-section-heading #{translate('get_involved')}
@@ -62,8 +67,6 @@ footer.fat-footer.hidden-print
 					if user
 						li
 							a(href="/beta/participate") #{translate('join_beta_program')}
-						li
-							a(href="/user/bonus") #{translate('refer_a_friend')}
 		
 			.footer-section
 				h2.footer-section-heading #{translate('help')}

@@ -28,6 +28,7 @@ import {
   Version,
 } from '@/features/ide-react/editor/types/document'
 import { ThreadId } from '../../../../../types/review-panel/review-panel'
+import getMeta from '@/utils/meta'
 
 const MAX_PENDING_OP_SIZE = 64
 
@@ -126,9 +127,7 @@ export class DocumentContainer extends EventEmitter {
     if (this.doc) {
       this.doc.attachToCM6(this.cm6)
     }
-    if (this.cm6) {
-      this.cm6.on('change', this.checkConsistency)
-    }
+    this.cm6.on('change', this.checkConsistency)
   }
 
   detachFromCM6() {
@@ -458,7 +457,7 @@ export class DocumentContainer extends EventEmitter {
         'joinDoc',
         this.doc_id,
         this.doc.getVersion(),
-        { encodeRanges: true },
+        { encodeRanges: true, age: this.doc.getTimeSinceLastServerActivity() },
         (error, docLines, version, updates, ranges) => {
           if (error) {
             callback?.(error)
@@ -737,7 +736,7 @@ export class DocumentContainer extends EventEmitter {
   private filterOps(ops: AnyOperation[]) {
     // Read-only token users can't see/edit comment, so we filter out comment
     // ops to avoid highlighting comment ranges.
-    if (window.isRestrictedTokenMember) {
+    if (getMeta('ol-isRestrictedTokenMember')) {
       return ops.filter(op => !isCommentOperation(op))
     } else {
       return ops

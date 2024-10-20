@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../../../../shared/components/icon'
-import { Button } from 'react-bootstrap'
 import { FetchError, postJSON } from '../../../../infrastructure/fetch-json'
 import useAsync from '../../../../shared/hooks/use-async'
 import { UserEmailData } from '../../../../../../types/user-email'
 import { useUserEmailsContext } from '../../context/user-email-context'
+import OLButton from '@/features/ui/components/ol/ol-button'
 
 type ResendConfirmationEmailButtonProps = {
   email: UserEmailData['email']
@@ -47,14 +47,14 @@ function ResendConfirmationEmailButton({
 
   return (
     <>
-      <Button
-        className="btn-inline-link"
-        disabled={state.isLoading}
+      <OLButton
+        variant="link"
+        disabled={state.isLoading || isLoading}
         onClick={handleResendConfirmationEmail}
-        bsStyle={null}
+        className="btn-inline-link"
       >
         {t('resend_confirmation_email')}
-      </Button>
+      </OLButton>
       <br />
       {isError && (
         <div className="text-danger">

@@ -1,16 +1,21 @@
-import { Button } from 'react-bootstrap'
+import OLButton, { OLButtonProps } from '@/features/ui/components/ol/ol-button'
 
-function PrimaryButton({ children, disabled, onClick }: Button.ButtonProps) {
+function PrimaryButton({
+  children,
+  disabled,
+  isLoading,
+  onClick,
+}: OLButtonProps) {
   return (
-    <Button
-      bsSize="small"
-      bsStyle={null}
-      className="btn-secondary-info btn-secondary"
-      disabled={disabled}
+    <OLButton
+      size="sm"
+      disabled={disabled && !isLoading}
+      isLoading={isLoading}
       onClick={onClick}
+      variant="secondary"
     >
       {children}
-    </Button>
+    </OLButton>
   )
 }
 

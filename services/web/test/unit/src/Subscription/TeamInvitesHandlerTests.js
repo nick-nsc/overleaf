@@ -4,7 +4,7 @@ const { expect } = require('chai')
 const modulePath =
   '../../../../app/src/Features/Subscription/TeamInvitesHandler'
 
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 const Errors = require('../../../../app/src/Features/Errors/Errors')
 
 describe('TeamInvitesHandler', function () {
@@ -111,7 +111,7 @@ describe('TeamInvitesHandler', function () {
 
     this.TeamInvitesHandler = SandboxedModule.require(modulePath, {
       requires: {
-        mongodb: { ObjectId },
+        'mongodb-legacy': { ObjectId },
         crypto: this.crypto,
         '@overleaf/settings': { siteUrl: 'http://example.com' },
         '../../models/TeamInvite': { TeamInvite: (this.TeamInvite = {}) },
@@ -260,7 +260,7 @@ describe('TeamInvitesHandler', function () {
     })
 
     it('sends an SSO invite if SSO is enabled and inviting self', function (done) {
-      this.subscription.ssoConfig = new ObjectId('abc123abc123')
+      this.subscription.ssoConfig = new ObjectId('abc123abc123abc123abc123')
       this.SSOConfig.findById
         .withArgs(this.subscription.ssoConfig)
         .resolves({ enabled: true })
@@ -282,7 +282,7 @@ describe('TeamInvitesHandler', function () {
     })
 
     it('does not send an SSO invite if SSO is disabled and inviting self', function (done) {
-      this.subscription.ssoConfig = new ObjectId('abc123abc123')
+      this.subscription.ssoConfig = new ObjectId('abc123abc123abc123abc123')
       this.SSOConfig.findById
         .withArgs(this.subscription.ssoConfig)
         .resolves({ enabled: false })

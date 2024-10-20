@@ -1,7 +1,10 @@
 import { EditorView, WidgetType } from '@codemirror/view'
 
 export class EnvironmentLineWidget extends WidgetType {
-  constructor(public environment: string, public line?: 'begin' | 'end') {
+  constructor(
+    public environment: string,
+    public line?: 'begin' | 'end'
+  ) {
     super()
   }
 
@@ -35,5 +38,9 @@ export class EnvironmentLineWidget extends WidgetType {
 
   ignoreEvent(event: Event): boolean {
     return event.type !== 'mousedown' && event.type !== 'mouseup'
+  }
+
+  coordsAt(element: HTMLElement) {
+    return element.getBoundingClientRect()
   }
 }

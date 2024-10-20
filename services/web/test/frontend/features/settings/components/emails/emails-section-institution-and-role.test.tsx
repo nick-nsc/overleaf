@@ -11,6 +11,7 @@ import InstitutionAndRole from '../../../../../../frontend/js/features/settings/
 import { UserEmailsProvider } from '../../../../../../frontend/js/features/settings/context/user-email-context'
 import EmailsSection from '../../../../../../frontend/js/features/settings/components/emails-section'
 import { Affiliation } from '../../../../../../types/affiliation'
+import getMeta from '@/utils/meta'
 
 const userData1: UserEmailData & { affiliation: Affiliation } = {
   affiliation: {
@@ -22,6 +23,7 @@ const userData1: UserEmailData & { affiliation: Affiliation } = {
     department: null,
     institution: {
       commonsAccount: false,
+      writefullCommonsAccount: false,
       confirmed: true,
       id: 1,
       isUniversity: false,
@@ -52,6 +54,7 @@ const userData2: UserEmailData & { affiliation: Affiliation } = {
     department: 'Art History',
     institution: {
       commonsAccount: false,
+      writefullCommonsAccount: false,
       confirmed: true,
       id: 1,
       isUniversity: false,
@@ -73,8 +76,7 @@ const userData2: UserEmailData & { affiliation: Affiliation } = {
 
 describe('user role and institution', function () {
   beforeEach(function () {
-    window.metaAttributesCache = new Map()
-    window.metaAttributesCache.set('ol-ExposedSettings', {
+    Object.assign(getMeta('ol-ExposedSettings'), {
       hasAffiliationsFeature: true,
     })
     fetchMock.reset()
@@ -82,7 +84,6 @@ describe('user role and institution', function () {
   })
 
   afterEach(function () {
-    window.metaAttributesCache = new Map()
     fetchMock.reset()
   })
 

@@ -1,0 +1,264 @@
+// TODO: .website-redesign to be removed once fully rolled out
+
+@mixin reset-font-size($size) {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  ul,
+  ol {
+    @if $size == 'heading-2xl' {
+      @include heading-2xl;
+    } @else if $size == 'heading-xl' {
+      @include heading-xl;
+    } @else if $size == 'heading-lg' {
+      @include heading-lg;
+    } @else if $size == 'heading-md' {
+      @include heading-md;
+    } @else if $size == 'heading-sm' {
+      @include heading-sm;
+    } @else if $size == 'heading-xs' {
+      @include heading-xs;
+    } @else if $size == 'base' {
+      @include body-base;
+    }
+  }
+}
+
+.website-redesign {
+  --link-color: var(--link-web);
+  --link-hover-color: var(--link-web-hover);
+  --link-visited-color: var(--link-web-visited);
+
+  // hero section of features, enterprises, and universities will have an image that will overflow the page
+
+  --bs-body-color: var(--neutral-70);
+
+  overflow-x: hidden;
+
+  a {
+    &:hover {
+      text-decoration: underline;
+    }
+
+    &:focus,
+    &:focus-visible {
+      outline: 0;
+    }
+
+    &:focus-visible {
+      @include box-shadow-button-input;
+    }
+
+    i {
+      vertical-align: middle;
+      margin-left: var(--spacing-02);
+      padding-bottom: 3px;
+    }
+
+    &.link-lg {
+      font-size: var(--font-size-04);
+      line-height: var(--line-height-03);
+
+      i {
+        font-size: 24px;
+        line-height: inherit;
+      }
+    }
+
+    &.link-xl {
+      font-size: var(--font-size-06);
+      line-height: var(--line-height-05);
+
+      i {
+        font-size: var(--font-size-06);
+        line-height: var(--font-size-06);
+      }
+    }
+
+    // Specific overrides for link styles
+    &.link-monospace {
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+
+    &.btn:hover {
+      text-decoration: none;
+    }
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: 600;
+  }
+
+  h1,
+  .h1 {
+    @include heading-2xl;
+  }
+
+  .font-size-h1 {
+    @include reset-font-size('heading-2xl');
+  }
+
+  h2,
+  .h2 {
+    @include heading-xl;
+  }
+
+  .font-size-h2 {
+    @include reset-font-size('heading-xl');
+  }
+
+  h3,
+  .h3 {
+    @include heading-lg;
+  }
+
+  .font-size-h3 {
+    @include reset-font-size('heading-lg');
+  }
+
+  h4,
+  .h4 {
+    @include heading-md;
+  }
+
+  .font-size-h4 {
+    @include reset-font-size('heading-md');
+  }
+
+  h5,
+  .h5 {
+    @include heading-sm;
+  }
+
+  .font-size-h5 {
+    @include reset-font-size('heading-sm');
+  }
+
+  h6,
+  .h6 {
+    @include heading-xs;
+  }
+
+  .font-size-h6 {
+    @include reset-font-size('heading-xs');
+  }
+
+  .font-size-base {
+    @include reset-font-size('base');
+  }
+
+  // smaller fonts for mobile
+  @include media-breakpoint-down(lg) {
+    h1,
+    .h1 {
+      @include heading-xl;
+    }
+
+    .font-size-h1 {
+      @include reset-font-size('heading-xl');
+    }
+
+    h2,
+    .h2 {
+      @include heading-lg;
+    }
+
+    .font-size-h2 {
+      @include reset-font-size('heading-lg');
+    }
+
+    h3,
+    .h3 {
+      @include heading-md;
+    }
+
+    .font-size-h3 {
+      @include reset-font-size('heading-md');
+    }
+
+    h4,
+    .h4 {
+      @include heading-sm;
+    }
+
+    .font-size-h4 {
+      @include reset-font-size('heading-sm');
+    }
+
+    h5,
+    .h5 {
+      @include heading-xs;
+    }
+
+    .font-size-h5 {
+      @include reset-font-size('heading-xs');
+    }
+
+    h6,
+    .h6 {
+      @include body-base;
+    }
+
+    .font-size-h6 {
+      @include reset-font-size('base');
+    }
+  }
+
+  .font-size-display-xs {
+    @include display-xs;
+  }
+
+  .text-purple-bright {
+    color: var(--purple-bright);
+  }
+
+  .text-green-bright {
+    color: var(--green-bright);
+  }
+
+  .card {
+    --bs-card-bg: var(--neutral-10);
+    --bs-card-border-radius: var(--border-radius-large);
+    --bs-card-spacer-y: var(--spacing-08);
+    --bs-card-spacer-x: var(--spacing-08);
+  }
+
+  .cta-card {
+    .btn + .btn {
+      margin-left: var(--spacing-04);
+    }
+
+    p:has(.btn) {
+      margin-top: var(--spacing-09);
+
+      @include media-breakpoint-down(md) {
+        .btn {
+          width: 100%;
+          margin-left: 0;
+          margin-top: var(--spacing-05);
+        }
+
+        .btn:first-child {
+          margin-top: 0;
+        }
+      }
+    }
+  }
+
+  .badge-premium {
+    --badge-font-weight: 600;
+  }
+}

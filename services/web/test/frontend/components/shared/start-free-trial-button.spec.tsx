@@ -1,4 +1,6 @@
+import '../../helpers/bootstrap-3'
 import StartFreeTrialButton from '../../../../frontend/js/shared/components/start-free-trial-button'
+import getMeta from '@/utils/meta'
 
 describe('start free trial button', function () {
   beforeEach(function () {
@@ -8,6 +10,8 @@ describe('start free trial button', function () {
     cy.intercept('POST', '/event/paywall-click', {
       statusCode: 204,
     }).as('event-paywall-click')
+
+    getMeta('ol-ExposedSettings').isOverleaf = true
   })
 
   it('renders the button with default text', function () {
@@ -38,7 +42,10 @@ describe('start free trial button', function () {
     cy.mount(
       <StartFreeTrialButton
         source="cypress-test"
-        buttonProps={{ bsStyle: 'danger', bsSize: 'lg' }}
+        buttonProps={{
+          variant: 'danger',
+          size: 'lg',
+        }}
       />
     )
 

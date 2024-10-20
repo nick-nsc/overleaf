@@ -74,6 +74,10 @@ export class GraphicsWidget extends WidgetType {
     this.destroyed = true
   }
 
+  coordsAt(element: HTMLElement) {
+    return element.getBoundingClientRect()
+  }
+
   get estimatedHeight(): number {
     return this.height
   }
@@ -136,14 +140,16 @@ export class GraphicsWidget extends WidgetType {
   }
 
   async renderPDF(view: EditorView, canvas: HTMLCanvasElement, url: string) {
-    const { PDFJS } = await this.importPDFJS()
+    const { loadPdfDocumentFromUrl } = await import(
+      '@/features/pdf-preview/util/pdf-js'
+    )
 
     // bail out if loading PDF.js took too long
     if (this.destroyed) {
       return
     }
 
-    const pdf = await PDFJS.getDocument(url).promise
+    const pdf = await loadPdfDocumentFromUrl(url).promise
     const page = await pdf.getPage(1)
 
     // bail out if loading the PDF took too long
@@ -158,16 +164,10 @@ export class GraphicsWidget extends WidgetType {
     canvas.style.width = width
     canvas.style.maxWidth = width
     page.render({
-      canvasContext: canvas.getContext('2d'),
+      canvasContext: canvas.getContext('2d')!,
       viewport,
     })
     this.height = viewport.height
     view.requestMeasure()
-  }
-
-  async importPDFJS(): Promise<any> {
-    return import('../../../../pdf-preview/util/pdf-js-versions').then(
-      m => m.default
-    )
   }
 }

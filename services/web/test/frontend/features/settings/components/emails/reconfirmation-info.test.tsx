@@ -14,6 +14,7 @@ import { ssoUserData } from '../../fixtures/test-user-email-data'
 import { UserEmailData } from '../../../../../../types/user-email'
 import { UserEmailsProvider } from '../../../../../../frontend/js/features/settings/context/user-email-context'
 import * as useLocationModule from '../../../../../../frontend/js/shared/hooks/use-location'
+import getMeta from '@/utils/meta'
 
 function renderReconfirmationInfo(data: UserEmailData) {
   return render(
@@ -27,11 +28,14 @@ describe('<ReconfirmationInfo/>', function () {
   let assignStub: sinon.SinonStub
 
   beforeEach(function () {
-    window.metaAttributesCache = window.metaAttributesCache || new Map()
+    Object.assign(getMeta('ol-ExposedSettings'), {
+      samlInitPath: '/saml',
+    })
     fetchMock.get('/user/emails?ensureAffiliation=true', [])
     assignStub = sinon.stub()
     this.locationStub = sinon.stub(useLocationModule, 'useLocation').returns({
       assign: assignStub,
+      replace: sinon.stub(),
       reload: sinon.stub(),
     })
   })
@@ -49,10 +53,6 @@ describe('<ReconfirmationInfo/>', function () {
       )
     })
 
-    afterEach(function () {
-      window.metaAttributesCache = new Map()
-    })
-
     it('show reconfirmed confirmation', function () {
       renderReconfirmationInfo(ssoUserData)
       screen.getByText('SSO University')
@@ -65,7 +65,7 @@ describe('<ReconfirmationInfo/>', function () {
     let inReconfirmUserData: UserEmailData
 
     beforeEach(function () {
-      window.metaAttributesCache.set('ol-ExposedSettings', {
+      Object.assign(getMeta('ol-ExposedSettings'), {
         samlInitPath: '/saml',
       })
 
@@ -73,10 +73,6 @@ describe('<ReconfirmationInfo/>', function () {
       if (inReconfirmUserData.affiliation) {
         inReconfirmUserData.affiliation.inReconfirmNotificationPeriod = true
       }
-    })
-
-    afterEach(function () {
-      window.metaAttributesCache = new Map()
     })
 
     it('renders prompt', function () {
@@ -98,7 +94,7 @@ describe('<ReconfirmationInfo/>', function () {
 
     describe('SAML reconfirmations', function () {
       beforeEach(function () {
-        window.metaAttributesCache.set('ol-ExposedSettings', {
+        Object.assign(getMeta('ol-ExposedSettings'), {
           hasSamlFeature: true,
           samlInitPath: '/saml/init',
         })
@@ -128,7 +124,7 @@ describe('<ReconfirmationInfo/>', function () {
 
     describe('Email reconfirmations', function () {
       beforeEach(function () {
-        window.metaAttributesCache.set('ol-ExposedSettings', {
+        Object.assign(getMeta('ol-ExposedSettings'), {
           hasSamlFeature: false,
         })
         fetchMock.post('/user/emails/send-reconfirmation', 200)

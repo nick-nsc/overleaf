@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { UserEmailData } from '../../../../../../types/user-email'
-import { Button } from 'react-bootstrap'
 import { isChangingAffiliation } from '../../utils/selectors'
 import { useUserEmailsContext } from '../../context/user-email-context'
 import DownshiftInput from './downshift-input'
@@ -10,6 +9,8 @@ import { getJSON, postJSON } from '../../../../infrastructure/fetch-json'
 import defaultRoles from '../../data/roles'
 import defaultDepartments from '../../data/departments'
 import { University } from '../../../../../../types/university'
+import OLButton from '@/features/ui/components/ol/ol-button'
+import OLFormGroup from '@/features/ui/components/ol/ol-form-group'
 
 type InstitutionAndRoleProps = {
   userEmailData: UserEmailData
@@ -107,16 +108,20 @@ function InstitutionAndRole({ userEmailData }: InstitutionAndRoleProps) {
               <br />
             </>
           )}
-          <Button className="btn-inline-link" onClick={handleChangeAffiliation}>
+          <OLButton
+            onClick={handleChangeAffiliation}
+            variant="link"
+            className="btn-inline-link"
+          >
             {!affiliation.department && !affiliation.role
               ? t('add_role_and_department')
               : t('change')}
-          </Button>
+          </OLButton>
         </div>
       ) : (
         <div className="affiliation-change-container small">
           <form onSubmit={handleSubmit}>
-            <div className="form-group mb-2">
+            <OLFormGroup className="mb-2">
               <DownshiftInput
                 items={[...defaultRoles]}
                 inputValue={role}
@@ -125,8 +130,8 @@ function InstitutionAndRole({ userEmailData }: InstitutionAndRoleProps) {
                 setValue={setRole}
                 ref={roleRef}
               />
-            </div>
-            <div className="form-group mb-2">
+            </OLFormGroup>
+            <OLFormGroup className="mb-2">
               <DownshiftInput
                 items={departments}
                 inputValue={department}
@@ -134,24 +139,30 @@ function InstitutionAndRole({ userEmailData }: InstitutionAndRoleProps) {
                 label={t('department')}
                 setValue={setDepartment}
               />
-            </div>
-            <Button
-              bsSize="small"
-              bsStyle="primary"
+            </OLFormGroup>
+            <OLButton
+              variant="primary"
               type="submit"
-              disabled={!role || !department || isLoading || state.isLoading}
+              disabled={!role || !department}
+              isLoading={isLoading}
+              bs3Props={{
+                loading: isLoading
+                  ? `${t('saving')}…`
+                  : t('save_or_cancel-save'),
+              }}
             >
-              {isLoading ? <>{t('saving')}…</> : t('save_or_cancel-save')}
-            </Button>
+              {t('save_or_cancel-save')}
+            </OLButton>
             {!isLoading && (
               <>
                 <span className="mx-1">{t('save_or_cancel-or')}</span>
-                <Button
-                  className="btn-inline-link"
+                <OLButton
+                  variant="link"
                   onClick={handleCancelAffiliationChange}
+                  className="btn-inline-link"
                 >
                   {t('save_or_cancel-cancel')}
-                </Button>
+                </OLButton>
               </>
             )}
           </form>

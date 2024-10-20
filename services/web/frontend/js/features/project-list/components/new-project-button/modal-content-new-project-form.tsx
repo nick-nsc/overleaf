@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import { Alert, Button, Form, FormControl, Modal } from 'react-bootstrap'
 import { useTranslation } from 'react-i18next'
 import useAsync from '../../../../shared/hooks/use-async'
 import {
@@ -8,8 +7,16 @@ import {
 } from '../../../../infrastructure/fetch-json'
 import { useRefWithAutoFocus } from '../../../../shared/hooks/use-ref-with-auto-focus'
 import { useLocation } from '../../../../shared/hooks/use-location'
-import getMeta from '@/utils/meta'
 import Notification from '@/shared/components/notification'
+import {
+  OLModalBody,
+  OLModalFooter,
+  OLModalHeader,
+  OLModalTitle,
+} from '@/features/ui/components/ol/ol-modal'
+import OLFormControl from '@/features/ui/components/ol/ol-form-control'
+import OLButton from '@/features/ui/components/ol/ol-button'
+import OLForm from '@/features/ui/components/ol/ol-form'
 
 type NewProjectData = {
   project_id: string
@@ -33,16 +40,11 @@ function ModalContentNewProjectForm({ onCancel, template = 'none' }: Props) {
   const [projectName, setProjectName] = useState('')
   const { isLoading, isError, error, runAsync } = useAsync<NewProjectData>()
   const location = useLocation()
-  const newNotificationStyle = getMeta(
-    'ol-newNotificationStyle',
-    false
-  ) as boolean
 
   const createNewProject = () => {
     runAsync(
       postJSON('/project/new', {
         body: {
-          _csrf: window.csrfToken,
           projectName,
           template,
         },
@@ -56,59 +58,57 @@ function ModalContentNewProjectForm({ onCancel, template = 'none' }: Props) {
       .catch(() => {})
   }
 
-  const handleChangeName = (
-    e: React.ChangeEvent<HTMLInputElement & FormControl>
-  ) => {
+  const handleChangeName = (e: React.ChangeEvent<HTMLInputElement>) => {
     setProjectName(e.currentTarget.value)
   }
 
-  const handleSubmit = (e: React.FormEvent<Form>) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     createNewProject()
   }
 
   return (
     <>
-      <Modal.Header closeButton>
-        <Modal.Title>{t('new_project')}</Modal.Title>
-      </Modal.Header>
+      <OLModalHeader closeButton>
+        <OLModalTitle>{t('new_project')}</OLModalTitle>
+      </OLModalHeader>
 
-      <Modal.Body>
-        {isError &&
-          (newNotificationStyle ? (
-            <div className="notification-list">
-              <Notification
-                type="error"
-                content={getUserFacingMessage(error) as string}
-              />
-            </div>
-          ) : (
-            <Alert bsStyle="danger">{getUserFacingMessage(error)}</Alert>
-          ))}
-        <Form onSubmit={handleSubmit}>
-          <input
+      <OLModalBody>
+        {isError && (
+          <div className="notification-list">
+            <Notification
+              type="error"
+              content={getUserFacingMessage(error) as string}
+            />
+          </div>
+        )}
+        <OLForm onSubmit={handleSubmit}>
+          <OLFormControl
             type="text"
-            className="form-control"
             ref={autoFocusedRef}
             placeholder={t('project_name')}
             onChange={handleChangeName}
             value={projectName}
           />
-        </Form>
-      </Modal.Body>
+        </OLForm>
+      </OLModalBody>
 
-      <Modal.Footer>
-        <Button bsStyle={null} className="btn-secondary" onClick={onCancel}>
+      <OLModalFooter>
+        <OLButton variant="secondary" onClick={onCancel}>
           {t('cancel')}
-        </Button>
-        <Button
-          bsStyle="primary"
+        </OLButton>
+        <OLButton
+          variant="primary"
           onClick={createNewProject}
           disabled={projectName === '' || isLoading}
+          isLoading={isLoading}
+          bs3Props={{
+            loading: isLoading ? `${t('creating')}…` : t('create'),
+          }}
         >
-          {isLoading ? `${t('creating')}…` : t('create')}
-        </Button>
-      </Modal.Footer>
+          {t('create')}
+        </OLButton>
+      </OLModalFooter>
     </>
   )
 }

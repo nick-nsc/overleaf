@@ -12,7 +12,6 @@ import { DocId } from '../../../../../../../types/project-settings'
 import { dispatchReviewPanelLayout } from '../../../extensions/changes/change-manager'
 import { UserId } from '../../../../../../../types/user'
 
-/* eslint-disable no-use-before-define */
 export interface ReviewPanelState {
   values: {
     collapsed: Record<DocId, boolean>
@@ -71,7 +70,7 @@ export interface ReviewPanelState {
       commentId: CommentId,
       content: string
     ) => void
-    unresolveComment: (threadId: ThreadId) => void
+    unresolveComment: (docId: DocId, threadId: ThreadId) => void
     deleteThread: (docId: DocId, threadId: ThreadId) => void
     refreshResolvedCommentsDropdown: () => Promise<
       void | ReviewPanelDocEntries[]
@@ -96,8 +95,6 @@ export interface ReviewPanelState {
     >
   }
 }
-
-/* eslint-enable no-use-before-define */
 
 // Getter for values
 export type Value<T extends keyof ReviewPanelState['values']> =

@@ -7,23 +7,23 @@ block content
 				.col-md-8.col-md-offset-2
 					.card.project-invite-accept
 						.page-header.text-centered
-							h1(ng-non-bindable) #{translate("user_wants_you_to_see_project", {username:owner.first_name, projectname:""})}
+							h1 #{translate("user_wants_you_to_see_project", {username:owner.first_name, projectname:""})}
 								br
-								em(ng-non-bindable) #{project.name}
+								em #{project.name}
 						.row.text-center
 							.col-md-12
 								p
 									| #{translate("accepting_invite_as")}&nbsp;
-									em(ng-non-bindable) #{user.email}
+									em #{user.email}
 						.row
 							.col-md-12
 								form.form(
 									data-ol-regular-form
 									method="POST",
-									action="/project/"+invite.projectId+"/invite/token/"+invite.token+"/accept"
+									action="/project/"+invite.projectId+"/invite/token/"+token+"/accept"
 								)
 									input(name='_csrf', type='hidden', value=csrfToken)
-									input(name='token', type='hidden', value=invite.token)
+									input(name='token', type='hidden', value=token)
 									.form-group.text-center
 										button.btn.btn-lg.btn-primary(
 											type="submit"

@@ -11,6 +11,8 @@ const rclient = RedisWrapper.client('ratelimiter')
  * Wrapper over the RateLimiterRedis class
  */
 class RateLimiter {
+  #opts
+
   /**
    * Create a rate limiter.
    *
@@ -31,6 +33,7 @@ class RateLimiter {
    */
   constructor(name, opts = {}) {
     this.name = name
+    this.#opts = Object.assign({}, opts)
     this._rateLimiter = new RateLimiterFlexible.RateLimiterRedis({
       ...opts,
       keyPrefix: `rate-limit:${name}`,
@@ -44,6 +47,11 @@ class RateLimiter {
         storeClient: rclient,
       })
     }
+  }
+
+  // Readonly access to the options, useful for aligning rate-limits.
+  getOptions() {
+    return Object.assign({}, this.#opts)
   }
 
   async consume(key, points = 1, options = { method: 'unknown' }) {
@@ -120,11 +128,14 @@ const openProjectRateLimiter = new RateLimiter('open-project', {
 })
 
 // Keep in sync with the can-skip-captcha options.
-const overleafLoginRateLimiter = new RateLimiter('overleaf-login', {
-  points: 20,
-  subnetPoints: 200,
-  duration: 60,
-})
+const overleafLoginRateLimiter = new RateLimiter(
+  'overleaf-login',
+  Settings.rateLimit?.login?.ip || {
+    points: 20,
+    subnetPoints: 200,
+    duration: 60,
+  }
+)
 
 module.exports = {
   RateLimiter,

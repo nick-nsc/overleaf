@@ -1,4 +1,4 @@
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 const SandboxedModule = require('sandboxed-module')
 const path = require('path')
 const sinon = require('sinon')
@@ -16,7 +16,7 @@ const collaberatorRef = new ObjectId()
 const projectName = 'project_name_here'
 
 const thirdPartyDataStoreApiUrl = 'http://third-party-json-store.herokuapp.com'
-const siteUrl = 'http://www.localhost:3000'
+const siteUrl = 'http://127.0.0.1:3000'
 const filestoreUrl = 'filestore.overleaf.com'
 
 describe('TpdsUpdateSender', function () {
@@ -72,7 +72,7 @@ describe('TpdsUpdateSender', function () {
     }
     this.TpdsUpdateSender = SandboxedModule.require(modulePath, {
       requires: {
-        mongodb: { ObjectId },
+        'mongodb-legacy': { ObjectId },
         '@overleaf/settings': this.settings,
         '@overleaf/fetch-utils': this.FetchUtils,
         '../Collaborators/CollaboratorsGetter': this.CollaboratorsGetter,

@@ -4,7 +4,6 @@ import {
 } from '../context/project-list-context'
 import { ColorPickerProvider } from '../context/color-picker-context'
 import * as eventTracking from '../../../infrastructure/event-tracking'
-import { Col, Row } from 'react-bootstrap'
 import { useTranslation } from 'react-i18next'
 import useWaitForI18n from '../../../shared/hooks/use-wait-for-i18n'
 import CurrentPlanWidget from './current-plan-widget/current-plan-widget'
@@ -25,6 +24,14 @@ import LoadMore from './load-more'
 import { useEffect } from 'react'
 import withErrorBoundary from '../../../infrastructure/error-boundary'
 import { GenericErrorBoundaryFallback } from '../../../shared/components/generic-error-boundary-fallback'
+import { SplitTestProvider } from '@/shared/context/split-test-context'
+import OLCol from '@/features/ui/components/ol/ol-col'
+import { bsVersion } from '@/features/utils/bootstrap-5'
+import classnames from 'classnames'
+import Notification from '@/shared/components/notification'
+import OLRow from '@/features/ui/components/ol/ol-row'
+import BootstrapVersionSwitcher from '@/features/ui/components/bootstrap-5/bootstrap-version-switcher'
+import { TableContainer } from '@/features/ui/components/bootstrap-5/table'
 
 function ProjectListRoot() {
   const { isReady } = useWaitForI18n()
@@ -40,7 +47,9 @@ export function ProjectListRootInner() {
   return (
     <ProjectListProvider>
       <ColorPickerProvider>
-        <ProjectListPageContent />
+        <SplitTestProvider>
+          <ProjectListPageContent />
+        </SplitTestProvider>
       </ColorPickerProvider>
     </ProjectListProvider>
   )
@@ -68,6 +77,31 @@ function ProjectListPageContent() {
 
   const { t } = useTranslation()
 
+  const tableTopArea = (
+    <div
+      className={classnames(
+        'pt-2',
+        'pb-3',
+        bsVersion({ bs5: 'd-md-none', bs3: 'visible-xs' })
+      )}
+    >
+      <div className="clearfix">
+        <NewProjectButton
+          id="new-project-button-projects-table"
+          className="pull-left me-2"
+          showAddAffiliationWidget
+        />
+        <SearchForm
+          inputValue={searchText}
+          setInputValue={setSearchText}
+          filter={filter}
+          selectedTag={selectedTag}
+          className="overflow-hidden"
+        />
+      </div>
+    </div>
+  )
+
   return isLoading ? (
     <div className="loading-container">
       <LoadingBranded loadProgress={loadProgress} label={t('loading')} />
@@ -75,105 +109,139 @@ function ProjectListPageContent() {
   ) : (
     <>
       <SystemMessages />
-      <div className="project-list-wrapper clearfix container mx-0 px-0">
+
+      <div
+        className={classnames(
+          'project-list-wrapper',
+          bsVersion({ bs3: 'clearfix container mx-0 px-0' })
+        )}
+      >
         {totalProjectsCount > 0 ? (
           <>
             <Sidebar />
             <div className="project-list-main-react">
               {error ? <DashApiError /> : ''}
-              <Row>
-                <Col xs={12}>
+              <OLRow>
+                <OLCol>
                   <UserNotifications />
-                </Col>
-              </Row>
+                </OLCol>
+              </OLRow>
               <div className="project-list-header-row">
                 <ProjectListTitle
                   filter={filter}
                   selectedTag={selectedTag}
-                  className="hidden-xs text-truncate"
+                  selectedTagId={selectedTagId}
+                  className={classnames(
+                    'text-truncate',
+                    bsVersion({
+                      bs5: 'd-none d-md-block',
+                      bs3: 'hidden-xs',
+                    })
+                  )}
                 />
                 <div className="project-tools">
-                  <div className="hidden-xs">
+                  <div
+                    className={bsVersion({
+                      bs5: 'd-none d-md-block',
+                      bs3: 'hidden-xs',
+                    })}
+                  >
                     {selectedProjects.length === 0 ? (
                       <CurrentPlanWidget />
                     ) : (
                       <ProjectTools />
                     )}
                   </div>
-                  <div className="visible-xs">
+                  <div
+                    className={bsVersion({
+                      bs5: 'd-md-none',
+                      bs3: 'visible-xs',
+                    })}
+                  >
                     <CurrentPlanWidget />
                   </div>
                 </div>
               </div>
-              <Row className="hidden-xs">
-                <Col md={7}>
+              <OLRow
+                className={bsVersion({
+                  bs5: 'd-none d-md-block',
+                  bs3: 'hidden-xs',
+                })}
+              >
+                <OLCol lg={7}>
                   <SearchForm
                     inputValue={searchText}
                     setInputValue={setSearchText}
                     filter={filter}
                     selectedTag={selectedTag}
                   />
-                </Col>
-              </Row>
-              <div className="project-list-sidebar-survey-wrapper visible-xs">
+                </OLCol>
+              </OLRow>
+              <div
+                className={classnames(
+                  'project-list-sidebar-survey-wrapper',
+                  bsVersion({ bs5: 'd-md-none', bs3: 'visible-xs' })
+                )}
+              >
                 <SurveyWidget />
               </div>
-              <div className="visible-xs mt-1">
-                <div role="toolbar" className="projects-toolbar">
+              <div
+                className={classnames(
+                  'mt-1',
+                  bsVersion({ bs5: 'd-md-none', bs3: 'visible-xs' })
+                )}
+              >
+                <div
+                  role="toolbar"
+                  className="projects-toolbar"
+                  aria-label={t('projects')}
+                >
                   <ProjectsDropdown />
                   <SortByDropdown />
                 </div>
               </div>
-              <Row className="row-spaced">
-                <Col xs={12}>
-                  <div className="card project-list-card">
-                    <div className="visible-xs pt-2 pb-3">
-                      <div className="clearfix">
-                        <NewProjectButton
-                          id="new-project-button-projects-table"
-                          className="pull-left me-2"
-                          showAddAffiliationWidget
-                        />
-                        <SearchForm
-                          inputValue={searchText}
-                          setInputValue={setSearchText}
-                          filter={filter}
-                          selectedTag={selectedTag}
-                          className="overflow-hidden"
-                          formGroupProps={{ className: 'mb-0' }}
-                        />
+              <OLRow className="row-spaced">
+                <OLCol>
+                  <BootstrapVersionSwitcher
+                    bs3={
+                      <div className="card project-list-card">
+                        {tableTopArea}
+                        <ProjectListTable />
                       </div>
-                    </div>
-                    <ProjectListTable />
-                  </div>
-                </Col>
-              </Row>
-              <Row className="row-spaced">
-                <Col xs={12}>
+                    }
+                    bs5={
+                      <TableContainer bordered>
+                        {tableTopArea}
+                        <ProjectListTable />
+                      </TableContainer>
+                    }
+                  />
+                </OLCol>
+              </OLRow>
+              <OLRow className="row-spaced">
+                <OLCol>
                   <LoadMore />
-                </Col>
-              </Row>
+                </OLCol>
+              </OLRow>
             </div>
           </>
         ) : (
           <div className="project-list-welcome-wrapper">
             {error ? <DashApiError /> : ''}
-            <Row className="row-spaced mx-0">
-              <Col
-                sm={10}
-                smOffset={1}
-                md={8}
-                mdOffset={2}
+            <OLRow className="row-spaced mx-0">
+              <OLCol
+                md={{ span: 10, offset: 1 }}
+                lg={{ span: 8, offset: 2 }}
                 className="project-list-empty-col"
               >
-                <Row>
-                  <Col xs={12}>
+                <OLRow>
+                  <OLCol>
                     <UserNotifications />
-                  </Col>
-                </Row>
+                  </OLCol>
+                </OLRow>
                 <WelcomeMessage />
-              </Col>
-            </Row>
+              </OLCol>
+            </OLRow>
           </div>
         )}
       </div>
@@ -184,13 +252,20 @@ function ProjectListPageContent() {
 function DashApiError() {
   const { t } = useTranslation()
   return (
-    <Row className="row-spaced">
-      <Col xs={8} xsOffset={2} aria-live="polite" className="text-center">
-        <div className="alert alert-danger">
-          {t('generic_something_went_wrong')}
+    <OLRow className="row-spaced">
+      <OLCol
+        xs={{ span: 8, offset: 2 }}
+        bs3Props={{ xs: 8, xsOffset: 2 }}
+        aria-live="polite"
+      >
+        <div className="notification-list">
+          <Notification
+            content={t('generic_something_went_wrong')}
+            type="error"
+          />
         </div>
-      </Col>
-    </Row>
+      </OLCol>
+    </OLRow>
   )
 }
 

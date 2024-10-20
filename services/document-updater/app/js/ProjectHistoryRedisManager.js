@@ -1,5 +1,7 @@
+// @ts-check
+
 const Settings = require('@overleaf/settings')
-const { promisifyAll } = require('@overleaf/promise-utils')
+const { callbackifyAll } = require('@overleaf/promise-utils')
 const projectHistoryKeys = Settings.redis?.project_history?.key_schema
 const rclient = require('@overleaf/redis-wrapper').createClient(
   Settings.redis.project_history
@@ -7,15 +9,26 @@ const rclient = require('@overleaf/redis-wrapper').createClient(
 const logger = require('@overleaf/logger')
 const metrics = require('./Metrics')
 const { docIsTooLarge } = require('./Limits')
+const { addTrackedDeletesToContent, extractOriginOrSource } = require('./Utils')
+const HistoryConversions = require('./HistoryConversions')
+const OError = require('@overleaf/o-error')
+
+/**
+ * @import { Ranges } from './types'
+ */
 
 const ProjectHistoryRedisManager = {
-  queueOps(projectId, ...rest) {
+  async queueOps(projectId, ...ops) {
     // Record metric for ops pushed onto queue
-    const callback = rest.pop()
-    const ops = rest
     for (const op of ops) {
       metrics.summary('redis.projectHistoryOps', op.length, { status: 'push' })
     }
+
+    // Make sure that this MULTI operation only operates on project
+    // specific keys, i.e. keys that have the project id in curly braces.
+    // The curly braces identify a hash key for Redis and ensures that
+    // the MULTI's operations are all done on the same node in a
+    // cluster environment.
     const multi = rclient.multi()
     // Push the ops onto the project history queue
     multi.rpush(
@@ -30,24 +43,18 @@ const ProjectHistoryRedisManager = {
       }),
       Date.now()
     )
-    multi.exec(function (error, result) {
-      if (error) {
-        return callback(error)
-      }
-      // return the number of entries pushed onto the project history queue
-      callback(null, result[0])
-    })
+    const result = await multi.exec()
+    return result[0]
   },
 
-  queueRenameEntity(
+  async queueRenameEntity(
     projectId,
     projectHistoryId,
     entityType,
     entityId,
     userId,
     projectUpdate,
-    source,
-    callback
+    originOrSource
   ) {
     projectUpdate = {
       pathname: projectUpdate.pathname,
@@ -60,7 +67,15 @@ const ProjectHistoryRedisManager = {
       projectHistoryId,
     }
     projectUpdate[entityType] = entityId
-    if (source != null) {
+
+    const { origin, source } = extractOriginOrSource(originOrSource)
+
+    if (origin != null) {
+      projectUpdate.meta.origin = origin
+      if (origin.kind !== 'editor') {
+        projectUpdate.meta.type = 'external'
+      }
+    } else if (source != null) {
       projectUpdate.meta.source = source
       if (source !== 'editor') {
         projectUpdate.meta.type = 'external'
@@ -73,32 +88,54 @@ const ProjectHistoryRedisManager = {
     )
     const jsonUpdate = JSON.stringify(projectUpdate)
 
-    ProjectHistoryRedisManager.queueOps(projectId, jsonUpdate, callback)
+    return await ProjectHistoryRedisManager.queueOps(projectId, jsonUpdate)
   },
 
-  queueAddEntity(
+  async queueAddEntity(
     projectId,
     projectHistoryId,
     entityType,
     entityId,
     userId,
     projectUpdate,
-    source,
-    callback
+    originOrSource
   ) {
+    let docLines = projectUpdate.docLines
+    let ranges
+    if (projectUpdate.historyRangesSupport && projectUpdate.ranges) {
+      docLines = addTrackedDeletesToContent(
+        docLines,
+        projectUpdate.ranges.changes ?? []
+      )
+      ranges = HistoryConversions.toHistoryRanges(projectUpdate.ranges)
+    }
+
     projectUpdate = {
       pathname: projectUpdate.pathname,
-      docLines: projectUpdate.docLines,
+      docLines,
       url: projectUpdate.url,
       meta: {
         user_id: userId,
         ts: new Date(),
       },
       version: projectUpdate.version,
+      hash: projectUpdate.hash,
+      metadata: projectUpdate.metadata,
       projectHistoryId,
     }
+    if (ranges) {
+      projectUpdate.ranges = ranges
+    }
     projectUpdate[entityType] = entityId
-    if (source != null) {
+
+    const { origin, source } = extractOriginOrSource(originOrSource)
+
+    if (origin != null) {
+      projectUpdate.meta.origin = origin
+      if (origin.kind !== 'editor') {
+        projectUpdate.meta.type = 'external'
+      }
+    } else if (source != null) {
       projectUpdate.meta.source = source
       if (source !== 'editor') {
         projectUpdate.meta.type = 'external'
@@ -111,16 +148,10 @@ const ProjectHistoryRedisManager = {
     )
     const jsonUpdate = JSON.stringify(projectUpdate)
 
-    ProjectHistoryRedisManager.queueOps(projectId, jsonUpdate, callback)
+    return await ProjectHistoryRedisManager.queueOps(projectId, jsonUpdate)
   },
 
-  queueResyncProjectStructure(
-    projectId,
-    projectHistoryId,
-    docs,
-    files,
-    callback
-  ) {
+  async queueResyncProjectStructure(projectId, projectHistoryId, docs, files) {
     logger.debug({ projectId, docs, files }, 'queue project structure resync')
     const projectUpdate = {
       resyncProjectStructure: { docs, files },
@@ -130,27 +161,46 @@ const ProjectHistoryRedisManager = {
       },
     }
     const jsonUpdate = JSON.stringify(projectUpdate)
-    ProjectHistoryRedisManager.queueOps(projectId, jsonUpdate, callback)
+    return await ProjectHistoryRedisManager.queueOps(projectId, jsonUpdate)
   },
 
-  queueResyncDocContent(
+  /**
+   * Add a resync doc update to the project-history queue
+   *
+   * @param {string} projectId
+   * @param {string} projectHistoryId
+   * @param {string} docId
+   * @param {string[]} lines
+   * @param {Ranges} ranges
+   * @param {string[]} resolvedCommentIds
+   * @param {number} version
+   * @param {string} pathname
+   * @param {boolean} historyRangesSupport
+   * @return {Promise<number>} the number of ops added
+   */
+  async queueResyncDocContent(
     projectId,
     projectHistoryId,
     docId,
     lines,
+    ranges,
+    resolvedCommentIds,
     version,
     pathname,
-    callback
+    historyRangesSupport
   ) {
     logger.debug(
       { projectId, docId, lines, version, pathname },
       'queue doc content resync'
     )
+
+    let content = lines.join('\n')
+    if (historyRangesSupport) {
+      content = addTrackedDeletesToContent(content, ranges.changes ?? [])
+    }
+
     const projectUpdate = {
-      resyncDocContent: {
-        content: lines.join('\n'),
-        version,
-      },
+      resyncDocContent: { content, version },
       projectHistoryId,
       path: pathname,
       doc: docId,
@@ -158,20 +208,28 @@ const ProjectHistoryRedisManager = {
         ts: new Date(),
       },
     }
+
+    if (historyRangesSupport) {
+      projectUpdate.resyncDocContent.ranges =
+        HistoryConversions.toHistoryRanges(ranges)
+      projectUpdate.resyncDocContent.resolvedCommentIds = resolvedCommentIds
+    }
+
     const jsonUpdate = JSON.stringify(projectUpdate)
     // Do an optimised size check on the docLines using the serialised
     // project update length as an upper bound
     const sizeBound = jsonUpdate.length
     if (docIsTooLarge(sizeBound, lines, Settings.max_doc_length)) {
-      const err = new Error(
-        'blocking resync doc content insert into project history queue: doc is too large'
+      throw new OError(
+        'blocking resync doc content insert into project history queue: doc is too large',
+        { projectId, docId, docSize: sizeBound }
       )
-      logger.error({ projectId, docId, err, docSize: sizeBound }, err.message)
-      return callback(err)
     }
-    ProjectHistoryRedisManager.queueOps(projectId, jsonUpdate, callback)
+    return await ProjectHistoryRedisManager.queueOps(projectId, jsonUpdate)
   },
 }
 
-module.exports = ProjectHistoryRedisManager
-module.exports.promises = promisifyAll(ProjectHistoryRedisManager)
+module.exports = {
+  ...callbackifyAll(ProjectHistoryRedisManager),
+  promises: ProjectHistoryRedisManager,
+}

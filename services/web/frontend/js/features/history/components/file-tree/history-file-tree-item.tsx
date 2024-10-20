@@ -1,7 +1,7 @@
 import classNames from 'classnames'
 import type { ReactNode } from 'react'
 import type { FileOperation } from '../../services/types/file-operation'
-import Badge from '../../../../shared/components/badge'
+import Tag from '@/shared/components/tag'
 
 type FileTreeItemProps = {
   name: string
@@ -25,11 +25,9 @@ export default function HistoryFileTreeItem({
         >
           {name}
         </div>
-        {operation ? (
-          <Badge className="history-file-tree-item-badge" size="sm">
-            {operation}
-          </Badge>
-        ) : null}
+        {operation && (
+          <Tag className="history-file-tree-item-badge">{operation}</Tag>
+        )}
       </div>
     </div>
   )

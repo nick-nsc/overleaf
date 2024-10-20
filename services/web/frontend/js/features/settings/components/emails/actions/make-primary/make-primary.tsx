@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import Tooltip from '../../../../../../shared/components/tooltip'
 import PrimaryButton from './primary-button'
 import { useTranslation } from 'react-i18next'
 import {
@@ -15,6 +14,7 @@ import { UserEmailData } from '../../../../../../../../types/user-email'
 import { UseAsyncReturnType } from '../../../../../../shared/hooks/use-async'
 import { ssoAvailableForInstitution } from '../../../../utils/sso'
 import ConfirmationModal from './confirmation-modal'
+import OLTooltip from '@/features/ui/components/ol/ol-tooltip'
 
 const getDescription = (
   t: (s: string) => string,
@@ -82,11 +82,11 @@ function MakePrimary({ userEmailData, makePrimaryAsync }: MakePrimaryProps) {
   return (
     <>
       {makePrimaryAsync.isLoading ? (
-        <PrimaryButton disabled>
+        <PrimaryButton disabled isLoading={state.isLoading}>
           {t('processing_uppercase')}&hellip;
         </PrimaryButton>
       ) : (
-        <Tooltip
+        <OLTooltip
           id={`make-primary-${userEmailData.email}`}
           description={getDescription(t, state, userEmailData)}
         >
@@ -102,7 +102,7 @@ function MakePrimary({ userEmailData, makePrimaryAsync }: MakePrimaryProps) {
               {t('make_primary')}
             </PrimaryButton>
           </span>
-        </Tooltip>
+        </OLTooltip>
       )}
       <ConfirmationModal
         email={userEmailData.email}

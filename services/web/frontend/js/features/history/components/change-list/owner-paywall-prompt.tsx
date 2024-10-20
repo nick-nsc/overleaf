@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import * as eventTracking from '../../../../infrastructure/event-tracking'
 import StartFreeTrialButton from '../../../../shared/components/start-free-trial-button'
 import { paywallPrompt } from '../../../../main/account-upgrade'
+import { useFeatureFlag } from '@/shared/context/split-test-context'
 
 function FeatureItem({ text }: { text: string }) {
   return (
@@ -16,6 +17,8 @@ function FeatureItem({ text }: { text: string }) {
 export function OwnerPaywallPrompt() {
   const { t } = useTranslation()
   const [clickedFreeTrialButton, setClickedFreeTrialButton] = useState(false)
+
+  const hasNewPaywallCta = useFeatureFlag('paywall-cta')
 
   useEffect(() => {
     eventTracking.send('subscription-funnel', 'editor-click-feature', 'history')
@@ -32,7 +35,7 @@ export function OwnerPaywallPrompt() {
       <p>{t('currently_seeing_only_24_hrs_history')}</p>
       <p>
         <strong>
-          {t('upgrade_to_get_feature', { feature: 'full Project History' })}
+          {t('upgrade_to_get_feature', { feature: 'full project history' })}
         </strong>
       </p>
       <ul className="history-feature-list">
@@ -48,9 +51,13 @@ export function OwnerPaywallPrompt() {
       <p>
         <StartFreeTrialButton
           source="history"
-          buttonProps={{ bsStyle: 'default', className: 'btn-premium' }}
+          buttonProps={{ variant: 'premium' }}
           handleClick={handleFreeTrialClick}
-        />
+        >
+          {hasNewPaywallCta
+            ? t('get_full_project_history')
+            : t('start_free_trial')}
+        </StartFreeTrialButton>
       </p>
       {clickedFreeTrialButton ? (
         <p className="small">{t('refresh_page_after_starting_free_trial')}</p>

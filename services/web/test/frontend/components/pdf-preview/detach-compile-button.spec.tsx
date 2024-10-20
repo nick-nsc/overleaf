@@ -1,3 +1,4 @@
+import '../../helpers/bootstrap-3'
 import { EditorProviders } from '../../helpers/editor-providers'
 import DetachCompileButtonWrapper from '../../../../frontend/js/features/pdf-preview/components/detach-compile-button-wrapper'
 import { mockScope } from './scope'
@@ -12,7 +13,7 @@ describe('<DetachCompileButtonWrapper />', function () {
     cy.interceptCompile()
 
     cy.window().then(win => {
-      win.metaAttributesCache = new Map([['ol-detachRole', 'detacher']])
+      win.metaAttributesCache.set('ol-detachRole', 'detacher')
     })
 
     const scope = mockScope()
@@ -32,7 +33,7 @@ describe('<DetachCompileButtonWrapper />', function () {
     cy.interceptCompile()
 
     cy.window().then(win => {
-      win.metaAttributesCache = new Map([['ol-detachRole', 'detacher']])
+      win.metaAttributesCache.set('ol-detachRole', 'detacher')
     })
 
     const scope = mockScope()
@@ -59,7 +60,7 @@ describe('<DetachCompileButtonWrapper />', function () {
     cy.interceptCompile()
 
     cy.window().then(win => {
-      win.metaAttributesCache = new Map([['ol-detachRole', 'detached']])
+      win.metaAttributesCache.set('ol-detachRole', 'detached')
     })
 
     const scope = mockScope()

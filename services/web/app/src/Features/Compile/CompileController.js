@@ -30,6 +30,15 @@ const pdfDownloadRateLimiter = new RateLimiter('full-pdf-download', {
   duration: 60 * 60,
 })
 
+function getOutputFilesArchiveSpecification(projectId, userId, buildId) {
+  const fileName = 'output.zip'
+  return {
+    path: fileName,
+    url: CompileController._getFileUrl(projectId, userId, buildId, fileName),
+    type: 'zip',
+  }
+}
+
 function getImageNameForProject(projectId, callback) {
   ProjectGetter.getProject(projectId, { imageName: 1 }, (err, project) => {
     if (err) return callback(err)
@@ -105,15 +114,6 @@ module.exports = CompileController = {
       stopOnFirstError,
     }
 
-    // temporary override to force the new compile timeout
-    const forceNewCompileTimeout = req.query.force_new_compile_timeout
-    if (
-      forceNewCompileTimeout === 'active' ||
-      forceNewCompileTimeout === 'changing'
-    ) {
-      options.forceNewCompileTimeout = forceNewCompileTimeout
-    }
-
     if (req.body.rootDoc_id) {
       options.rootDoc_id = req.body.rootDoc_id
     } else if (
@@ -158,7 +158,8 @@ module.exports = CompileController = {
           validationProblems,
           stats,
           timings,
-          outputUrlPrefix
+          outputUrlPrefix,
+          buildId
         ) => {
           if (error) {
             Metrics.inc('compile-error')
@@ -169,7 +170,14 @@ module.exports = CompileController = {
             pdfDownloadDomain += outputUrlPrefix
           }
 
-          if (limits) {
+          if (
+            limits &&
+            SplitTestHandler.getPercentile(
+              AnalyticsManager.getIdsFromSession(req.session).analyticsId,
+              'compile-result-backend',
+              'release'
+            ) === 1
+          ) {
             // For a compile request to be sent to clsi we need limits.
             // If we get here without having the limits object populated, it is
             //  a reasonable assumption to make that nothing was compiled.
@@ -189,14 +197,21 @@ module.exports = CompileController = {
               }
             )
           }
+
+          const outputFilesArchive = buildId
+            ? getOutputFilesArchiveSpecification(projectId, userId, buildId)
+            : null
+
           res.json({
             status,
             outputFiles,
+            outputFilesArchive,
             compileGroup: limits?.compileGroup,
             clsiServerId,
             validationProblems,
             stats,
             timings,
+            outputUrlPrefix,
             pdfDownloadDomain,
             pdfCachingMinChunkSize,
           })
@@ -400,6 +415,9 @@ module.exports = CompileController = {
       if (error) {
         return next(error)
       }
+
+      const qs = {}
+
       const url = CompileController._getFileUrl(
         projectId,
         userId,
@@ -410,7 +428,7 @@ module.exports = CompileController = {
         projectId,
         'output-file',
         url,
-        {},
+        qs,
         req,
         res,
         next
@@ -606,7 +624,9 @@ module.exports = CompileController = {
             })
 
             for (const key of ['Content-Length', 'Content-Type']) {
-              res.setHeader(key, response.headers.get(key))
+              if (response.headers.has(key)) {
+                res.setHeader(key, response.headers.get(key))
+              }
             }
             res.writeHead(response.status)
             return pipeline(stream, res)

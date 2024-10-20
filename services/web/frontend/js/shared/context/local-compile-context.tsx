@@ -7,6 +7,8 @@ import {
   useMemo,
   useRef,
   useState,
+  Dispatch,
+  SetStateAction,
 } from 'react'
 import useScopeValue from '../hooks/use-scope-value'
 import useScopeValueSetterOnly from '../hooks/use-scope-value-setter-only'
@@ -22,6 +24,7 @@ import {
 import {
   buildLogEntryAnnotations,
   buildRuleCounts,
+  buildRuleDeltas,
   handleLogFiles,
   handleOutputFiles,
 } from '../../features/pdf-preview/util/output-files'
@@ -34,7 +37,12 @@ import { useUserContext } from './user-context'
 import { useFileTreeData } from '@/shared/context/file-tree-data-context'
 import { useFileTreePathContext } from '@/features/file-tree/contexts/file-tree-path'
 import { useUserSettingsContext } from '@/shared/context/user-settings-context'
-import { useSplitTestContext } from '@/shared/context/split-test-context'
+import { useFeatureFlag } from '@/shared/context/split-test-context'
+import { useEditorManagerContext } from '@/features/ide-react/context/editor-manager-context'
+import {
+  PdfScrollPosition,
+  usePdfScrollPosition,
+} from '@/shared/hooks/use-pdf-scroll-position'
 
 type PdfFile = Record<string, any>
 
@@ -49,22 +57,24 @@ export type CompileContext = {
   error?: string
   fileList?: Record<string, any>
   hasChanges: boolean
+  hasShortCompileTimeout: boolean
   highlights?: Record<string, any>[]
   isProjectOwner: boolean
   logEntries?: Record<string, any>
   logEntryAnnotations?: Record<string, any>
+  outputFilesArchive?: string
   pdfDownloadUrl?: string
   pdfFile?: PdfFile
   pdfUrl?: string
   pdfViewer?: string
-  position?: Record<string, any>
+  position?: PdfScrollPosition
   rawLog?: string
   setAutoCompile: (value: boolean) => void
   setDraft: (value: any) => void
   setError: (value: any) => void
   setHasLintingError: (value: any) => void // only for storybook
   setHighlights: (value: any) => void
-  setPosition: (value: any) => void
+  setPosition: Dispatch<SetStateAction<PdfScrollPosition>>
   setShowCompileTimeWarning: (value: any) => void
   setShowLogs: (value: boolean) => void
   toggleLogs: () => void
@@ -72,14 +82,16 @@ export type CompileContext = {
   setStopOnValidationError: (value: boolean) => void
   showCompileTimeWarning: boolean
   showLogs: boolean
-  showNewCompileTimeoutUI?: string
-  showFasterCompilesFeedbackUI: boolean
   stopOnFirstError: boolean
   stopOnValidationError: boolean
   stoppedOnFirstError: boolean
   uncompiled?: boolean
   validationIssues?: Record<string, any>
-  firstRenderDone: () => void
+  firstRenderDone: (metrics: {
+    latencyFetch: number
+    latencyRender: number | undefined
+    pdfCachingMetrics: { viewerId: string }
+  }) => void
   cleanupCompileResult?: () => void
   animateCompileDropdownArrow: boolean
   editedSinceCompileStarted: boolean
@@ -91,7 +103,8 @@ export type CompileContext = {
   stopCompile: () => void
   setChangedAt: (value: any) => void
   clearCache: () => void
-  syncToEntry: (value: any) => void
+  syncToEntry: (value: any, keepCurrentView?: boolean) => void
+  recordAction: (action: string) => void
 }
 
 export const LocalCompileContext = createContext<CompileContext | undefined>(
@@ -102,16 +115,13 @@ export const LocalCompileProvider: FC = ({ children }) => {
   const ide = useIdeContext()
 
   const { hasPremiumCompile, isProjectOwner } = useEditorContext()
+  const { openDocId } = useEditorManagerContext()
 
-  const {
-    _id: projectId,
-    rootDocId,
-    showNewCompileTimeoutUI,
-  } = useProjectContext()
+  const { _id: projectId, rootDocId } = useProjectContext()
 
   const { pdfPreviewOpen } = useLayoutContext()
 
-  const { features } = useUserContext()
+  const { features, alphaProgram, labsProgram } = useUserContext()
 
   const { fileTreeData } = useFileTreeData()
   const { findEntityByPath } = useFileTreePathContext()
@@ -121,6 +131,8 @@ export const LocalCompileProvider: FC = ({ children }) => {
 
   // whether to show the compile time warning
   const [showCompileTimeWarning, setShowCompileTimeWarning] = useState(false)
+
+  const [hasShortCompileTimeout, setHasShortCompileTimeout] = useState(false)
 
   // the log entries parsed from the compile output log
   const [logEntries, setLogEntries] = useScopeValueSetterOnly('pdf.logEntries')
@@ -165,7 +177,7 @@ export const LocalCompileProvider: FC = ({ children }) => {
   // the rootDocId used in the most recent compile request, which may not be the
   // same as the project rootDocId. This is used to calculate correct paths when
   // parsing the compile logs
-  const lastCompileRootDocId = data?.rootDocId
+  const lastCompileRootDocId = data ? (data.rootDocId ?? rootDocId) : null
 
   // callback to be invoked for PdfJsMetrics
   const [firstRenderDone, setFirstRenderDone] = useState(() => () => {})
@@ -181,10 +193,6 @@ export const LocalCompileProvider: FC = ({ children }) => {
 
   // whether the logs should be visible
   const [showLogs, setShowLogs] = useState(false)
-
-  // whether the faster compiles feedback UI should be displayed
-  const [showFasterCompilesFeedbackUI, setShowFasterCompilesFeedbackUI] =
-    useState(false)
 
   // whether the compile dropdown arrow should be animated
   const [animateCompileDropdownArrow, setAnimateCompileDropdownArrow] =
@@ -214,8 +222,7 @@ export const LocalCompileProvider: FC = ({ children }) => {
   // areas to highlight on the PDF, from synctex
   const [highlights, setHighlights] = useState()
 
-  // scroll position of the PDF
-  const [position, setPosition] = usePersistedState(`pdf.position.${projectId}`)
+  const [position, setPosition] = usePdfScrollPosition(lastCompileRootDocId)
 
   // whether autocompile is switched on
   const [autoCompile, setAutoCompile] = usePersistedState(
@@ -332,10 +339,13 @@ export const LocalCompileProvider: FC = ({ children }) => {
   }, [compiledOnce, currentDoc, compiler])
 
   useEffect(() => {
-    const compileTimeWarningEnabled =
+    setHasShortCompileTimeout(
       features?.compileTimeout !== undefined && features.compileTimeout <= 60
+    )
+  }, [features])
 
-    if (compileTimeWarningEnabled && compiling && isProjectOwner) {
+  useEffect(() => {
+    if (hasShortCompileTimeout && compiling && isProjectOwner) {
       const timeout = window.setTimeout(() => {
         setShowCompileTimeWarning(true)
       }, 30000)
@@ -344,9 +354,20 @@ export const LocalCompileProvider: FC = ({ children }) => {
         window.clearTimeout(timeout)
       }
     }
-  }, [compiling, isProjectOwner, features])
+  }, [compiling, isProjectOwner, hasShortCompileTimeout])
 
-  const { splitTestVariants } = useSplitTestContext()
+  const hasCompileLogsEvents = useFeatureFlag('compile-log-events')
+
+  // compare log entry counts with the previous compile, and record actions between compiles
+  // these are refs rather than state so they don't trigger the effect to run
+  const previousRuleCountsRef = useRef<{
+    ruleCounts: Record<string, number>
+    rootDocId: string
+  } | null>(null)
+  const recordedActionsRef = useRef<Record<string, boolean>>({})
+  const recordAction = useCallback((action: string) => {
+    recordedActionsRef.current[action] = true
+  }, [])
 
   // handle the data returned from a compile request
   // note: this should _only_ run when `data` changes,
@@ -354,13 +375,13 @@ export const LocalCompileProvider: FC = ({ children }) => {
   useEffect(() => {
     const abortController = new AbortController()
 
+    const recordedActions = recordedActionsRef.current
+    recordedActionsRef.current = {}
+
     if (data) {
       if (data.clsiServerId) {
         setClsiServerId(data.clsiServerId) // set in scope, for PdfSynctexController
       }
-      setShowFasterCompilesFeedbackUI(
-        Boolean(data.showFasterCompilesFeedbackUI)
-      )
 
       if (data.outputFiles) {
         const outputFiles = new Map()
@@ -375,7 +396,12 @@ export const LocalCompileProvider: FC = ({ children }) => {
         }
 
         setFileList(
-          buildFileList(outputFiles, data.clsiServerId, data.compileGroup)
+          buildFileList(
+            outputFiles,
+            data.clsiServerId,
+            data.compileGroup,
+            data.outputFilesArchive
+          )
         )
 
         // handle log files
@@ -393,7 +419,7 @@ export const LocalCompileProvider: FC = ({ children }) => {
             )
 
             // sample compile stats for real users
-            if (!window.user.alphaProgram) {
+            if (!alphaProgram) {
               if (['success', 'stopped-on-first-error'].includes(data.status)) {
                 sendMBSampled(
                   'compile-result',
@@ -408,13 +434,31 @@ export const LocalCompileProvider: FC = ({ children }) => {
                 )
               }
 
-              if (splitTestVariants['compile-log-events'] === 'enabled') {
+              if (hasCompileLogsEvents || labsProgram) {
+                const ruleCounts = buildRuleCounts(
+                  result.logEntries.all
+                ) as Record<string, number>
+
+                const rootDocId = data.rootDocId || compiler.projectRootDocId
+
+                const previousRuleCounts = previousRuleCountsRef.current
+                previousRuleCountsRef.current = { ruleCounts, rootDocId }
+
+                const ruleDeltas =
+                  previousRuleCounts &&
+                  previousRuleCounts.rootDocId === rootDocId
+                    ? buildRuleDeltas(ruleCounts, previousRuleCounts.ruleCounts)
+                    : {}
+
                 sendMB('compile-log-entries', {
                   status: data.status,
                   stopOnFirstError: data.options.stopOnFirstError,
                   isAutoCompileOnLoad: !!data.options.isAutoCompileOnLoad,
                   isAutoCompileOnChange: !!data.options.isAutoCompileOnChange,
-                  ...buildRuleCounts(result.logEntries.all),
+                  rootDocId,
+                  ...recordedActions,
+                  ...ruleCounts,
+                  ...ruleDeltas,
                 })
               }
             }
@@ -486,6 +530,10 @@ export const LocalCompileProvider: FC = ({ children }) => {
   }, [
     data,
     ide,
+    alphaProgram,
+    labsProgram,
+    features,
+    hasCompileLogsEvents,
     hasPremiumCompile,
     isProjectOwner,
     projectId,
@@ -494,7 +542,7 @@ export const LocalCompileProvider: FC = ({ children }) => {
     setLogEntries,
     setLogEntryAnnotations,
     setPdfFile,
-    splitTestVariants,
+    compiler,
   ])
 
   // switch to logs if there's an error
@@ -567,17 +615,18 @@ export const LocalCompileProvider: FC = ({ children }) => {
   }, [compiler])
 
   const syncToEntry = useCallback(
-    entry => {
+    (entry, keepCurrentView = false) => {
       const result = findEntityByPath(entry.file)
 
       if (result && result.type === 'doc') {
-        ide.editorManager.openDocId(result.entity._id, {
+        openDocId(result.entity._id, {
           gotoLine: entry.line ?? undefined,
           gotoColumn: entry.column ?? undefined,
+          keepCurrentView,
         })
       }
     },
-    [findEntityByPath, ide.editorManager]
+    [findEntityByPath, openDocId]
   )
 
   // clear the cache then run a compile, triggered by a menu item
@@ -590,6 +639,18 @@ export const LocalCompileProvider: FC = ({ children }) => {
   // After a compile, the compiler sets `data.options` to the options that were
   // used for that compile.
   const lastCompileOptions = useMemo(() => data?.options || {}, [data])
+
+  useEffect(() => {
+    const listener = (event: Event) => {
+      setShowLogs((event as CustomEvent<boolean>).detail as boolean)
+    }
+
+    window.addEventListener('editor:show-logs', listener)
+
+    return () => {
+      window.removeEventListener('editor:show-logs', listener)
+    }
+  }, [])
 
   const value = useMemo(
     () => ({
@@ -606,6 +667,7 @@ export const LocalCompileProvider: FC = ({ children }) => {
       error,
       fileList,
       hasChanges,
+      hasShortCompileTimeout,
       highlights,
       isProjectOwner,
       lastCompileOptions,
@@ -633,8 +695,6 @@ export const LocalCompileProvider: FC = ({ children }) => {
       setStopOnFirstError,
       setStopOnValidationError,
       showLogs,
-      showNewCompileTimeoutUI,
-      showFasterCompilesFeedbackUI,
       startCompile,
       stopCompile,
       stopOnFirstError,
@@ -646,6 +706,7 @@ export const LocalCompileProvider: FC = ({ children }) => {
       setChangedAt,
       cleanupCompileResult,
       syncToEntry,
+      recordAction,
     }),
     [
       animateCompileDropdownArrow,
@@ -661,6 +722,7 @@ export const LocalCompileProvider: FC = ({ children }) => {
       error,
       fileList,
       hasChanges,
+      hasShortCompileTimeout,
       highlights,
       isProjectOwner,
       lastCompileOptions,
@@ -683,8 +745,6 @@ export const LocalCompileProvider: FC = ({ children }) => {
       setStopOnValidationError,
       showCompileTimeWarning,
       showLogs,
-      showNewCompileTimeoutUI,
-      showFasterCompilesFeedbackUI,
       startCompile,
       stopCompile,
       stopOnFirstError,
@@ -698,6 +758,7 @@ export const LocalCompileProvider: FC = ({ children }) => {
       setShowLogs,
       toggleLogs,
       syncToEntry,
+      recordAction,
     ]
   )
 

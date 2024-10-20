@@ -12,7 +12,7 @@
  * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
  */
 const { expect } = require('chai')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 const sinon = require('sinon')
 const modulePath =
   '../../../../app/src/Features/Project/ProjectRootDocManager.js'
@@ -47,6 +47,12 @@ describe('ProjectRootDocManager', function () {
         './ProjectEntityHandler': (this.ProjectEntityHandler = {}),
         './ProjectEntityUpdateHandler': (this.ProjectEntityUpdateHandler = {}),
         './ProjectGetter': (this.ProjectGetter = {}),
+        '../../infrastructure/GracefulShutdown': {
+          BackgroundTaskTracker: class {
+            add() {}
+            done() {}
+          },
+        },
         globby: this.globby,
         fs: this.fs,
       },

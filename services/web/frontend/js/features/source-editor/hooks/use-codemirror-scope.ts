@@ -26,7 +26,6 @@ import {
   setMetadata,
   setSyntaxValidation,
 } from '../extensions/language'
-import { useIdeContext } from '../../../shared/context/ide-context'
 import { restoreScrollPosition } from '../extensions/scroll-position'
 import { setEditable } from '../extensions/editable'
 import { useFileTreeData } from '../../../shared/context/file-tree-data-context'
@@ -38,7 +37,7 @@ import {
   addLearnedWord,
   removeLearnedWord,
   resetLearnedWords,
-  setSpelling,
+  setSpellCheckLanguage,
 } from '../extensions/spelling'
 import {
   createChangeManager,
@@ -59,10 +58,16 @@ import grammarlyExtensionPresent from '@/shared/utils/grammarly'
 import { DocumentContainer } from '@/features/ide-react/editor/document-container'
 import { useLayoutContext } from '@/shared/context/layout-context'
 import { debugConsole } from '@/utils/debugging'
+import { useMetadataContext } from '@/features/ide-react/context/metadata-context'
+import { useUserContext } from '@/shared/context/user-context'
+import { useReferencesContext } from '@/features/ide-react/context/references-context'
+import { setMathPreview } from '@/features/source-editor/extensions/math-preview'
+import { useRangesContext } from '@/features/review-panel-new/context/ranges-context'
+import { updateRanges } from '@/features/source-editor/extensions/ranges'
+import { useThreadsContext } from '@/features/review-panel-new/context/threads-context'
+import { useHunspell } from '@/features/source-editor/hooks/use-hunspell'
 
 function useCodeMirrorScope(view: EditorView) {
-  const ide = useIdeContext()
-
   const { fileTreeData } = useFileTreeData()
 
   const [permissions] = useScopeValue<{ write: boolean }>('permissions')
@@ -74,6 +79,8 @@ function useCodeMirrorScope(view: EditorView) {
 
   const { reviewPanelOpen, miniReviewPanelVisible } = useLayoutContext()
 
+  const metadata = useMetadataContext()
+
   const [loadingThreads] = useScopeValue<boolean>('loadingThreads')
 
   const [currentDoc] = useScopeValue<DocumentContainer | null>(
@@ -82,6 +89,7 @@ function useCodeMirrorScope(view: EditorView) {
   const [docName] = useScopeValue<string>('editor.open_doc_name')
   const [trackChanges] = useScopeValue<boolean>('editor.trackChanges')
 
+  const { id: userId } = useUserContext()
   const { userSettings } = useUserSettingsContext()
   const {
     fontFamily,
@@ -93,6 +101,7 @@ function useCodeMirrorScope(view: EditorView) {
     autoPairDelimiters,
     mode,
     syntaxValidation,
+    mathPreview,
   } = userSettings
 
   const [cursorHighlights] = useScopeValue<Record<string, Highlight[]>>(
@@ -102,10 +111,19 @@ function useCodeMirrorScope(view: EditorView) {
   const [spellCheckLanguage] = useScopeValue<string>(
     'project.spellCheckLanguage'
   )
+  const [projectFeatures] =
+    useScopeValue<Record<string, boolean | string | number | undefined>>(
+      'project.features'
+    )
+
+  const hunspellManager = useHunspell(spellCheckLanguage)
 
   const [visual] = useScopeValue<boolean>('editor.showVisual')
 
-  const [references] = useScopeValue<{ keys: string[] }>('$root._references')
+  const { referenceKeys } = useReferencesContext()
+
+  const ranges = useRangesContext()
+  const threads = useThreadsContext()
 
   // build the translation phrases
   const phrases = usePhrases()
@@ -150,6 +168,7 @@ function useCodeMirrorScope(view: EditorView) {
     autoPairDelimiters,
     mode,
     syntaxValidation,
+    mathPreview,
   })
 
   const currentDocRef = useRef({
@@ -164,6 +183,14 @@ function useCodeMirrorScope(view: EditorView) {
     }
   }, [view, currentDoc])
 
+  useEffect(() => {
+    if (ranges && threads) {
+      window.setTimeout(() => {
+        view.dispatch(updateRanges({ ranges, threads }))
+      })
+    }
+  }, [view, ranges, threads])
+
   const docNameRef = useRef(docName)
 
   useEffect(() => {
@@ -175,12 +202,12 @@ function useCodeMirrorScope(view: EditorView) {
 
     if (currentDoc) {
       if (trackChanges) {
-        currentDoc.track_changes_as = window.user.id || 'anonymous'
+        currentDoc.track_changes_as = userId || 'anonymous'
       } else {
         currentDoc.track_changes_as = null
       }
     }
-  }, [currentDoc, trackChanges])
+  }, [userId, currentDoc, trackChanges])
 
   useEffect(() => {
     if (lineHeight && fontSize) {
@@ -190,19 +217,29 @@ function useCodeMirrorScope(view: EditorView) {
 
   const spellingRef = useRef({
     spellCheckLanguage,
+    hunspellManager,
   })
 
   useEffect(() => {
     spellingRef.current = {
       spellCheckLanguage,
+      hunspellManager,
     }
-    view.dispatch(setSpelling(spellingRef.current))
-  }, [view, spellCheckLanguage])
+    view.dispatch(setSpellCheckLanguage(spellingRef.current))
+  }, [view, spellCheckLanguage, hunspellManager])
 
-  // listen to doc:after-opened, and focus the editor
+  const projectFeaturesRef = useRef(projectFeatures)
+
+  // listen to doc:after-opened, and focus the editor if it's not a new doc
   useEffect(() => {
-    const listener = () => {
-      scheduleFocus(view)
+    const listener: EventListener = event => {
+      const { isNewDoc } = (event as CustomEvent<{ isNewDoc: boolean }>).detail
+
+      if (!isNewDoc) {
+        window.setTimeout(() => {
+          view.focus()
+        }, 0)
+      }
     }
     window.addEventListener('doc:after-opened', listener)
     return () => window.removeEventListener('doc:after-opened', listener)
@@ -211,38 +248,34 @@ function useCodeMirrorScope(view: EditorView) {
   // set the project metadata, mostly for use in autocomplete
   // TODO: read this data from the scope?
   const metadataRef = useRef({
-    documents: ide.metadataManager.metadata.state.documents,
-    references: references.keys,
+    ...metadata,
+    referenceKeys,
     fileTreeData,
   })
 
-  // listen to project metadata (docs + packages) updates
+  // listen to project metadata (commands, labels and package names) updates
   useEffect(() => {
-    const listener = (event: Event) => {
-      metadataRef.current.documents = (
-        event as CustomEvent<Record<string, any>>
-      ).detail
+    metadataRef.current = { ...metadataRef.current, ...metadata }
+    window.setTimeout(() => {
       view.dispatch(setMetadata(metadataRef.current))
-    }
-    window.addEventListener('project:metadata', listener)
-    return () => window.removeEventListener('project:metadata', listener)
-  }, [view])
+    })
+  }, [view, metadata])
 
   // listen to project reference keys updates
   useEffect(() => {
-    const listener = (event: Event) => {
-      metadataRef.current.references = (event as CustomEvent<string[]>).detail
+    metadataRef.current.referenceKeys = referenceKeys
+    window.setTimeout(() => {
       view.dispatch(setMetadata(metadataRef.current))
-    }
-    window.addEventListener('project:references', listener)
-    return () => window.removeEventListener('project:references', listener)
-  }, [view])
+    })
+  }, [view, referenceKeys])
 
   // listen to project root folder updates
   useEffect(() => {
     if (fileTreeData) {
       metadataRef.current.fileTreeData = fileTreeData
-      view.dispatch(setMetadata(metadataRef.current))
+      window.setTimeout(() => {
+        view.dispatch(setMetadata(metadataRef.current))
+      })
     }
   }, [view, fileTreeData])
 
@@ -295,6 +328,7 @@ function useCodeMirrorScope(view: EditorView) {
           phrases: phrasesRef.current,
           spelling: spellingRef.current,
           visual: visualRef.current,
+          projectFeatures: projectFeaturesRef.current,
           changeManager: createChangeManager(view, currentDoc),
           handleError,
           handleException,
@@ -377,7 +411,12 @@ function useCodeMirrorScope(view: EditorView) {
 
   useEffect(() => {
     settingsRef.current.autoComplete = autoComplete
-    view.dispatch(setAutoComplete(autoComplete))
+    view.dispatch(
+      setAutoComplete({
+        enabled: autoComplete,
+        projectFeatures: projectFeaturesRef.current,
+      })
+    )
   }, [view, autoComplete])
 
   useEffect(() => {
@@ -391,6 +430,11 @@ function useCodeMirrorScope(view: EditorView) {
     settingsRef.current.syntaxValidation = syntaxValidation
     view.dispatch(setSyntaxValidation(syntaxValidation))
   }, [view, syntaxValidation])
+
+  useEffect(() => {
+    settingsRef.current.mathPreview = mathPreview
+    view.dispatch(setMathPreview(mathPreview))
+  }, [view, mathPreview])
 
   const emitSyncToPdf = useScopeEventEmitter('cursor:editor:syncToPdf')
 
@@ -472,7 +516,7 @@ function useCodeMirrorScope(view: EditorView) {
       // dispatch in a timeout, so the dispatch isn't in the same cycle as the edit which caused it
       window.setTimeout(() => {
         view.dispatch(
-          setAnnotations(view.state.doc, annotations || []),
+          setAnnotations(view.state, annotations || []),
           // reconfigure the compile log lint source, so it runs once with the new data
           showCompileLogDiagnostics(enableCompileLogLinterRef.current)
         )
@@ -529,9 +573,3 @@ function useCodeMirrorScope(view: EditorView) {
 }
 
 export default useCodeMirrorScope
-
-const scheduleFocus = (view: EditorView) => {
-  window.setTimeout(() => {
-    view.focus()
-  }, 0)
-}

@@ -170,10 +170,11 @@ _mocks._countAndProcessUpdates = (
           _processUpdatesBatch(projectId, updates, extendLock, cb)
         },
         error => {
-          if (error) {
-            return callback(error)
-          }
-          callback(null, queueSize)
+          // Unconventional callback signature. The caller needs the queue size
+          // even when an error is thrown in order to record the queue size in
+          // the projectHistoryFailures collection. We'll have to find another
+          // way to achieve this when we promisify.
+          callback(error, queueSize)
         }
       )
     } else {
@@ -237,7 +238,7 @@ export function _getHistoryId(projectId, updates, callback) {
     }
   }
 
-  WebApiManager.getHistoryId(projectId, (error, idFromWeb, cached) => {
+  WebApiManager.getHistoryId(projectId, (error, idFromWeb) => {
     if (error != null && idFromUpdates != null) {
       // present only on updates
       // 404s from web are an error
@@ -266,7 +267,6 @@ export function _getHistoryId(projectId, updates, callback) {
           projectId,
           idFromWeb,
           idFromUpdates,
-          idWasCached: cached,
           updates,
         },
         'inconsistent project history id between updates and web'
@@ -327,7 +327,7 @@ function _getMostRecentVersionWithDebug(projectId, projectHistoryId, callback) {
   )
 }
 
-function _processUpdates(
+export function _processUpdates(
   projectId,
   projectHistoryId,
   updates,
@@ -408,12 +408,20 @@ function _processUpdates(
                 )
               },
               (updatesWithBlobs, cb) => {
-                const changes = UpdateTranslator.convertToChanges(
-                  projectId,
-                  updatesWithBlobs
-                ).map(change => change.toRaw())
-                profile.log('convertToChanges')
-
+                let changes
+                try {
+                  changes = UpdateTranslator.convertToChanges(
+                    projectId,
+                    updatesWithBlobs
+                  ).map(change => change.toRaw())
+                } catch (err) {
+                  return cb(err)
+                } finally {
+                  profile.log('convertToChanges')
+                }
+                cb(null, changes)
+              },
+              (changes, cb) => {
                 let change
                 const numChanges = changes.length
                 const byteLength = Buffer.byteLength(

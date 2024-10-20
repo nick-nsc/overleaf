@@ -29,6 +29,12 @@ async function sendNotification(splitTest, action, user) {
     ),
   ].join('\n')
 
+  const date = splitTest.archived ? splitTest.archivedAt : lastVersion.createdAt
+  const comment =
+    action !== 'archived' && lastVersion.comment
+      ? `with comment: ${lastVersion.comment}`
+      : ''
+
   const payload = {
     name: splitTest.name,
     action,
@@ -38,10 +44,8 @@ async function sendNotification(splitTest, action, user) {
     variantsConfig,
     active: lastVersion.active.toString(),
     author: user.email,
-    date:
-      moment(lastVersion.createdAt).utc().format('Do MMM YYYY, h:mm a') +
-      ' UTC',
-    comment: lastVersion.comment ? `with comment: ${lastVersion.comment}` : '',
+    date: moment(date).utc().format('Do MMM YYYY, h:mm a') + ' UTC',
+    comment,
     versionNumber: `${lastVersion.versionNumber}`,
     url: `${Settings.siteUrl}/admin/split-test/edit/${splitTest.name}`,
   }

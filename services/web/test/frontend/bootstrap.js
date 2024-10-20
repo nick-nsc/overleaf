@@ -1,6 +1,6 @@
 // Run babel on tests to allow support for import/export statements in Node
 require('@babel/register')({
-  extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs'],
+  extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.svg'],
   plugins: [['module-resolver', { alias: { '^@/(.+)': './frontend/js/\\1' } }]],
 })
 
@@ -23,56 +23,10 @@ const chai = require('chai')
 chai.use(require('sinon-chai'))
 chai.use(require('chai-as-promised'))
 
-// Mock global settings
-window.ExposedSettings = {
-  appName: 'Overleaf',
-  maxEntitiesPerProject: 10,
-  maxUploadSize: 5 * 1024 * 1024,
-  siteUrl: 'https://www.dev-overleaf.com',
-  hasLinkUrlFeature: true,
-  hasLinkedProjectFileFeature: true,
-  hasLinkedProjectOutputFileFeature: true,
-  textExtensions: [
-    'tex',
-    'latex',
-    'sty',
-    'cls',
-    'bst',
-    'bib',
-    'bibtex',
-    'txt',
-    'tikz',
-    'mtx',
-    'rtex',
-    'md',
-    'asy',
-    'lbx',
-    'bbx',
-    'cbx',
-    'm',
-    'lco',
-    'dtx',
-    'ins',
-    'ist',
-    'def',
-    'clo',
-    'ldf',
-    'rmd',
-    'lua',
-    'gv',
-    'mf',
-    'lhs',
-    'mk',
-    'xmpdata',
-    'cfg',
-    'rnw',
-    'ltx',
-    'inc',
-  ],
-  editableFilenames: ['latexmkrc', '.latexmkrc', 'makefile', 'gnumakefile'],
-}
-
-window.i18n = { currentLangCode: 'en' }
+// Populate meta for top-level access in modules on import
+const { resetMeta } = require('./helpers/reset-meta')
+resetMeta()
+// i18n requires access to 'ol-i18n' as defined above
 require('../../frontend/js/i18n')
 
 const moment = require('moment')
@@ -129,12 +83,15 @@ const fetch = require('node-fetch')
 globalThis.fetch =
   global.fetch =
   window.fetch =
-    (url, ...options) => fetch(new URL(url, 'http://localhost'), ...options)
+    (url, ...options) => fetch(new URL(url, 'http://127.0.0.1'), ...options)
 
-// ignore CSS files
+// ignore CSS/LESS files
 const { addHook } = require('pirates')
-addHook(() => '', { exts: ['.css'], ignoreNodeModules: false })
+addHook(() => '', { exts: ['.css', '.less'], ignoreNodeModules: false })
 
 globalThis.HTMLElement.prototype.scrollIntoView = () => {}
 
 globalThis.DOMParser = window.DOMParser
+
+// Polyfill for IndexedDB
+require('fake-indexeddb/auto')

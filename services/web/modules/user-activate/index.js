@@ -1,2 +1,12 @@
 const UserActivateRouter = require('./app/src/UserActivateRouter')
-module.exports = { router: UserActivateRouter }
+
+/**
+ * @import { WebModule } from "../../types/web-module"
+ */
+
+/** @type {WebModule} */
+const UserActivateModule = {
+  router: UserActivateRouter,
+}
+
+module.exports = UserActivateModule

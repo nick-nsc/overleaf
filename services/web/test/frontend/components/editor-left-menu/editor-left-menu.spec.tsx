@@ -1,3 +1,4 @@
+import '../../helpers/bootstrap-3'
 import EditorLeftMenu from '../../../../frontend/js/features/editor-left-menu/components/editor-left-menu'
 import {
   AllowedImageName,
@@ -8,6 +9,7 @@ import { EditorProviders } from '../../helpers/editor-providers'
 import { mockScope } from './scope'
 import { Folder } from '../../../../types/folder'
 import { docsInFolder } from '@/features/file-tree/util/docs-in-folder'
+import getMeta from '@/utils/meta'
 
 describe('<EditorLeftMenu />', function () {
   beforeEach(function () {
@@ -46,7 +48,7 @@ describe('<EditorLeftMenu />', function () {
       window.metaAttributesCache.set('ol-anonymous', false)
       window.metaAttributesCache.set('ol-gitBridgeEnabled', true)
       window.metaAttributesCache.set('ol-showSupport', true)
-      window.metaAttributesCache.set('ol-ExposedSettings', { ieeeBrandId: 123 })
+      Object.assign(getMeta('ol-ExposedSettings'), { ieeeBrandId: 123 })
       window.metaAttributesCache.set('ol-user', {
         email: 'sherlock@holmes.co.uk',
         first_name: 'Sherlock',
@@ -265,7 +267,7 @@ describe('<EditorLeftMenu />', function () {
 
         cy.findByRole('button', { name: 'Git' }).click()
         cy.findByText('Clone with Git')
-        cy.findByText(/your project using the link displayed below/)
+        cy.findByText(/clone your project by using the link below/)
       })
 
       it('shows git modal paywall correctly', function () {
@@ -484,7 +486,7 @@ describe('<EditorLeftMenu />', function () {
           </EditorProviders>
         )
 
-        cy.get('label[for="dictionary"] ~ button').click()
+        cy.get('label[for="dictionary-settings"] ~ button').click()
         cy.findByText('Edit Dictionary')
         cy.findByText('Your custom dictionary is empty.')
       })
@@ -800,7 +802,7 @@ describe('<EditorLeftMenu />', function () {
         )
 
         cy.findByRole('button', { name: 'Show Hotkeys' }).click()
-        cy.findByText('Hotkeys (Source editor)')
+        cy.findByText('Hotkeys')
       })
 
       it('shows correct url for documentation', function () {
@@ -850,7 +852,7 @@ describe('<EditorLeftMenu />', function () {
         },
       })
       window.metaAttributesCache.set('ol-anonymous', true)
-      window.metaAttributesCache.set('ol-ExposedSettings', { ieeeBrandId: 123 })
+      Object.assign(getMeta('ol-ExposedSettings'), { ieeeBrandId: 123 })
 
       cy.mount(
         <EditorProviders scope={scope}>

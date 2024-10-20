@@ -30,9 +30,9 @@
 .affiliations-table-cell-tabbed {
   margin: @margin-sm 0 0 @margin-md;
   padding-left: @margin-sm;
-  border-left: 2px solid @table-border-color;
+  border-left: 2px solid @table-border-color; // don't migrate this line of style
 }
-.affiliations-table-row--highlighted {
+.affiliations-table-row-highlighted {
   background-color: tint(@content-alt-bg-color, 6%);
 }
 .affiliations-table-email {
@@ -152,8 +152,9 @@ tbody > tr.affiliations-table-warning-row > td {
 }
 
 .settings-widget-container {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 20px;
   align-items: center;
   padding: 10px;
 
@@ -196,6 +197,17 @@ tbody > tr.affiliations-table-warning-row > td {
   }
 }
 
+@media (max-width: @screen-xs-max) {
+  .settings-widget-container {
+    grid-template-columns: 1fr;
+
+    .title-row {
+      display: unset;
+    }
+  }
+}
+
+// Should not be migrated to BS5
 .settings-reconfirm-info {
   display: flex;
   justify-content: space-between;
@@ -213,6 +225,7 @@ tbody > tr.affiliations-table-warning-row > td {
   }
 }
 
+// Should not be migrated to BS5
 .setting-reconfirm-info-right {
   white-space: nowrap;
 }
@@ -232,25 +245,6 @@ tbody > tr.affiliations-table-warning-row > td {
 
 .linking-git-bridge-revoke-button {
   padding: 2px 4px;
-}
-
-.enrollment-alert {
-  width: 100%;
-  border-radius: 4px;
-  padding: 12px;
-  background-color: @blue-10;
-  border: 1px solid @blue-20;
-  display: flex;
-  flex-direction: row;
-
-  .icon {
-    flex: 1 1 auto;
-    padding: 0 16px 0 4px;
-  }
-
-  a {
-    text-decoration: underline;
-  }
 }
 
 .security-row {

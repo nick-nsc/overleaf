@@ -1,5 +1,6 @@
 const Settings = require('@overleaf/settings')
 const logger = require('@overleaf/logger')
+const Metrics = require('@overleaf/metrics')
 const RedisClientManager = require('./RedisClientManager')
 const SafeJsonParse = require('./SafeJsonParse')
 const EventLogger = require('./EventLogger')
@@ -24,6 +25,11 @@ const RESTRICTED_USER_MESSAGE_TYPE_PASS_LIST = [
   'toggle-track-changes',
   'projectRenamedOrDeletedByExternalSource',
 ]
+const BANDWIDTH_BUCKETS = [0]
+// 64 bytes ... 8MB
+for (let i = 5; i <= 22; i++) {
+  BANDWIDTH_BUCKETS.push(2 << i)
+}
 
 let WebsocketLoadBalancer
 module.exports = WebsocketLoadBalancer = {
@@ -44,6 +50,9 @@ module.exports = WebsocketLoadBalancer = {
       ) {
         return true
       }
+    } else if (message?.message === 'project:collaboratorAccessLevel:changed') {
+      const changedUserId = message.payload[0].userId
+      return userId === changedUserId
     }
     return false
   },
@@ -136,6 +145,31 @@ module.exports = WebsocketLoadBalancer = {
         for (const client of clientList) {
           ConnectedUsersManager.refreshClient(message.room_id, client.publicId)
         }
+      } else if (message.message === 'canary-applied-op') {
+        const { ack, broadcast, source, projectId, docId } = message.payload
+
+        const estimateBandwidth = (room, path) => {
+          const seen = new Set()
+          for (const client of io.sockets.clients(room)) {
+            if (seen.has(client.id)) continue
+            seen.add(client.id)
+            let v = client.id === source ? ack : broadcast
+            if (v === 0) {
+              // Acknowledgements with update.dup===true will not get sent to other clients.
+              continue
+            }
+            v += `5:::{"name":"otUpdateApplied","args":[]}`.length
+            Metrics.histogram(
+              'estimated-applied-ops-bandwidth',
+              v,
+              BANDWIDTH_BUCKETS,
+              { path }
+            )
+          }
+        }
+
+        estimateBandwidth(projectId, 'per-project')
+        estimateBandwidth(docId, 'per-doc')
       } else if (message.room_id) {
         if (message._id && Settings.checkEventOrder) {
           const status = EventLogger.checkEventOrder(
@@ -181,7 +215,11 @@ module.exports = WebsocketLoadBalancer = {
                 },
                 'disconnecting client'
               )
-              client.emit('project:access:revoked')
+              if (
+                message?.message !== 'project:collaboratorAccessLevel:changed'
+              ) {
+                client.emit('project:access:revoked')
+              }
               client.disconnect()
             } else {
               if (isRestrictedMessage && client.ol_context.is_restricted_user) {

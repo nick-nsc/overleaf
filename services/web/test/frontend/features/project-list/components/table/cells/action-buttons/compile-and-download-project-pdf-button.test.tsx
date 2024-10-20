@@ -17,6 +17,7 @@ describe('<CompileAndDownloadProjectPDFButton />', function () {
     assignStub = sinon.stub()
     locationStub = sinon.stub(useLocationModule, 'useLocation').returns({
       assign: assignStub,
+      replace: sinon.stub(),
       reload: sinon.stub(),
     })
     render(
@@ -31,7 +32,7 @@ describe('<CompileAndDownloadProjectPDFButton />', function () {
   })
 
   it('renders tooltip for button', function () {
-    const btn = screen.getByLabelText('Download PDF')
+    const btn = screen.getByRole('button', { name: 'Download PDF' })
     fireEvent.mouseOver(btn)
     screen.getByRole('tooltip', { name: 'Download PDF' })
   })
@@ -48,11 +49,11 @@ describe('<CompileAndDownloadProjectPDFButton />', function () {
       { delay: 10 }
     )
 
-    const btn = screen.getByLabelText('Download PDF') as HTMLButtonElement
+    const btn = screen.getByRole('button', { name: 'Download PDF' })
     fireEvent.click(btn)
 
     await waitFor(() => {
-      screen.getByLabelText('Compiling…')
+      screen.getByRole('button', { name: 'Compiling…' })
     })
 
     await waitFor(() => {
@@ -78,7 +79,9 @@ describe('<CompileAndDownloadProjectPDFButton />', function () {
       status: 'failure',
     })
 
-    const btn = screen.getByLabelText('Download PDF') as HTMLButtonElement
+    const btn = screen.getByRole('button', {
+      name: 'Download PDF',
+    }) as HTMLButtonElement
     fireEvent.click(btn)
 
     await waitFor(() => {

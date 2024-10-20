@@ -7,7 +7,6 @@ const UserDeleter = require('./UserDeleter')
 const UserGetter = require('./UserGetter')
 const UserUpdater = require('./UserUpdater')
 const Analytics = require('../Analytics/AnalyticsManager')
-const SplitTestHandler = require('../SplitTests/SplitTestHandler')
 const UserOnboardingEmailManager = require('./UserOnboardingEmailManager')
 const UserPostRegistrationAnalyticsManager = require('./UserPostRegistrationAnalyticsManager')
 const OError = require('@overleaf/o-error')
@@ -37,21 +36,18 @@ async function _addAffiliation(user, affiliationOptions) {
 }
 
 async function recordRegistrationEvent(user) {
-  const onboardingFlowAssignment =
-    await SplitTestHandler.promises.getAssignmentForUser(
-      user._id,
-      'onboarding-flow'
-    )
-
   try {
     const segmentation = {
       'home-registration': 'default',
-      'onboarding-flow': onboardingFlowAssignment.variant,
     }
     if (user.thirdPartyIdentifiers && user.thirdPartyIdentifiers.length > 0) {
       segmentation.provider = user.thirdPartyIdentifiers[0].providerId
     }
-    Analytics.recordEventForUser(user._id, 'user-registered', segmentation)
+    Analytics.recordEventForUserInBackground(
+      user._id,
+      'user-registered',
+      segmentation
+    )
   } catch (err) {
     logger.warn({ err }, 'there was an error recording `user-registered` event')
   }

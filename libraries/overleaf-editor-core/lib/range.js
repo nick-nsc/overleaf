@@ -1,22 +1,48 @@
 // @ts-check
+
+const OError = require('@overleaf/o-error')
+
+/**
+ * @import { RawRange } from './types'
+ */
+
 class Range {
   /**
    * @param {number} pos
    * @param {number} length
    */
   constructor(pos, length) {
+    if (pos < 0 || length < 0) {
+      throw new OError('Invalid range', { pos, length })
+    }
     /** @readonly */
     this.pos = pos
     /** @readonly */
     this.length = length
   }
 
+  /**
+   * @return {number}
+   */
   get start() {
     return this.pos
   }
 
+  /**
+   * @return {number}
+   */
   get end() {
     return this.pos + this.length
+  }
+
+  /**
+   * Is this range equal to the given range?
+   *
+   * @param {Range} other
+   * @returns {boolean}
+   */
+  equals(other) {
+    return this.pos === other.pos && this.length === other.length
   }
 
   /**
@@ -177,6 +203,10 @@ class Range {
     }
   }
 
+  /**
+   * @param {RawRange} raw
+   * @return {Range}
+   */
   static fromRaw(raw) {
     return new Range(raw.pos, raw.length)
   }

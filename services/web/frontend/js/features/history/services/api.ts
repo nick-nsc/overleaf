@@ -50,10 +50,6 @@ export function deleteLabel(
   return deleteJSON(`/project/${projectId}/labels/${labelId}`, { signal })
 }
 
-export function completeHistoryTutorial() {
-  return postJSON('/tutorial/react-history-buttons-tutorial/complete')
-}
-
 export function diffFiles(
   projectId: string,
   fromV: number,
@@ -92,5 +88,24 @@ export function restoreFile(projectId: string, selectedFile: FileRemoved) {
       version: selectedFile.deletedAtV,
       pathname: selectedFile.pathname,
     },
+  })
+}
+
+export function restoreFileToVersion(
+  projectId: string,
+  pathname: string,
+  version: number
+) {
+  return postJSON<RestoreFileResponse>(`/project/${projectId}/revert_file`, {
+    body: {
+      version,
+      pathname,
+    },
+  })
+}
+
+export function restoreProjectToVersion(projectId: string, version: number) {
+  return postJSON(`/project/${projectId}/revert-project`, {
+    body: { version },
   })
 }

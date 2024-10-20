@@ -1,9 +1,14 @@
+include ./_mixins/foot_scripts
+
 doctype html
 html(
 	lang=(currentLngCode || 'en')
 	class=(fixedSizeDocument ? 'fixed-size-document' : undefined)
 )
 	- metadata = metadata || {}
+	- let bootstrap5PageStatus = 'disabled' // One of 'disabled', 'enabled', and 'queryStringOnly'
+	- let bootstrap5PageSplitTest = '' // Limits Bootstrap 5 usage on this page to users with an assignment of "enabled" for the specified split test. If left empty and bootstrap5PageStatus is "enabled", the page always uses Bootstrap 5.
+	- let isWebsiteRedesign = false
 
 	block entrypointVar
 
@@ -12,25 +17,29 @@ html(
 	head
 		include ./_metadata.pug
 
+		- const bootstrapVersion = bootstrap5PageStatus !== 'disabled' && (bootstrap5Override || (bootstrap5PageStatus === 'enabled' && (bootstrap5PageSplitTest === '' || splitTestVariants[bootstrap5PageSplitTest] === 'enabled'))) ? 5 : 3
+		- const ieeeStylesheetEnabled = splitTestVariants?.['ieee-stylesheet'] !== 'disabled'
+
 		//- Stylesheet
-		link(rel='stylesheet', href=buildCssPath(getCssThemeModifier(userSettings, brandVariation)), id="main-stylesheet")
+		link(rel='stylesheet', href=buildCssPath(getCssThemeModifier(userSettings, brandVariation, ieeeStylesheetEnabled), bootstrapVersion), id="main-stylesheet")
 		block css
 			each file in entrypointStyles(entrypoint)
 				link(rel='stylesheet', href=file)
 
 		block _headLinks
 
-		if (typeof(suppressRelAlternateLinks) == "undefined")
+		if (typeof suppressRelAlternateLinks == "undefined")
 			if settings.i18n.subdomainLang
 				each subdomainDetails in settings.i18n.subdomainLang
 					if !subdomainDetails.hide
-						link(rel="alternate", href=subdomainDetails.url+currentUrl, hreflang=subdomainDetails.lngCode)
-		
+						link(rel="alternate", href=subdomainDetails.url + currentUrl, hreflang=subdomainDetails.lngCode)
+
 		if (entrypoint !== 'marketing')
 			link(rel="preload", href=buildJsPath(currentLngCode + "-json.js"), as="script", nonce=scriptNonce)
 
 		//- Scripts
-		include _google_analytics
+		if (typeof suppressGoogleAnalytics == "undefined")
+			include _google_analytics
 
 		block meta
 			meta(name="ol-csrfToken" content=csrfToken)
@@ -38,6 +47,7 @@ html(
 			//- See: https://webpack.js.org/guides/public-path/#on-the-fly
 			meta(name="ol-baseAssetPath" content=buildBaseAssetPath())
 			meta(name="ol-mathJaxPath" content=mathJaxPath)
+			meta(name="ol-dictionariesRoot" content=dictionariesRoot)
 
 			meta(name="ol-usersEmail" content=getUserEmail())
 			meta(name="ol-ab" data-type="json" content={})
@@ -51,7 +61,7 @@ html(
 			meta(name="ol-splitTestVariants" data-type="json" content=splitTestVariants || {})
 			meta(name="ol-splitTestInfo" data-type="json" content=splitTestInfo || {})
 
-			if (typeof(settings.algolia) != "undefined")
+			if (typeof settings.algolia != "undefined")
 				meta(name="ol-algolia" data-type="json" content={
 					appId: settings.algolia.app_id,
 					apiKey: settings.algolia.read_only_api_key,
@@ -65,25 +75,24 @@ html(
 
 		block head-scripts
 
-	body(ng-csp=(cspEnabled ? "no-unsafe-eval" : false) class=(showThinFooter ? 'thin-footer' : undefined))
+	body(class={
+		'thin-footer': showThinFooter,
+		'website-redesign': isWebsiteRedesign === true
+	}, data-theme="default")
 		if(settings.recaptcha && settings.recaptcha.siteKeyV3)
-			script(type="text/javascript", nonce=scriptNonce, src="https://www.recaptcha.net/recaptcha/api.js?render="+settings.recaptcha.siteKeyV3, defer=deferScripts)
+			script(type="text/javascript", nonce=scriptNonce, src="https://www.recaptcha.net/recaptcha/api.js?render=" + settings.recaptcha.siteKeyV3, defer=deferScripts)
 
-		if (typeof(suppressSkipToContent) == "undefined")
+		if (typeof suppressSkipToContent == "undefined")
 			a(class="skip-to-content" href="#main-content") #{translate('skip_to_content')}
 
 		block body
 
-		if (settings.splitTest.devToolbar.enabled)
+		if (settings.devToolbar.enabled)
 			div#dev-toolbar
 
 	block foot-scripts
-		each file in entrypointScripts(entrypoint)
-			script(type="text/javascript", nonce=scriptNonce, src=file, defer=deferScripts)
-		if (settings.splitTest.devToolbar.enabled)
-			each file in entrypointScripts("devToolbar")
-				script(type="text/javascript", nonce=scriptNonce, src=file, defer=deferScripts)
-	
+		+foot-scripts
+
 	script(type="text/javascript", nonce=scriptNonce).
 		window.addEventListener('DOMContentLoaded', function() {
 			//- Look for bundle

@@ -6,7 +6,7 @@ const tk = require('timekeeper')
 const moment = require('moment')
 const { Project } = require('../helpers/models/Project')
 const { DeletedProject } = require('../helpers/models/DeletedProject')
-const { ObjectId, ReadPreference } = require('mongodb')
+const { ObjectId, ReadPreference } = require('mongodb-legacy')
 const Errors = require('../../../../app/src/Features/Errors/Errors')
 
 describe('ProjectDeleter', function () {
@@ -140,6 +140,9 @@ describe('ProjectDeleter', function () {
     }
     this.ProjectDeleter = SandboxedModule.require(modulePath, {
       requires: {
+        '../../infrastructure/Modules': {
+          promises: { hooks: { fire: sinon.stub().resolves() } },
+        },
         '../../infrastructure/Features': this.Features,
         '../Editor/EditorRealTimeController': this.EditorRealTimeController,
         '../../models/Project': { Project },

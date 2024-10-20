@@ -4,8 +4,11 @@ import { useTranslation } from 'react-i18next'
 import PreviewLogsPaneMaxEntries from '../../preview/components/preview-logs-pane-max-entries'
 import PdfLogEntry from './pdf-log-entry'
 import { useDetachCompileContext } from '../../../shared/context/detach-compile-context'
+import importOverleafModules from '../../../../macros/import-overleaf-module.macro'
 
 const LOG_PREVIEW_LIMIT = 100
+
+const pdfLogEntriesComponents = importOverleafModules('pdfLogEntriesComponents')
 
 function PdfLogsEntries({ entries, hasErrors }) {
   const { t } = useTranslation()
@@ -21,9 +24,19 @@ function PdfLogsEntries({ entries, hasErrors }) {
           hasErrors={hasErrors}
         />
       )}
-      {logEntries.map(logEntry => (
+
+      {pdfLogEntriesComponents.map(
+        ({ import: { default: Component }, path }) => (
+          <Component key={path} />
+        )
+      )}
+
+      {logEntries.map((logEntry, index) => (
         <PdfLogEntry
           key={logEntry.key}
+          index={index}
+          id={logEntry.key}
+          logEntry={logEntry}
           ruleId={logEntry.ruleId}
           headerTitle={logEntry.messageComponent ?? logEntry.message}
           rawContent={logEntry.content}

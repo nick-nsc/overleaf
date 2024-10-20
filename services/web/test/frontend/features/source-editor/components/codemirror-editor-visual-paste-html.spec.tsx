@@ -1,22 +1,19 @@
-import { FC } from 'react'
+import '../../../helpers/bootstrap-3'
 import { EditorProviders } from '../../../helpers/editor-providers'
 import CodemirrorEditor from '../../../../../frontend/js/features/source-editor/components/codemirror-editor'
 import { mockScope } from '../helpers/mock-scope'
-
-const Container: FC = ({ children }) => (
-  <div style={{ width: 785, height: 785 }}>{children}</div>
-)
+import { TestContainer } from '../helpers/test-container'
 
 const mountEditor = (content = '') => {
   const scope = mockScope(content)
   scope.editor.showVisual = true
 
   cy.mount(
-    <Container>
+    <TestContainer>
       <EditorProviders scope={scope}>
         <CodemirrorEditor />
       </EditorProviders>
-    </Container>
+    </TestContainer>
   )
 
   // wait for the content to be parsed and revealed
@@ -71,6 +68,36 @@ describe('<CodeMirrorEditor/> paste HTML in Visual mode', function () {
 
     cy.get('@content').should('have.text', ' foo bar')
     cy.get('.ol-cm-item').should('have.length', 2)
+  })
+
+  it('handles a pasted nested bullet list', function () {
+    mountEditor()
+
+    const data =
+      '<ul><li>foo</li><li><ul><li>bar</li><li>baz</li></ul></li></ul>'
+
+    const clipboardData = new DataTransfer()
+    clipboardData.setData('text/html', data)
+    cy.get('@content').trigger('paste', { clipboardData })
+
+    cy.get('@content').should('have.text', ' foo  bar baz')
+    cy.get('.ol-cm-item').should('have.length', 4)
+    cy.get('.cm-line').should('have.length', 6)
+  })
+
+  it('handles a pasted nested numbered list', function () {
+    mountEditor()
+
+    const data =
+      '<ol><li>foo</li><li><ol><li>bar</li><li>baz</li></ol></li></ol>'
+
+    const clipboardData = new DataTransfer()
+    clipboardData.setData('text/html', data)
+    cy.get('@content').trigger('paste', { clipboardData })
+
+    cy.get('@content').should('have.text', ' foo  bar baz')
+    cy.get('.ol-cm-item').should('have.length', 4)
+    cy.get('.cm-line').should('have.length', 6)
   })
 
   it('removes a solitary item from a list', function () {
@@ -298,6 +325,31 @@ describe('<CodeMirrorEditor/> paste HTML in Visual mode', function () {
     cy.findByText(/Sorry/).should('not.exist')
     cy.get('td b').should('have.length', 2)
     cy.get('td i').should('have.length', 2)
+  })
+
+  it('handles a pasted table with formatting markup', function () {
+    mountEditor()
+
+    const data =
+      '<table><tbody><tr>' +
+      '<td><b>foo</b></td>' +
+      '<td><i>bar</i></td>' +
+      '<td><b><i>baz</i></b></td>' +
+      '<td><i><b>buzz</b></i></td>' +
+      '<td><sup>up</sup></td>' +
+      '<td><sub>down</sub></td>' +
+      '</tr></tbody></table>'
+
+    const clipboardData = new DataTransfer()
+    clipboardData.setData('text/html', data)
+    cy.get('@content').trigger('paste', { clipboardData })
+
+    cy.get('@content').should('have.text', 'foobarbazbuzzupdown')
+    cy.findByText(/Sorry/).should('not.exist')
+    cy.get('td b').should('have.length', 3)
+    cy.get('td i').should('have.length', 3)
+    cy.get('td sup').should('have.length', 1)
+    cy.get('td sub').should('have.length', 1)
   })
 
   it('handles a pasted table with a caption', function () {

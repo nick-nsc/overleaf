@@ -1,9 +1,9 @@
 const logger = require('@overleaf/logger')
 const Settings = require('@overleaf/settings')
 const crypto = require('crypto')
-const Mailchimp = require('mailchimp-api-v3')
 const OError = require('@overleaf/o-error')
 const { callbackify } = require('util')
+const MailChimpClient = require('./MailChimpClient')
 
 function mailchimpIsConfigured() {
   return Settings.mailchimp != null && Settings.mailchimp.api_key != null
@@ -23,6 +23,8 @@ function make(listName, listId) {
     subscribe: callbackify(provider.subscribe),
     unsubscribe: callbackify(provider.unsubscribe),
     changeEmail: callbackify(provider.changeEmail),
+    tag: callbackify(provider.tag),
+    removeTag: callbackify(provider.removeTag),
     promises: provider,
   }
 }
@@ -38,7 +40,7 @@ class NonFatalEmailUpdateError extends OError {
 }
 
 function makeMailchimpProvider(listName, listId) {
-  const mailchimp = new Mailchimp(Settings.mailchimp.api_key)
+  const mailchimp = new MailChimpClient(Settings.mailchimp.api_key)
   const MAILCHIMP_LIST_ID = listId
 
   return {
@@ -46,6 +48,8 @@ function makeMailchimpProvider(listName, listId) {
     subscribe,
     unsubscribe,
     changeEmail,
+    tag,
+    removeTag,
   }
 
   async function subscribed(user) {
@@ -54,7 +58,7 @@ function makeMailchimpProvider(listName, listId) {
       const result = await mailchimp.get(path)
       return result?.status === 'subscribed'
     } catch (err) {
-      if (err.status === 404) {
+      if (err?.response?.status === 404) {
         return false
       }
       throw OError.tag(err, 'error getting newsletter subscriptions status', {
@@ -85,6 +89,38 @@ function makeMailchimpProvider(listName, listId) {
     }
   }
 
+  async function tag(user, tag) {
+    try {
+      const path = getMemberTagsPath(user.email)
+      await mailchimp.post(path, {
+        tags: [{ name: tag, status: 'active' }],
+      })
+      logger.debug({ user, listName }, `finished adding ${tag} to user`)
+    } catch (err) {
+      throw OError.tag(err, `error adding ${tag} to user`, {
+        userId: user._id,
+        listName,
+        tag,
+      })
+    }
+  }
+
+  async function removeTag(user, tag) {
+    try {
+      const path = getMemberTagsPath(user.email)
+      await mailchimp.post(path, {
+        tags: [{ name: tag, status: 'inactive' }],
+      })
+      logger.debug({ user, listName }, `finished removing ${tag} from user`)
+    } catch (err) {
+      throw OError.tag(err, `error removing ${tag} from user`, {
+        userId: user._id,
+        listName,
+        tag,
+      })
+    }
+  }
+
   async function unsubscribe(user, options = {}) {
     try {
       const path = getSubscriberPath(user.email)
@@ -101,7 +137,7 @@ function makeMailchimpProvider(listName, listId) {
         'finished unsubscribing user from newsletter'
       )
     } catch (err) {
-      if (err.status === 404 || err.status === 405) {
+      if ([404, 405].includes(err?.response?.status)) {
         // silently ignore users who were never subscribed (404) or previously deleted (405)
         return
       }
@@ -208,6 +244,11 @@ function makeMailchimpProvider(listName, listId) {
     return `/lists/${MAILCHIMP_LIST_ID}/members/${emailHash}`
   }
 
+  function getMemberTagsPath(email) {
+    const emailHash = hashEmail(email)
+    return `/lists/${MAILCHIMP_LIST_ID}/members/${emailHash}/tags`
+  }
+
   function hashEmail(email) {
     return crypto.createHash('md5').update(email.toLowerCase()).digest('hex')
   }
@@ -227,6 +268,8 @@ function makeNullProvider(listName) {
     subscribe,
     unsubscribe,
     changeEmail,
+    tag,
+    removeTag,
   }
 
   async function subscribed(user) {
@@ -255,6 +298,18 @@ function makeNullProvider(listName) {
     logger.debug(
       { userId: user._id, newEmail, listName },
       'Not changing email in newsletter for user because no newsletter provider is configured'
+    )
+  }
+  async function tag(user, tag) {
+    logger.debug(
+      { userId: user._id, tag, listName },
+      'Not tagging user because no newsletter provider is configured'
+    )
+  }
+  async function removeTag(user, tag) {
+    logger.debug(
+      { userId: user._id, tag, listName },
+      'Not removing tag for user because no newsletter provider is configured'
     )
   }
 }

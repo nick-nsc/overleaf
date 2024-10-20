@@ -8,6 +8,10 @@ const AuthenticationManager = require('../../../../app/src/Features/Authenticati
 const { promisifyClass } = require('@overleaf/promise-utils')
 const fs = require('fs')
 const Path = require('path')
+const { Cookie } = require('tough-cookie')
+const COOKIE_DOMAIN = settings.cookieDomain
+// The cookie domain has a leading '.' but the cookie jar stores it without.
+const DEFAULT_COOKIE_URL = `https://${COOKIE_DOMAIN.replace(/^\./, '')}/`
 
 let count = settings.test.counterInit
 
@@ -29,6 +33,200 @@ class User {
     this.jar = request.jar()
     this.request = request.defaults({
       jar: this.jar,
+    })
+  }
+
+  getSession(options, callback) {
+    if (typeof options === 'function') {
+      callback = options
+      options = {}
+    }
+    this.request.get(
+      {
+        url: '/dev/session',
+        qs: options.set,
+      },
+      (err, response, body) => {
+        if (err != null) {
+          return callback(err)
+        }
+        if (response.statusCode !== 200) {
+          return callback(
+            new Error(
+              `get session failed: status=${
+                response.statusCode
+              } body=${JSON.stringify(body)}`
+            )
+          )
+        }
+
+        const session = JSON.parse(response.body)
+        callback(null, session)
+      }
+    )
+  }
+
+  setInSession(params, callback) {
+    this.getCsrfToken(error => {
+      if (error != null) {
+        return callback(error)
+      }
+      this.request.post(
+        {
+          url: '/dev/set_in_session',
+          json: params,
+        },
+        (err, response, body) => {
+          if (err != null) {
+            return callback(err)
+          }
+          if (response.statusCode !== 200) {
+            return callback(
+              new Error(
+                `post set in session failed: status=${
+                  response.statusCode
+                } body=${JSON.stringify(body)}`
+              )
+            )
+          }
+          callback(null)
+        }
+      )
+    })
+  }
+
+  getSplitTestAssignment(splitTestName, query, callback) {
+    if (!callback) {
+      callback = query
+    }
+    const params = new URLSearchParams({
+      splitTestName,
+      ...query,
+    }).toString()
+    this.request.get(
+      {
+        url: `/dev/split_test/get_assignment?${params}`,
+      },
+      (err, response, body) => {
+        if (err != null) {
+          return callback(err)
+        }
+        if (response.statusCode !== 200) {
+          return callback(
+            new Error(
+              `get split test assignment failed: status=${
+                response.statusCode
+              } body=${JSON.stringify(body)}`
+            )
+          )
+        }
+        const assignment = JSON.parse(response.body)
+        callback(null, assignment)
+      }
+    )
+  }
+
+  doSessionMaintenance(callback) {
+    this.request.post(
+      {
+        url: `/dev/split_test/session_maintenance`,
+      },
+      (err, response, body) => {
+        if (err != null) {
+          return callback(err)
+        }
+        if (response.statusCode !== 200) {
+          return callback(
+            new Error(
+              `post session maintenance failed: status=${
+                response.statusCode
+              } body=${JSON.stringify(body)}`
+            )
+          )
+        }
+        callback(null)
+      }
+    )
+  }
+
+  optIntoBeta(callback) {
+    this.request.post(
+      {
+        url: '/beta/opt-in',
+      },
+      (err, response, body) => {
+        if (err != null) {
+          return callback(err)
+        }
+        if (response.statusCode !== 302) {
+          return callback(
+            new Error(
+              `post beta opt-in failed: status=${
+                response.statusCode
+              } body=${JSON.stringify(body)}`
+            )
+          )
+        }
+        callback(null)
+      }
+    )
+  }
+
+  optOutOfBeta(callback) {
+    this.request.post(
+      {
+        url: '/beta/opt-out',
+      },
+      (err, response, body) => {
+        if (err != null) {
+          return callback(err)
+        }
+        if (response.statusCode !== 302) {
+          return callback(
+            new Error(
+              `post beta opt-out failed: status=${
+                response.statusCode
+              } body=${JSON.stringify(body)}`
+            )
+          )
+        }
+        callback(null)
+      }
+    )
+  }
+
+  /* Return the session cookie, url decoded. Use the option {raw:true} to get the original undecoded value */
+
+  sessionCookie(options) {
+    const cookie = Cookie.parse(this.jar.getCookieString(DEFAULT_COOKIE_URL))
+    if (cookie?.value && !options?.raw) {
+      cookie.value = decodeURIComponent(cookie.value)
+    }
+    return cookie
+  }
+
+  /* Set the session cookie from a string and store it in the cookie jar, so that it will be used
+     for subsequent requests. */
+
+  setSessionCookie(cookie) {
+    const sessionCookie = request.cookie(
+      `${settings.cookieName}=${cookie}; Domain=${COOKIE_DOMAIN}; Max-age=3600; Path=/; SameSite=Lax`
+    )
+    this.jar.setCookie(sessionCookie, DEFAULT_COOKIE_URL)
+  }
+
+  getEmailConfirmationCode(callback) {
+    this.getSession((err, session) => {
+      if (err != null) {
+        return callback(err)
+      }
+
+      const code = session.pendingUserRegistration?.confirmCode
+      if (!code) {
+        return callback(new Error('No confirmation code found in session'))
+      }
+
+      callback(null, code)
     })
   }
 
@@ -114,12 +312,40 @@ class User {
               )
             )
           }
-          db.users.findOne({ email: this.email }, (error, user) => {
+
+          this.getEmailConfirmationCode((error, code) => {
             if (error != null) {
               return callback(error)
             }
-            this.setExtraAttributes(user)
-            callback(null, user)
+
+            this.request.post(
+              {
+                url: '/registration/confirm-email',
+                json: { code },
+              },
+              (error, response, body) => {
+                if (error != null) {
+                  return callback(error)
+                }
+                if (response.statusCode !== 200) {
+                  return callback(
+                    new Error(
+                      `email confirmation failed: status=${
+                        response.statusCode
+                      } body=${JSON.stringify(body)}`
+                    )
+                  )
+                }
+
+                db.users.findOne({ email: this.email }, (error, user) => {
+                  if (error != null) {
+                    return callback(error)
+                  }
+                  this.setExtraAttributes(user)
+                  callback(null, user, response)
+                })
+              }
+            )
           })
         }
       )
@@ -197,16 +423,13 @@ class User {
         UserModel.findOneAndUpdate(
           filter,
           { $set: { hashedPassword, emails: this.emails } },
-          options,
-          (error, user) => {
-            if (error != null) {
-              return callback(error)
-            }
-
+          options
+        )
+          .then(user => {
             this.setExtraAttributes(user)
             callback(null, this.password)
-          }
-        )
+          })
+          .catch(callback)
       }
     )
   }
@@ -217,24 +440,34 @@ class User {
       const value = features[key]
       update[`features.${key}`] = value
     }
-    UserModel.updateOne({ _id: this.id }, update, callback)
+    UserModel.updateOne({ _id: this.id }, update)
+      .then((...args) => callback(null, ...args))
+      .catch(callback)
   }
 
   setFeaturesOverride(featuresOverride, callback) {
     const update = { $push: { featuresOverrides: featuresOverride } }
-    UserModel.updateOne({ _id: this.id }, update, callback)
+    UserModel.updateOne({ _id: this.id }, update)
+      .then((...args) => callback(null, ...args))
+      .catch(callback)
   }
 
   setOverleafId(overleafId, callback) {
-    UserModel.updateOne(
-      { _id: this.id },
-      { 'overleaf.id': overleafId },
-      callback
-    )
+    UserModel.updateOne({ _id: this.id }, { 'overleaf.id': overleafId })
+      .then((...args) => callback(null, ...args))
+      .catch(callback)
   }
 
   setEmails(emails, callback) {
-    UserModel.updateOne({ _id: this.id }, { emails }, callback)
+    UserModel.updateOne({ _id: this.id }, { emails })
+      .then((...args) => callback(null, ...args))
+      .catch(callback)
+  }
+
+  setSuspended(suspended, callback) {
+    UserModel.updateOne({ _id: this.id }, { suspended })
+      .then((...args) => callback(null, ...args))
+      .catch(callback)
   }
 
   logout(callback) {
@@ -245,16 +478,12 @@ class User {
       this.request.post(
         {
           url: '/logout',
-          json: {
-            email: this.email,
-            password: this.password,
-          },
         },
         (error, response, body) => {
           if (error != null) {
             return callback(error)
           }
-          if (response.statusCode !== 200) {
+          if (response.statusCode >= 400) {
             return callback(
               new Error(
                 `logout failed: status=${
@@ -317,7 +546,6 @@ class User {
       dropbox: true,
       compileTimeout: 60,
       compileGroup: 'priority',
-      templates: true,
       references: true,
       trackChanges: true,
       trackChangesVisible: true,
@@ -332,7 +560,6 @@ class User {
       dropbox: false,
       compileTimeout: 60,
       compileGroup: 'standard',
-      templates: false,
       references: false,
       trackChanges: false,
       trackChangesVisible: false,
@@ -719,6 +946,10 @@ class User {
       updateOp = { $addToSet: { collaberator_refs: user._id } }
     } else if (privileges === 'readOnly') {
       updateOp = { $addToSet: { readOnly_refs: user._id } }
+    } else if (privileges === 'pendingEditor') {
+      updateOp = {
+        $addToSet: { readOnly_refs: user._id, pendingEditor_refs: user._id },
+      }
     }
     db.projects.updateOne({ _id: new ObjectId(projectId) }, updateOp, callback)
   }
@@ -911,7 +1142,7 @@ class User {
           if (response.statusCode !== 200) {
             return callback(
               new Error(
-                `login failed: status=${
+                `update settings failed: status=${
                   response.statusCode
                 } body=${JSON.stringify(body)}`
               )
@@ -991,9 +1222,10 @@ class User {
         overleaf: {
           id: v1Id,
         },
-      },
-      callback
+      }
     )
+      .then((...args) => callback(null, ...args))
+      .catch(callback)
   }
 
   setCollaboratorInfo(projectId, userId, info, callback) {
@@ -1027,7 +1259,7 @@ class User {
 }
 
 User.promises = promisifyClass(User, {
-  without: ['setExtraAttributes'],
+  without: ['setExtraAttributes', 'sessionCookie', 'setSessionCookie'],
 })
 
 User.promises.prototype.doRequest = async function (method, params) {

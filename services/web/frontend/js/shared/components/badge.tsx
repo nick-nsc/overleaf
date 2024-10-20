@@ -1,3 +1,4 @@
+import { Label } from 'react-bootstrap'
 import classnames from 'classnames'
 import { MergeAndOverride } from '../../../../types/utils'
 
@@ -7,37 +8,20 @@ type BadgeProps = MergeAndOverride<
     prepend?: React.ReactNode
     children: React.ReactNode
     className?: string
-    closeButton?: boolean
-    onClose?: (e: React.MouseEvent<HTMLButtonElement>) => void
-    closeBtnProps?: React.ComponentProps<'button'>
-    size?: 'sm'
+    bsStyle?: React.ComponentProps<typeof Label>['bsStyle'] | null
   }
 >
 
-function Badge({
-  prepend,
-  children,
-  className,
-  closeButton = false,
-  onClose,
-  closeBtnProps,
-  size,
-  ...rest
-}: BadgeProps) {
+function Badge({ prepend, children, bsStyle, className, ...rest }: BadgeProps) {
+  const classNames =
+    bsStyle === null
+      ? className
+      : classnames('label', `label-${bsStyle}`, className)
+
   return (
-    <span className={classnames('badge-new', className)} {...rest}>
-      {prepend}
-      <span className="badge-new-comment">{children}</span>
-      {closeButton && (
-        <button
-          type="button"
-          className="badge-new-close"
-          onClick={onClose}
-          {...closeBtnProps}
-        >
-          <span aria-hidden="true">&times;</span>
-        </button>
-      )}
+    <span className={classNames} {...rest}>
+      {prepend && <span className="badge-tag-bs3-prepend">{prepend}</span>}
+      <span className="badge-tag-bs3-content">{children}</span>
     </span>
   )
 }

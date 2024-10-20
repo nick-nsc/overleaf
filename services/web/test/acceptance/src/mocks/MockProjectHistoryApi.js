@@ -1,6 +1,6 @@
 const AbstractMockApi = require('./AbstractMockApi')
 const _ = require('lodash')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 const {
   plainTextResponse,
 } = require('../../../../app/src/infrastructure/Response')
@@ -103,7 +103,7 @@ class MockProjectHistoryApi extends AbstractMockApi {
       }
     })
 
-    this.app.post('/project/:projectId/user/:user_id/labels', (req, res) => {
+    this.app.post('/project/:projectId/labels', (req, res) => {
       const { projectId } = req.params
       const { comment, version } = req.body
       const labelId = new ObjectId().toString()

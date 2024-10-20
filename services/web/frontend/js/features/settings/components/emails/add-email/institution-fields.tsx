@@ -11,6 +11,7 @@ import { DomainInfo } from './input'
 import { getJSON } from '../../../../../infrastructure/fetch-json'
 import useAsync from '../../../../../shared/hooks/use-async'
 import UniversityName from './university-name'
+import OLFormGroup from '@/features/ui/components/ol/ol-form-group'
 
 type InstitutionFieldsProps = {
   countryCode: CountryCode | null
@@ -151,18 +152,14 @@ function InstitutionFields({
       ) : (
         // Display the country and university fields
         <>
-          <div className="form-group mb-2">
+          <OLFormGroup className="mb-2">
             <CountryInput
               id="new-email-country-input"
               setValue={setCountryCode}
               ref={countryRef}
             />
-          </div>
-          <div
-            className={`form-group ${
-              isRoleAndDepartmentVisible ? 'mb-2' : 'mb-0'
-            }`}
-          >
+          </OLFormGroup>
+          <OLFormGroup className={isRoleAndDepartmentVisible ? 'mb-2' : 'mb-0'}>
             <DownshiftInput
               items={getUniversityItems()}
               inputValue={universityName}
@@ -171,12 +168,12 @@ function InstitutionFields({
               setValue={setUniversityName}
               disabled={!countryCode}
             />
-          </div>
+          </OLFormGroup>
         </>
       )}
       {isRoleAndDepartmentVisible && (
         <>
-          <div className="form-group mb-2">
+          <OLFormGroup className="mb-2">
             <DownshiftInput
               items={[...defaultRoles]}
               inputValue={role}
@@ -184,8 +181,8 @@ function InstitutionFields({
               label={t('role')}
               setValue={setRole}
             />
-          </div>
-          <div className="form-group mb-0">
+          </OLFormGroup>
+          <OLFormGroup className="mb-0">
             <DownshiftInput
               items={departments}
               inputValue={department}
@@ -193,7 +190,7 @@ function InstitutionFields({
               label={t('department')}
               setValue={setDepartment}
             />
-          </div>
+          </OLFormGroup>
         </>
       )}
     </>

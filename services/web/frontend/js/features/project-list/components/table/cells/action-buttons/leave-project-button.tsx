@@ -1,12 +1,14 @@
 import { memo, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import Icon from '../../../../../../shared/components/icon'
-import Tooltip from '../../../../../../shared/components/tooltip'
 import LeaveProjectModal from '../../../modals/leave-project-modal'
 import { useProjectListContext } from '../../../../context/project-list-context'
 import useIsMounted from '../../../../../../shared/hooks/use-is-mounted'
 import { leaveProject } from '../../../../util/api'
 import { Project } from '../../../../../../../../types/project/dashboard/api'
+import getMeta from '@/utils/meta'
+import OLTooltip from '@/features/ui/components/ol/ol-tooltip'
+import OLIconButton from '@/features/ui/components/ol/ol-icon-button'
+import { bsVersion } from '@/features/utils/bootstrap-5'
 
 type LeaveProjectButtonProps = {
   project: Project
@@ -18,7 +20,7 @@ function LeaveProjectButton({ project, children }: LeaveProjectButtonProps) {
   const { t } = useTranslation()
   const text = t('leave')
   const isOwner = useMemo(() => {
-    return project.owner && window.user_id === project.owner.id
+    return project.owner && getMeta('ol-user_id') === project.owner.id
   }, [project])
   const [showModal, setShowModal] = useState(false)
   const isMounted = useIsMounted()
@@ -61,20 +63,23 @@ const LeaveProjectButtonTooltip = memo(function LeaveProjectButtonTooltip({
   return (
     <LeaveProjectButton project={project}>
       {(text, handleOpenModal) => (
-        <Tooltip
+        <OLTooltip
           key={`tooltip-leave-project-${project.id}`}
           id={`leave-project-${project.id}`}
           description={text}
           overlayProps={{ placement: 'top', trigger: ['hover', 'focus'] }}
         >
-          <button
-            className="btn btn-link action-btn"
-            aria-label={text}
-            onClick={handleOpenModal}
-          >
-            <Icon type="sign-out" fw />
-          </button>
-        </Tooltip>
+          <span>
+            <OLIconButton
+              onClick={handleOpenModal}
+              variant="link"
+              accessibilityLabel={text}
+              className="action-btn"
+              icon={bsVersion({ bs5: 'logout', bs3: 'sign-out' })}
+              bs3Props={{ fw: true }}
+            />
+          </span>
+        </OLTooltip>
       )}
     </LeaveProjectButton>
   )

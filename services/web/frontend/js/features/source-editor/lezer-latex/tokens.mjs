@@ -11,7 +11,6 @@ import {
   Begin,
   End,
   KnownEnvironment,
-  MathDelimiter,
   Csname,
   TrailingWhitespaceOnly,
   TrailingContent,
@@ -35,6 +34,7 @@ import {
   IncludeGraphicsCtrlSeq,
   CaptionCtrlSeq,
   DefCtrlSeq,
+  LetCtrlSeq,
   LeftCtrlSeq,
   RightCtrlSeq,
   NewCommandCtrlSeq,
@@ -80,7 +80,26 @@ import {
   BottomRuleCtrlSeq,
   TableEnvName,
   MultiColumnCtrlSeq,
+  ParBoxCtrlSeq,
+  // Marker for end of argument lists
+  endOfArguments,
+  hasMoreArguments,
+  hasMoreArgumentsOrOptionals,
+  endOfArgumentsAndOptionals,
+  TextBoldCtrlSeq,
+  TextItalicCtrlSeq,
+  TextSmallCapsCtrlSeq,
+  TextTeletypeCtrlSeq,
+  TextMediumCtrlSeq,
+  TextSansSerifCtrlSeq,
+  TextSuperscriptCtrlSeq,
+  TextSubscriptCtrlSeq,
+  TextStrikeOutCtrlSeq,
+  EmphasisCtrlSeq,
+  UnderlineCtrlSeq,
 } from './latex.terms.mjs'
+
+const MAX_ARGUMENT_LOOKAHEAD = 100
 
 function nameChar(ch) {
   // we accept A-Z a-z 0-9 * + @ in environment names
@@ -248,116 +267,47 @@ function _char(s) {
   return s.charCodeAt(0)
 }
 
-// Allowed delimiters, from the LaTeX manual, table 3.10
-// (  ) [ ] / |  \{ \}  \| and additional names below
-// The empty delimiter . is also allowed
-
-const CHAR_SLASH = _char('/')
-const CHAR_PIPE = _char('|')
-const CHAR_OPEN_PAREN = _char('(')
-const CHAR_CLOSE_PAREN = _char(')')
-const CHAR_OPEN_BRACKET = _char('[')
-const CHAR_CLOSE_BRACKET = _char(']')
-const CHAR_FULL_STOP = _char('.')
 const CHAR_BACKSLASH = _char('\\')
 const CHAR_OPEN_BRACE = _char('{')
+const CHAR_OPEN_BRACKET = _char('[')
 const CHAR_CLOSE_BRACE = _char('}')
+const CHAR_TAB = _char('\t')
+const CHAR_SPACE = _char(' ')
+const CHAR_NEWLINE = _char('\n')
 
-const ALLOWED_DELIMITER_NAMES = [
-  'lfloor',
-  'rfloor',
-  'lceil',
-  'rceil',
-  'langle',
-  'rangle',
-  'backslash',
-  'uparrow',
-  'downarrow',
-  'Uparrow',
-  'Downarrow',
-  'updownarrow',
-  'Updownarrow',
-  'lvert',
-  'rvert',
-  'lVert',
-  'rVert',
-]
-
-// Given a list of allowed command names, return those with leading characters that are the same as the matchString
-function findPartialMatches(list, matchString) {
-  const size = matchString.length
-  return list.filter(
-    entry => entry.length >= size && entry.substring(0, size) === matchString
-  )
-}
-
-// tokenizer for \leftX ... \rightX delimiter tokens
-export const mathDelimiterTokenizer = new ExternalTokenizer(
-  (input, stack) => {
-    let content = ''
-    let offset = 0
-    let end = -1
-    // look at the first character, we only accept the following /|()[].
-    let next = input.peek(offset)
-    if (next === -1) {
-      return
-    }
-    if (
-      next === CHAR_SLASH ||
-      next === CHAR_PIPE ||
-      next === CHAR_OPEN_PAREN ||
-      next === CHAR_CLOSE_PAREN ||
-      next === CHAR_OPEN_BRACKET ||
-      next === CHAR_CLOSE_BRACKET ||
-      next === CHAR_FULL_STOP
-    ) {
-      return input.acceptToken(MathDelimiter, 1)
-    }
-    // reject anything else not starting with a backslash,
-    // we only accept control symbols or control sequences
-    if (next !== CHAR_BACKSLASH) {
-      return
-    }
-    // look at the second character, we only accept \{ and \} and \| as control symbols
-    offset++
-    next = input.peek(offset)
-    if (next === -1) {
-      return
-    }
-    if (
-      next === CHAR_OPEN_BRACE ||
-      next === CHAR_CLOSE_BRACE ||
-      next === CHAR_PIPE
-    ) {
-      return input.acceptToken(MathDelimiter, 2)
-    }
-    // We haven't matched any symbols, so now try matching command names.
-    // Is this character a potential match to the remaining allowed delimiter names?
-    content = String.fromCharCode(next)
-    let candidates = findPartialMatches(ALLOWED_DELIMITER_NAMES, content)
-    if (!candidates.length) return
-    // we have some candidates, look at subsequent characters
-    offset++
-    for (;;) {
-      const next = input.peek(offset)
-      // stop when we reach the end of file or a non-alphabetic character
-      if (next === -1 || !nameChar(next)) {
-        end = offset - 1
-        break
+const lookaheadTokenizer = getToken =>
+  new ExternalTokenizer(
+    input => {
+      for (let i = 0; i < MAX_ARGUMENT_LOOKAHEAD; ++i) {
+        const next = input.peek(i)
+        if (next === CHAR_SPACE || next === CHAR_TAB) {
+          continue
+        }
+        const token = getToken(next)
+        if (token) {
+          input.acceptToken(token)
+          return
+        }
       }
-      content += String.fromCharCode(next)
-      // find how many candidates remain with the new input
-      candidates = findPartialMatches(candidates, content)
-      if (!candidates.length) return // no matches remaining
-      end = offset
-      offset++
-    }
-    if (!candidates.includes(content)) return // not a valid delimiter
-    // accept the content as a valid delimiter
-    return input.acceptToken(MathDelimiter, end + 1)
-  },
-  { contextual: false }
-)
+    },
+    { contextual: false, fallback: true }
+  )
+
+export const argumentListTokenizer = lookaheadTokenizer(next => {
+  if (next === CHAR_OPEN_BRACE) {
+    return hasMoreArguments
+  } else {
+    return endOfArguments
+  }
+})
+
+export const argumentListWithOptionalTokenizer = lookaheadTokenizer(next => {
+  if (next === CHAR_OPEN_BRACE || next === CHAR_OPEN_BRACKET) {
+    return hasMoreArgumentsOrOptionals
+  } else {
+    return endOfArgumentsAndOptionals
+  }
+})
 
 const CHAR_AT_SYMBOL = _char('@')
 
@@ -391,8 +341,6 @@ export const csnameTokenizer = new ExternalTokenizer((input, stack) => {
   return input.acceptToken(Csname, end + 1)
 })
 
-const CHAR_SPACE = _char(' ')
-const CHAR_NEWLINE = _char('\n')
 const END_DOCUMENT_MARK = '\\end{document}'.split('').reverse()
 
 export const trailingContentTokenizer = new ExternalTokenizer(
@@ -461,6 +409,7 @@ const refStarrableCommands = new Set([
   '\\pageref',
   '\\ref',
   '\\Ref',
+  '\\subref',
   '\\zpageref',
   '\\ztitleref',
   '\\vpagerefrange',
@@ -485,6 +434,8 @@ const citeCommands = new Set([
   '\\Citeauthort',
   '\\citeNP',
   '\\citenum',
+  '\\citen',
+  '\\citeonline',
   '\\cites',
   '\\Cites',
   '\\citeurl',
@@ -574,11 +525,13 @@ const citeStarredCommands = new Set([
   '\\Citeauthor',
   '\\citedate',
   '\\citep',
+  '\\citepalias',
   '\\Citep',
   '\\citetitle',
   '\\citeyear',
   '\\parencite',
   '\\citet',
+  '\\citetalias',
   '\\autocite',
   '\\Autocite',
 ])
@@ -602,6 +555,7 @@ const otherKnowncommands = {
   '\\includegraphics': IncludeGraphicsCtrlSeq,
   '\\caption': CaptionCtrlSeq,
   '\\def': DefCtrlSeq,
+  '\\let': LetCtrlSeq,
   '\\left': LeftCtrlSeq,
   '\\right': RightCtrlSeq,
   '\\newcommand': NewCommandCtrlSeq,
@@ -635,6 +589,18 @@ const otherKnowncommands = {
   '\\midrule': MidRuleCtrlSeq,
   '\\bottomrule': BottomRuleCtrlSeq,
   '\\multicolumn': MultiColumnCtrlSeq,
+  '\\parbox': ParBoxCtrlSeq,
+  '\\textbf': TextBoldCtrlSeq,
+  '\\textit': TextItalicCtrlSeq,
+  '\\textsc': TextSmallCapsCtrlSeq,
+  '\\texttt': TextTeletypeCtrlSeq,
+  '\\textmd': TextMediumCtrlSeq,
+  '\\textsf': TextSansSerifCtrlSeq,
+  '\\textsuperscript': TextSuperscriptCtrlSeq,
+  '\\textsubscript': TextSubscriptCtrlSeq,
+  '\\sout': TextStrikeOutCtrlSeq,
+  '\\emph': EmphasisCtrlSeq,
+  '\\underline': UnderlineCtrlSeq,
 }
 // specializer for control sequences
 // return new tokens for specific control sequences
@@ -731,6 +697,7 @@ const verbatimEnvNames = new Set([
   'minted',
   'Verbatim',
   'lstlisting',
+  'tcblisting',
   'codeexample',
   'comment',
 ])
@@ -744,6 +711,7 @@ const otherKnownEnvNames = {
   enumerate: ListEnvName,
   itemize: ListEnvName,
   table: TableEnvName,
+  description: ListEnvName,
 }
 
 export const specializeEnvName = (name, terms) => {

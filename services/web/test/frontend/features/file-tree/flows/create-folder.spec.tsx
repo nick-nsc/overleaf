@@ -1,10 +1,12 @@
-// @ts-ignore
-import MockedSocket from 'socket.io-mock'
+import '../../../helpers/bootstrap-3'
 import FileTreeRoot from '../../../../../frontend/js/features/file-tree/components/file-tree-root'
 import { EditorProviders } from '../../../helpers/editor-providers'
+import { SocketIOMock } from '@/ide/connection/SocketIoShim'
 
 describe('FileTree Create Folder Flow', function () {
+  let socket: SocketIOMock
   beforeEach(function () {
+    socket = new SocketIOMock()
     cy.window().then(win => {
       win.metaAttributesCache.set('ol-user', { id: 'user1' })
     })
@@ -25,11 +27,10 @@ describe('FileTree Create Folder Flow', function () {
       <EditorProviders
         rootFolder={rootFolder as any}
         projectId="123abc"
-        socket={new MockedSocket()}
+        socket={socket}
       >
         <FileTreeRoot
           refProviders={{}}
-          reindexReferences={cy.stub()}
           setRefProviderEnabled={cy.stub()}
           setStartedFreeTrial={cy.stub()}
           onSelect={cy.stub()}
@@ -58,9 +59,8 @@ describe('FileTree Create Folder Flow', function () {
       name,
     })
 
-    cy.window().then(win => {
-      // @ts-ignore
-      win._ide.socket.socketClient.emit('reciveNewFolder', 'root-folder-id', {
+    cy.then(() => {
+      socket.emitToClient('reciveNewFolder', 'root-folder-id', {
         _id: fakeId(),
         name,
         docs: [],
@@ -96,11 +96,10 @@ describe('FileTree Create Folder Flow', function () {
         rootFolder={rootFolder as any}
         projectId="123abc"
         rootDocId="789ghi"
-        socket={new MockedSocket()}
+        socket={socket}
       >
         <FileTreeRoot
           refProviders={{}}
-          reindexReferences={cy.stub()}
           setRefProviderEnabled={cy.stub()}
           setStartedFreeTrial={cy.stub()}
           onSelect={cy.stub()}
@@ -131,9 +130,8 @@ describe('FileTree Create Folder Flow', function () {
       name,
     })
 
-    cy.window().then(win => {
-      // @ts-ignore
-      win._ide.socket.socketClient.emit('reciveNewFolder', '789ghi', {
+    cy.then(() => {
+      socket.emitToClient('reciveNewFolder', '789ghi', {
         _id: fakeId(),
         name,
         docs: [],
@@ -174,11 +172,10 @@ describe('FileTree Create Folder Flow', function () {
         rootFolder={rootFolder as any}
         projectId="123abc"
         rootDocId="456def"
-        socket={new MockedSocket()}
+        socket={socket}
       >
         <FileTreeRoot
           refProviders={{}}
-          reindexReferences={cy.stub()}
           setRefProviderEnabled={cy.stub()}
           setStartedFreeTrial={cy.stub()}
           onSelect={cy.stub()}
@@ -207,9 +204,8 @@ describe('FileTree Create Folder Flow', function () {
       name,
     })
 
-    cy.window().then(win => {
-      // @ts-ignore
-      win._ide.socket.socketClient.emit('reciveNewFolder', '789ghi', {
+    cy.then(() => {
+      socket.emitToClient('reciveNewFolder', '789ghi', {
         _id: fakeId(),
         name,
         docs: [],
@@ -242,11 +238,10 @@ describe('FileTree Create Folder Flow', function () {
         rootFolder={rootFolder as any}
         projectId="123abc"
         rootDocId="456def"
-        socket={new MockedSocket()}
+        socket={socket}
       >
         <FileTreeRoot
           refProviders={{}}
-          reindexReferences={cy.stub()}
           setRefProviderEnabled={cy.stub()}
           setStartedFreeTrial={cy.stub()}
           onSelect={cy.stub()}
@@ -276,7 +271,7 @@ describe('FileTree Create Folder Flow', function () {
   })
 
   function createFolder(name: string) {
-    cy.findByRole('button', { name: 'New Folder' }).click()
+    cy.findByRole('button', { name: 'New folder' }).click()
     cy.findByRole('textbox').type(name)
     cy.findByRole('button', { name: 'Create' }).click()
   }

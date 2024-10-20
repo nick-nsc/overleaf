@@ -1,5 +1,7 @@
 import { db, ObjectId } from '../../mongodb.js'
 
+export class MissingThreadError extends Error {}
+
 export const GLOBAL_THREAD = 'GLOBAL'
 
 export async function findOrCreateThread(projectId, threadId) {
@@ -37,7 +39,7 @@ export async function findOrCreateThread(projectId, threadId) {
 }
 
 export async function findAllThreadRooms(projectId) {
-  return db.rooms
+  return await db.rooms
     .find(
       {
         project_id: new ObjectId(projectId.toString()),
@@ -52,7 +54,7 @@ export async function findAllThreadRooms(projectId) {
 }
 
 export async function findAllThreadRoomsAndGlobalThread(projectId) {
-  return db.rooms
+  return await db.rooms
     .find(
       {
         project_id: new ObjectId(projectId.toString()),
@@ -108,4 +110,48 @@ export async function deleteAllThreadsInProject(projectId) {
   await db.rooms.deleteMany({
     project_id: new ObjectId(projectId.toString()),
   })
+}
+
+export async function getResolvedThreadIds(projectId) {
+  const resolvedThreadIds = await db.rooms
+    .find(
+      {
+        project_id: new ObjectId(projectId),
+        thread_id: { $exists: true },
+        resolved: { $exists: true },
+      },
+      { projection: { thread_id: 1 } }
+    )
+    .map(record => record.thread_id.toString())
+    .toArray()
+  return resolvedThreadIds
+}
+
+export async function duplicateThread(projectId, threadId) {
+  const room = await db.rooms.findOne({
+    project_id: new ObjectId(projectId),
+    thread_id: new ObjectId(threadId),
+  })
+  if (!room) {
+    throw new MissingThreadError('Trying to duplicate a non-existent thread')
+  }
+  const newRoom = {
+    project_id: room.project_id,
+    thread_id: new ObjectId(),
+  }
+  if (room.resolved) {
+    newRoom.resolved = room.resolved
+  }
+  const confirmation = await db.rooms.insertOne(newRoom)
+  newRoom._id = confirmation.insertedId
+  return { oldRoom: room, newRoom }
+}
+
+export async function findThreadsById(projectId, threadIds) {
+  return await db.rooms
+    .find({
+      project_id: new ObjectId(projectId),
+      thread_id: { $in: threadIds.map(id => new ObjectId(id)) },
+    })
+    .toArray()
 }

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import LeaveModal from './leave/modal'
 import getMeta from '../../../utils/meta'
+import OLButton from '@/features/ui/components/ol/ol-button'
 
 function LeaveSection() {
   const { t } = useTranslation()
@@ -28,9 +29,13 @@ function LeaveSection() {
   return (
     <>
       {t('need_to_leave')}{' '}
-      <button className="btn btn-inline-link btn-danger" onClick={handleOpen}>
+      <OLButton
+        className="btn-inline-link"
+        variant="danger"
+        onClick={handleOpen}
+      >
         {t('delete_your_account')}
-      </button>
+      </OLButton>
       <LeaveModal isOpen={isModalOpen} handleClose={handleClose} />
     </>
   )

@@ -4,6 +4,10 @@ const assert = require('check-types').assert
 
 const FileData = require('./')
 
+/**
+ * @import { RawHollowBinaryFileData } from '../types'
+ */
+
 class HollowBinaryFileData extends FileData {
   /**
    * @param {number} byteLength
@@ -16,11 +20,18 @@ class HollowBinaryFileData extends FileData {
     this.byteLength = byteLength
   }
 
+  /**
+   * @param {RawHollowBinaryFileData} raw
+   * @returns {HollowBinaryFileData}
+   */
   static fromRaw(raw) {
     return new HollowBinaryFileData(raw.byteLength)
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   * @returns {RawHollowBinaryFileData}
+   */
   toRaw() {
     return { byteLength: this.byteLength }
   }

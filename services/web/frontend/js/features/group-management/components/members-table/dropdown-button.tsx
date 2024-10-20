@@ -11,7 +11,7 @@ import { User } from '../../../../../../types/group-management/user'
 import useAsync from '@/shared/hooks/use-async'
 import { type FetchError, postJSON } from '@/infrastructure/fetch-json'
 import Icon from '@/shared/components/icon'
-import { ManagedUserAlert } from '../../utils/types'
+import { GroupUserAlert } from '../../utils/types'
 import { useGroupMembersContext } from '../../context/group-members-context'
 import getMeta from '@/utils/meta'
 
@@ -22,15 +22,17 @@ type resendInviteResponse = {
 type ManagedUserDropdownButtonProps = {
   user: User
   openOffboardingModalForUser: (user: User) => void
+  openUnlinkUserModal: (user: User) => void
   groupId: string
-  setManagedUserAlert: Dispatch<SetStateAction<ManagedUserAlert>>
+  setGroupUserAlert: Dispatch<SetStateAction<GroupUserAlert>>
 }
 
 export default function DropdownButton({
   user,
   openOffboardingModalForUser,
+  openUnlinkUserModal,
   groupId,
-  setManagedUserAlert,
+  setGroupUserAlert,
 }: ManagedUserDropdownButtonProps) {
   const { t } = useTranslation()
   const { removeMember } = useGroupMembersContext()
@@ -66,7 +68,7 @@ export default function DropdownButton({
         )
 
         if (result.success) {
-          setManagedUserAlert({
+          setGroupUserAlert({
             variant: 'resendManagedUserInviteSuccess',
             email: user.email,
           })
@@ -74,12 +76,12 @@ export default function DropdownButton({
         }
       } catch (err) {
         if ((err as FetchError)?.response?.status === 429) {
-          setManagedUserAlert({
+          setGroupUserAlert({
             variant: 'resendInviteTooManyRequests',
             email: user.email,
           })
         } else {
-          setManagedUserAlert({
+          setGroupUserAlert({
             variant: 'resendManagedUserInviteFailed',
             email: user.email,
           })
@@ -88,7 +90,7 @@ export default function DropdownButton({
         setIsOpened(false)
       }
     },
-    [setManagedUserAlert, groupId, runResendManagedUserInviteAsync]
+    [setGroupUserAlert, groupId, runResendManagedUserInviteAsync]
   )
 
   const handleResendLinkSSOInviteAsync = useCallback(
@@ -99,7 +101,7 @@ export default function DropdownButton({
         )
 
         if (result.success) {
-          setManagedUserAlert({
+          setGroupUserAlert({
             variant: 'resendSSOLinkInviteSuccess',
             email: user.email,
           })
@@ -107,12 +109,12 @@ export default function DropdownButton({
         }
       } catch (err) {
         if ((err as FetchError)?.response?.status === 429) {
-          setManagedUserAlert({
+          setGroupUserAlert({
             variant: 'resendInviteTooManyRequests',
             email: user.email,
           })
         } else {
-          setManagedUserAlert({
+          setGroupUserAlert({
             variant: 'resendSSOLinkInviteFailed',
             email: user.email,
           })
@@ -121,7 +123,7 @@ export default function DropdownButton({
         setIsOpened(false)
       }
     },
-    [setManagedUserAlert, groupId, runResendLinkSSOInviteAsync]
+    [setGroupUserAlert, groupId, runResendLinkSSOInviteAsync]
   )
 
   const handleResendGroupInvite = useCallback(
@@ -135,19 +137,19 @@ export default function DropdownButton({
           })
         )
 
-        setManagedUserAlert({
+        setGroupUserAlert({
           variant: 'resendGroupInviteSuccess',
           email: user.email,
         })
         setIsOpened(false)
       } catch (err) {
         if ((err as FetchError)?.response?.status === 429) {
-          setManagedUserAlert({
+          setGroupUserAlert({
             variant: 'resendInviteTooManyRequests',
             email: user.email,
           })
         } else {
-          setManagedUserAlert({
+          setGroupUserAlert({
             variant: 'resendGroupInviteFailed',
             email: user.email,
           })
@@ -156,7 +158,7 @@ export default function DropdownButton({
         setIsOpened(false)
       }
     },
-    [setManagedUserAlert, groupId, runResendGroupInviteAsync]
+    [setGroupUserAlert, groupId, runResendGroupInviteAsync]
   )
 
   const onResendManagedUserInviteClick = () => {
@@ -176,6 +178,10 @@ export default function DropdownButton({
 
   const onRemoveFromGroup = () => {
     removeMember(user)
+  }
+
+  const onUnlinkUserClick = () => {
+    openUnlinkUserModal(user)
   }
 
   const buttons = []
@@ -205,6 +211,17 @@ export default function DropdownButton({
         {isResendingManagedUserInvite ? (
           <Icon type="spinner" spin style={{ marginLeft: '5px' }} />
         ) : null}
+      </MenuItemButton>
+    )
+  }
+  if (groupSSOActive && isGroupSSOLinked) {
+    buttons.push(
+      <MenuItemButton
+        onClick={onUnlinkUserClick}
+        key="unlink-user-action"
+        data-testid="unlink-user-action"
+      >
+        {t('unlink_user')}
       </MenuItemButton>
     )
   }

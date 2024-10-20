@@ -14,8 +14,7 @@ import {
 } from 'overleaf-editor-core'
 
 /**
- * @typedef {import('overleaf-editor-core/lib/types').RawEditOperation} RawEditOperation
- * @typedef {import('overleaf-editor-core/lib/types').TrackedChangeRawData} TrackedChangeRawData
+ * @import { RawEditOperation, TrackedChangeRawData } from 'overleaf-editor-core/lib/types'
  */
 
 export function convertToSummarizedUpdates(chunk, callback) {
@@ -50,13 +49,14 @@ export function convertToDiffUpdates(
   let file = null
   for (const change of chunk.chunk.history.changes) {
     // Because we're referencing by pathname, which can change, we
-    // want to get the first file in the range fromVersion:toVersion
+    // want to get the last file in the range fromVersion:toVersion
     // that has the pathname we want. Note that this might not exist yet
-    // at fromVersion, so we'll just settle for the first one we find
+    // at fromVersion, so we'll just settle for the last existing one we find
     // after that.
     if (fromVersion <= version && version <= toVersion) {
-      if (file == null) {
-        file = builder.getFile(pathname)
+      const currentFile = builder.getFile(pathname)
+      if (currentFile) {
+        file = currentFile
       }
     }
 
@@ -71,8 +71,9 @@ export function convertToDiffUpdates(
   // Versions act as fence posts, with updates taking us from one to another,
   // so we also need to check after the final update, when we're at the last version.
   if (fromVersion <= version && version <= toVersion) {
-    if (file == null) {
-      file = builder.getFile(pathname)
+    const currentFile = builder.getFile(pathname)
+    if (currentFile) {
+      file = currentFile
     }
   }
 
@@ -137,7 +138,7 @@ class UpdateSetBuilder {
     }
 
     for (const op of change.operations) {
-      this.applyOperation(op, timestamp, authors)
+      this.applyOperation(op, timestamp, authors, change.origin)
     }
 
     this.currentUpdate.pathnames = Array.from(this.currentUpdate.pathnames)
@@ -146,9 +147,9 @@ class UpdateSetBuilder {
     this.version += 1
   }
 
-  applyOperation(op, timestamp, authors) {
+  applyOperation(op, timestamp, authors, origin) {
     if (UpdateSetBuilder._isTextOperation(op)) {
-      this.applyTextOperation(op, timestamp, authors)
+      this.applyTextOperation(op, timestamp, authors, origin)
     } else if (UpdateSetBuilder._isRenameOperation(op)) {
       this.applyRenameOperation(op, timestamp, authors)
     } else if (UpdateSetBuilder._isRemoveFileOperation(op)) {
@@ -158,7 +159,7 @@ class UpdateSetBuilder {
     }
   }
 
-  applyTextOperation(operation, timestamp, authors) {
+  applyTextOperation(operation, timestamp, authors, origin) {
     const { pathname } = operation
     if (pathname === '') {
       // this shouldn't happen, but we continue to allow the user to see the history
@@ -180,7 +181,7 @@ class UpdateSetBuilder {
       return
     }
 
-    file.applyTextOperation(authors, timestamp, this.version, operation)
+    file.applyTextOperation(authors, timestamp, this.version, operation, origin)
     this.currentUpdate.pathnames.add(pathname)
   }
 
@@ -263,9 +264,9 @@ class UpdateSetBuilder {
 function removeTrackedDeletesFromString(content, trackedChanges) {
   let result = ''
   let cursor = 0
-  const trackedDeletes = trackedChanges.trackedChanges.filter(
-    tc => tc.tracking.type === 'delete'
-  )
+  const trackedDeletes = trackedChanges
+    .asSorted()
+    .filter(tc => tc.tracking.type === 'delete')
   for (const trackedChange of trackedDeletes) {
     if (cursor < trackedChange.range.start) {
       result += content.slice(cursor, trackedChange.range.start)
@@ -285,8 +286,8 @@ class File {
     this.operations = []
   }
 
-  applyTextOperation(authors, timestamp, version, operation) {
-    this.operations.push({ authors, timestamp, version, operation })
+  applyTextOperation(authors, timestamp, version, operation, origin) {
+    this.operations.push({ authors, timestamp, version, operation, origin })
   }
 
   rename(pathname) {
@@ -309,13 +310,12 @@ class File {
       let initialContent
       const updates = []
 
-      for (let operation of this.operations) {
-        if (!('textOperation' in operation.operation)) {
+      for (const operationInfo of this.operations) {
+        if (!('textOperation' in operationInfo.operation)) {
           // We only care about text operations
           continue
         }
-        let authors, ops, timestamp, version
-        ;({ authors, timestamp, version, operation } = operation)
+        const { authors, timestamp, version, operation } = operationInfo
         // Set the initialContent to the latest version we have before the diff
         // begins. 'version' here refers to the document version as we are
         // applying the updates. So we store the content *before* applying the
@@ -327,6 +327,7 @@ class File {
           )
         }
 
+        let ops
         ;({ content, ops } = this._convertTextOperation(
           content,
           operation,
@@ -335,7 +336,7 @@ class File {
 
         // We only need to return the updates between fromVersion and toVersion
         if (fromVersion <= version && version < toVersion) {
-          updates.push({
+          const update = {
             meta: {
               users: authors,
               start_ts: timestamp.getTime(),
@@ -343,7 +344,11 @@ class File {
             },
             v: version,
             op: ops,
-          })
+          }
+          if (operationInfo.origin) {
+            update.meta.origin = operationInfo.origin
+          }
+          updates.push(update)
         }
       }
 
@@ -447,32 +452,53 @@ class TextUpdateBuilder {
    * @param {RetainOp} retain
    */
   applyRetain(retain) {
-    const rangeOfRetention = new Range(this.sourceCursor, retain.length)
-    let cursor = this.sourceCursor
+    const resultRetentionRange = new Range(this.result.length, retain.length)
+    const sourceRetentionRange = new Range(this.sourceCursor, retain.length)
+
+    let scanCursor = this.result.length
     if (retain.tracking) {
       // We are modifying existing tracked deletes. We need to treat removal
       // (type insert/none) of a tracked delete as an insertion. Similarly, any
       // range we introduce as a tracked deletion must be reported as a deletion.
-      const trackedDeletes = this.trackedChanges.trackedChanges.filter(
-        tc =>
-          tc.tracking.type === 'delete' && tc.range.overlaps(rangeOfRetention)
-      )
+      const trackedDeletes = this.trackedChanges
+        .asSorted()
+        .filter(
+          tc =>
+            tc.tracking.type === 'delete' &&
+            tc.range.overlaps(resultRetentionRange)
+        )
+
+      const sourceOffset = this.sourceCursor - this.result.length
       for (const trackedDelete of trackedDeletes) {
-        if (cursor < trackedDelete.range.start) {
+        const resultTrackedDelete = trackedDelete.range
+        const sourceTrackedDelete = trackedDelete.range.moveBy(sourceOffset)
+
+        if (scanCursor < resultTrackedDelete.start) {
           if (retain.tracking.type === 'delete') {
             this.changes.push({
-              d: this.source.slice(cursor, trackedDelete.range.start),
+              d: this.source.slice(
+                this.sourceCursor,
+                sourceTrackedDelete.start
+              ),
               p: this.result.length,
             })
           }
-          this.result += this.source.slice(cursor, trackedDelete.range.start)
-          cursor = trackedDelete.range.start
+          this.result += this.source.slice(
+            this.sourceCursor,
+            sourceTrackedDelete.start
+          )
+          scanCursor = resultTrackedDelete.start
+          this.sourceCursor = sourceTrackedDelete.start
         }
-        const endOfInsertion = Math.min(
-          trackedDelete.range.end,
-          rangeOfRetention.end
+        const endOfInsertionResult = Math.min(
+          resultTrackedDelete.end,
+          resultRetentionRange.end
         )
-        const text = this.source.slice(cursor, endOfInsertion)
+        const endOfInsertionSource = Math.min(
+          sourceTrackedDelete.end,
+          sourceRetentionRange.end
+        )
+        const text = this.source.slice(this.sourceCursor, endOfInsertionSource)
         if (
           retain.tracking.type === 'none' ||
           retain.tracking.type === 'insert'
@@ -483,16 +509,22 @@ class TextUpdateBuilder {
           })
         }
         this.result += text
-        cursor = endOfInsertion
-        if (cursor >= rangeOfRetention.end) {
+        // skip the tracked delete itself
+        scanCursor = endOfInsertionResult
+        this.sourceCursor = endOfInsertionSource
+
+        if (scanCursor >= resultRetentionRange.end) {
           break
         }
       }
     }
-    if (cursor < rangeOfRetention.end) {
+    if (scanCursor < resultRetentionRange.end) {
       // The last region is not a tracked delete. But we should still handle
       // a new tracked delete as a deletion.
-      const text = this.source.slice(cursor, rangeOfRetention.end)
+      const text = this.source.slice(
+        this.sourceCursor,
+        sourceRetentionRange.end
+      )
       if (retain.tracking?.type === 'delete') {
         this.changes.push({
           d: text,
@@ -501,7 +533,7 @@ class TextUpdateBuilder {
       }
       this.result += text
     }
-    this.sourceCursor += retain.length
+    this.sourceCursor = sourceRetentionRange.end
   }
 
   /**
@@ -525,34 +557,49 @@ class TextUpdateBuilder {
    * @param {RemoveOp} deletion
    */
   applyDelete(deletion) {
-    const rangeOfDeletion = new Range(this.sourceCursor, deletion.length)
-    const trackedDeletes = this.trackedChanges.trackedChanges
+    const sourceDeletionRange = new Range(this.sourceCursor, deletion.length)
+    const resultDeletionRange = new Range(this.result.length, deletion.length)
+
+    const trackedDeletes = this.trackedChanges
+      .asSorted()
       .filter(
         tc =>
-          tc.tracking.type === 'delete' && tc.range.overlaps(rangeOfDeletion)
+          tc.tracking.type === 'delete' &&
+          tc.range.overlaps(resultDeletionRange)
       )
       .sort((a, b) => a.range.start - b.range.start)
-    let cursor = this.sourceCursor
+
+    let scanCursor = this.result.length
+    const sourceOffset = this.sourceCursor - this.result.length
+
     for (const trackedDelete of trackedDeletes) {
-      if (cursor < trackedDelete.range.start) {
+      const resultTrackDeleteRange = trackedDelete.range
+      const sourceTrackDeleteRange = trackedDelete.range.moveBy(sourceOffset)
+
+      if (scanCursor < resultTrackDeleteRange.start) {
         this.changes.push({
-          d: this.source.slice(cursor, trackedDelete.range.start),
+          d: this.source.slice(this.sourceCursor, sourceTrackDeleteRange.start),
           p: this.result.length,
         })
       }
       // skip the tracked delete itself
-      cursor = Math.min(trackedDelete.range.end, rangeOfDeletion.end)
-      if (cursor >= rangeOfDeletion.end) {
+      scanCursor = Math.min(resultTrackDeleteRange.end, resultDeletionRange.end)
+      this.sourceCursor = Math.min(
+        sourceTrackDeleteRange.end,
+        sourceDeletionRange.end
+      )
+
+      if (scanCursor >= resultDeletionRange.end) {
         break
       }
     }
-    if (cursor < rangeOfDeletion.end) {
+    if (scanCursor < resultDeletionRange.end) {
       this.changes.push({
-        d: this.source.slice(cursor, rangeOfDeletion.end),
+        d: this.source.slice(this.sourceCursor, sourceDeletionRange.end),
         p: this.result.length,
       })
     }
-    this.sourceCursor = rangeOfDeletion.end
+    this.sourceCursor = sourceDeletionRange.end
   }
 
   finish() {
@@ -563,7 +610,8 @@ class TextUpdateBuilder {
       if ('p' in op && typeof op.p === 'number') {
         // Maybe we have to move the position of the deletion to account for
         // tracked changes that we're hiding in the UI.
-        op.p -= this.trackedChanges.trackedChanges
+        op.p -= this.trackedChanges
+          .asSorted()
           .filter(tc => tc.tracking.type === 'delete' && tc.range.start < op.p)
           .map(tc => {
             if (tc.range.end < op.p) {

@@ -1,0 +1,643 @@
+.review-panel-new {
+  @review-panel-header-height: 69px;
+
+  &.review-panel-container {
+    height: 100%;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .review-panel-inner {
+    z-index: 6;
+    flex-shrink: 0;
+    background-color: @neutral-10;
+    border-left: solid 0 @neutral-20;
+    color: @content-primary;
+    font-family: @font-family-base;
+    line-height: @line-height-base;
+    font-size: @font-size-01;
+    box-sizing: content-box;
+    width: var(--review-panel-width);
+    min-height: var(--review-panel-height);
+  }
+
+  .review-panel-entry {
+    background-color: white;
+    border-radius: @border-radius-base-new;
+    border: 1px solid @neutral-20;
+    padding: @spacing-04;
+    width: calc(100% - @spacing-04);
+    margin-left: @spacing-02;
+    z-index: 1;
+  }
+
+  .review-panel-entry.review-panel-entry-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .review-panel-entry-indicator {
+    display: none;
+  }
+
+  .review-panel-entry-content {
+    display: flex;
+    flex-direction: column;
+    font-size: @font-size-01;
+    gap: @spacing-04;
+  }
+
+  .review-panel-entry-focused,
+  .review-panel-entry-highlighted {
+    margin-left: @spacing-01;
+    border: 1px solid @blue-50;
+  }
+
+  .review-panel-entry-header {
+    display: flex;
+    justify-content: space-between;
+
+    .review-panel-entry-user {
+      color: @blue;
+      font-size: 110%;
+    }
+
+    .review-panel-entry-time {
+      color: @content-secondary;
+    }
+
+    .review-panel-entry-actions {
+      display: flex;
+      align-items: center;
+      gap: @spacing-03;
+
+      .btn {
+        background-color: transparent;
+        padding: 0;
+        height: 24px;
+        width: 24px;
+
+        &:hover,
+        &:focus {
+          background-color: @neutral-20;
+          color: @content-primary;
+        }
+      }
+
+      .review-panel-entry-actions-icon {
+        padding: @spacing-01;
+        font-size: 20px;
+      }
+    }
+  }
+
+  .review-panel-change-body {
+    display: flex;
+    align-items: flex-start;
+    color: @content-secondary;
+    gap: @spacing-02;
+    overflow-wrap: anywhere;
+  }
+
+  .review-panel-content-highlight {
+    color: @content-primary;
+    text-decoration: none;
+  }
+
+  del.review-panel-content-highlight {
+    text-decoration: line-through;
+  }
+
+  .review-panel-entry-icon {
+    border-radius: @border-radius-base-new;
+    padding: @spacing-02;
+    font-size: 16px;
+  }
+
+  .review-panel-entry-change-icon {
+    margin-top: -2px;
+  }
+
+  .review-panel-entry-icon-accept {
+    background-color: @green-10;
+    color: @green-50;
+  }
+
+  .review-panel-entry-icon-reject {
+    background-color: @red-10;
+    color: @red-50;
+  }
+
+  .review-panel-entry-icon-changed {
+    background-color: @neutral-20;
+    color: @content-secondary;
+  }
+
+  .review-panel-header {
+    position: fixed;
+    top: var(--review-panel-top);
+    width: var(--review-panel-width);
+    height: @review-panel-header-height;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-bottom: 1px solid @rp-border-grey;
+    background-color: white;
+    text-align: center;
+    z-index: 4;
+  }
+
+  // TODO: Update this when we move the track changes menu to the new design
+  .rp-tc-state {
+    background-color: white;
+    max-height: calc(
+      100vh - var(--review-panel-top) - @review-panel-header-height
+    );
+    overflow-y: auto;
+  }
+
+  .review-panel-tools {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 4px;
+    padding-right: 12px;
+    flex-shrink: 0;
+    flex-basis: 32px;
+  }
+
+  .resolved-comments-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .track-changes-indicator-circle {
+    width: 8px;
+    height: 8px;
+    border-radius: 100%;
+    background-color: @green-50;
+  }
+
+  .track-changes-menu-button {
+    border: none;
+    background: none;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+
+    i {
+      width: 8px;
+    }
+  }
+
+  .review-panel-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 4px;
+
+    .review-panel-label {
+      font-family: Lato, sans-serif;
+      font-size: 14px;
+      font-weight: bold;
+      margin: 0;
+    }
+
+    .review-panel-split-test-badge {
+      margin-left: 4px;
+    }
+
+    .review-panel-close-button {
+      display: flex;
+      align-items: center;
+      border: none;
+      background-color: transparent;
+      color: @content-primary;
+      padding: 2px;
+
+      &:hover,
+      &:focus {
+        background-color: @neutral-20;
+      }
+    }
+  }
+
+  &.review-panel-resolved-comments {
+    width: 280px;
+
+    .popover-content {
+      background-color: @neutral-10;
+      overflow-y: auto;
+      max-height: calc(100vh - 180px);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 8px 6px;
+    }
+  }
+
+  .review-panel-resolved-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .review-panel-resolved-comments-loading {
+    text-align: center;
+  }
+
+  .review-panel-resolved-comments-empty {
+    text-align: center;
+  }
+
+  .review-panel-resolved-comments-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+  }
+
+  .review-panel-resolved-comments-label {
+    font-weight: bold;
+    font-size: 14px;
+  }
+
+  .review-panel-resolved-comments-count {
+    background-color: @neutral-20;
+    border-radius: @border-radius-base-new;
+    padding: 2px;
+  }
+
+  .review-panel-resolved-comment {
+    background-color: white;
+    border-radius: @border-radius-base-new;
+    padding: @spacing-04;
+    display: flex;
+    flex-direction: column;
+    gap: @spacing-04;
+  }
+
+  .review-panel-resolved-comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: @content-secondary;
+    font-size: 12px;
+  }
+
+  .review-panel-resolved-comment-filename {
+    color: @content-primary;
+  }
+
+  .review-panel-resolved-comment-buttons {
+    display: flex;
+    align-items: center;
+    gap: @spacing-03;
+
+    .btn {
+      background-color: transparent;
+      color: @content-primary;
+      padding: @spacing-01;
+      height: 24px;
+      width: 24px;
+
+      &:hover,
+      &:focus {
+        background-color: @neutral-20;
+      }
+    }
+
+    .material-symbols {
+      font-size: 20px;
+    }
+  }
+
+  .review-panel-resolved-comment-quoted-text {
+    background-color: @neutral-20;
+    border-radius: @border-radius-base-new;
+    padding: 4px 8px;
+  }
+
+  .review-panel-resolved-comment-quoted-text-label {
+    color: @content-secondary;
+    font-size: 12px;
+  }
+
+  .review-panel-resolved-comment-quoted-text-quote {
+    overflow-wrap: anywhere;
+    font-size: 14px;
+  }
+
+  .review-panel-comment-wrapper {
+    display: flex;
+    gap: @spacing-04;
+  }
+
+  .review-panel-comment {
+    flex-grow: 1;
+  }
+
+  .review-panel-comment-reply-divider {
+    border-left: 2px solid @yellow-20;
+  }
+
+  .review-panel-comment-body {
+    font-size: @font-size-02;
+    color: @content-primary;
+    overflow-wrap: anywhere;
+  }
+
+  .review-panel-content-expandable {
+    display: -webkit-box;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+  }
+
+  .review-panel-content-expanded {
+    display: block;
+  }
+
+  .review-panel-comment-input {
+    width: 100%;
+    font-size: @rp-base-font-size;
+    padding: 2px @spacing-03;
+    border-radius: @border-radius-base-new;
+    border: solid 1px @neutral-60;
+    resize: vertical;
+    color: @rp-type-darkgrey;
+    background-color: #fff;
+    height: 25px;
+    min-height: 25px;
+    overflow-x: hidden;
+    max-height: 400px;
+  }
+
+  .review-panel-empty-state {
+    position: fixed;
+    width: var(--review-panel-width);
+    top: 0;
+    bottom: 0;
+    pointer-events: none;
+  }
+
+  .review-panel-empty-state-inner {
+    position: sticky;
+    top: 50%;
+    transform: translateY(-50%);
+
+    width: 100%;
+    padding-left: 16px;
+    padding-right: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+
+    p {
+      margin-bottom: 0;
+      text-align: center;
+    }
+  }
+
+  .review-panel-empty-state-comment-icon {
+    width: 80px;
+    height: 80px;
+    background-color: white;
+    border-radius: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+
+    .material-symbols {
+      font-size: 32px;
+    }
+  }
+
+  .review-panel-overview {
+    padding: 4px;
+    position: absolute;
+    top: @review-panel-header-height;
+    bottom: 59px;
+    width: 100%;
+    overflow: auto;
+    overscroll-behavior-block: none;
+
+    .review-panel-entry {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+
+  .review-panel-overview-file-header {
+    all: unset;
+    padding: 6px 8px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .review-panel-overfile-divider {
+    border-bottom: 1px solid #e7e9ee;
+    margin: 2px 0;
+  }
+
+  .review-panel-overview-file-entries {
+    overflow: hidden;
+    padding-top: 4px;
+    padding-bottom: 6px;
+  }
+
+  .review-panel-overview-file-entry-count {
+    background-color: @neutral-20;
+    padding: 2px 4px;
+    margin-left: auto;
+    border-radius: @border-radius-base;
+  }
+
+  .review-panel-footer {
+    position: fixed;
+    height: 60px;
+    bottom: 0;
+    width: var(--review-panel-width);
+    z-index: 2;
+    background-color: white;
+    border-top: 1px solid #d9d9d9;
+    display: flex;
+
+    .review-panel-tab {
+      flex: 0 0 50%;
+      padding: 6px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      border: 0;
+      border-top: solid 3px transparent;
+      background: none;
+      color: @content-secondary;
+      font-size: @font-size-02;
+
+      &:hover,
+      &:focus {
+        text-decoration: none;
+        color: @content-primary;
+      }
+
+      &-active {
+        color: @content-primary;
+        border-top: solid 3px @green-50;
+      }
+    }
+  }
+
+  .review-panel-add-comment-textarea {
+    padding: 2px 6px;
+    resize: vertical;
+    min-height: 44px;
+  }
+
+  .review-panel-add-comment {
+    position: absolute;
+    z-index: 2;
+  }
+
+  .review-panel-add-comment-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .review-panel-add-comment-cancel-button {
+    background-color: transparent;
+
+    &:hover,
+    &:focus {
+      background-color: @neutral-20;
+      color: @content-primary;
+    }
+  }
+
+  .review-panel-more-comments-button-container {
+    position: fixed;
+    width: var(--review-panel-width);
+    display: flex;
+    justify-content: center;
+    z-index: 3;
+
+    &.downwards {
+      // TODO: fix this to not use a magic number when we have updated the footer ui
+      top: calc(100% - 102px);
+    }
+
+    &.upwards {
+      top: calc(var(--review-panel-top) + @review-panel-header-height + 16px);
+    }
+  }
+
+  .review-panel-more-comments-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2px 8px;
+    height: 24px;
+  }
+
+  &.review-panel-subview-overview {
+    &.review-panel-container {
+      overflow-y: hidden;
+      position: sticky;
+      top: 0;
+    }
+
+    .review-panel-inner {
+      min-height: auto;
+      height: 100%;
+      overflow: hidden;
+    }
+  }
+
+  &.review-panel-mini {
+    overflow: visible !important;
+
+    .review-panel-inner {
+      width: 24px;
+    }
+
+    .review-panel-entry {
+      margin-left: 0;
+      background-color: transparent;
+      border: none;
+      width: 100%;
+    }
+
+    .review-panel-entry-indicator {
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: flex;
+      color: @content-secondary;
+      cursor: pointer;
+    }
+
+    .review-panel-entry-content {
+      display: none;
+      background: white;
+      border: 1px solid @rp-border-grey;
+      border-radius: @border-radius-base-new;
+      width: 200px;
+      padding: @spacing-02;
+    }
+
+    .review-panel-entry-hover {
+      .review-panel-entry-content {
+        display: initial;
+        position: absolute;
+        left: -200px;
+        top: 0;
+      }
+    }
+
+    .review-panel-more-comments-button-container {
+      display: none;
+    }
+
+    .review-panel-footer {
+      display: none;
+    }
+  }
+}
+
+.review-tooltip-menu {
+  box-shadow: 0px 2px 4px 0px #1e253029;
+  border: none;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.review-tooltip-menu-button {
+  background-color: inherit;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+}
+
+.review-tooltip-add-comment-button {
+  padding: 2px 8px;
+}
+
+.review-panel-tooltip {
+  pointer-events: none; // this is to prevent mouseLeave event from firing when hovering over the tooltip
+}

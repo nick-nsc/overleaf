@@ -18,8 +18,10 @@ import { SSOProvider } from '../context/sso-context'
 import { SplitTestProvider } from '@/shared/context/split-test-context'
 import useWaitForI18n from '../../../shared/hooks/use-wait-for-i18n'
 import useScrollToIdOnLoad from '../../../shared/hooks/use-scroll-to-id-on-load'
-import { ExposedSettings } from '../../../../../types/exposed-settings'
 import { SSOAlert } from './emails/sso-alert'
+import OLRow from '@/features/ui/components/ol/ol-row'
+import OLCol from '@/features/ui/components/ol/ol-col'
+import OLCard from '@/features/ui/components/ol/ol-card'
 
 function SettingsPageRoot() {
   const { isReady } = useWaitForI18n()
@@ -31,24 +33,22 @@ function SettingsPageRoot() {
 
   return (
     <div className="container">
-      <div className="row">
-        <div className="col-md-12 col-lg-10 col-lg-offset-1">
+      <OLRow>
+        <OLCol xl={{ span: 10, offset: 1 }}>
           {isReady ? <SettingsPageContent /> : null}
-        </div>
-      </div>
+        </OLCol>
+      </OLRow>
     </div>
   )
 }
 
 function SettingsPageContent() {
   const { t } = useTranslation()
-  const { isOverleaf, labsEnabled } = getMeta(
-    'ol-ExposedSettings'
-  ) as ExposedSettings
+  const { isOverleaf, labsEnabled } = getMeta('ol-ExposedSettings')
 
   return (
     <UserProvider>
-      <div className="card">
+      <OLCard>
         <div className="page-header">
           <h1>{t('account_settings')}</h1>
         </div>
@@ -56,14 +56,14 @@ function SettingsPageContent() {
           <ManagedAccountAlert />
           <EmailsSection />
           <SSOAlert />
-          <div className="row">
-            <div className="col-md-5">
+          <OLRow>
+            <OLCol lg={5}>
               <AccountInfoSection />
-            </div>
-            <div className="col-md-5 col-md-offset-1">
+            </OLCol>
+            <OLCol lg={{ span: 5, offset: 1 }}>
               <PasswordSection />
-            </div>
-          </div>
+            </OLCol>
+          </OLRow>
           <hr />
           <SecuritySection />
           <SplitTestProvider>
@@ -80,7 +80,6 @@ function SettingsPageContent() {
           {labsEnabled ? (
             <>
               <LabsProgramSection />
-              <hr />
             </>
           ) : null}
           <SessionsSection />
@@ -93,7 +92,7 @@ function SettingsPageContent() {
             </>
           ) : null}
         </div>
-      </div>
+      </OLCard>
     </UserProvider>
   )
 }

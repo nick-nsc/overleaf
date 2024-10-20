@@ -15,6 +15,7 @@ describe('UserDeleter', function () {
     tk.freeze(Date.now())
 
     this.userId = new ObjectId()
+    this.ipAddress = '1.2.3.4'
 
     this.UserMock = sinon.mock(User)
     this.DeletedUserMock = sinon.mock(DeletedUser)
@@ -74,7 +75,7 @@ describe('UserDeleter', function () {
 
     this.UserSessionsManager = {
       promises: {
-        revokeAllUserSessions: sinon.stub().resolves(),
+        removeSessionsFromRedis: sinon.stub().resolves(),
       },
     }
 
@@ -100,6 +101,18 @@ describe('UserDeleter', function () {
       deleteOnboardingDataCollection: sinon.stub().resolves(),
     }
 
+    this.EmailHandler = {
+      promises: {
+        sendEmail: sinon.stub().resolves(),
+      },
+    }
+
+    this.UserAuditLogHandler = {
+      promises: {
+        addEntry: sinon.stub().resolves(),
+      },
+    }
+
     this.UserDeleter = SandboxedModule.require(modulePath, {
       requires: {
         '../../models/User': { User },
@@ -116,9 +129,11 @@ describe('UserDeleter', function () {
         '../../models/UserAuditLogEntry': {
           UserAuditLogEntry: this.UserAuditLogEntry,
         },
+        './UserAuditLogHandler': this.UserAuditLogHandler,
         '../../infrastructure/Modules': this.Modules,
         '../OnboardingDataCollection/OnboardingDataCollectionManager':
           this.OnboardingDataCollectionManager,
+        '../Email/EmailHandler': this.EmailHandler,
       },
     })
   })
@@ -127,6 +142,7 @@ describe('UserDeleter', function () {
     this.DeletedUserMock.restore()
     this.UserMock.restore()
     this.mockedUser.restore()
+    tk.reset()
   })
 
   describe('deleteUser', function () {
@@ -144,7 +160,7 @@ describe('UserDeleter', function () {
           deleterData: {
             deletedAt: new Date(),
             deletedUserId: this.userId,
-            deleterIpAddress: undefined,
+            deleterIpAddress: this.ipAddress,
             deleterId: undefined,
             deletedUserLastLoggedIn: this.user.lastLoggedIn,
             deletedUserSignUpDate: this.user.signUpDate,
@@ -157,7 +173,7 @@ describe('UserDeleter', function () {
         }
       })
 
-      describe('when no options are passed', function () {
+      describe('when only the ip address is passed', function () {
         beforeEach(function () {
           this.DeletedUserMock.expects('updateOne')
             .withArgs(
@@ -178,40 +194,52 @@ describe('UserDeleter', function () {
           })
 
           it('should find and the user in mongo by its id', async function () {
-            await this.UserDeleter.promises.deleteUser(this.userId, {})
+            await this.UserDeleter.promises.deleteUser(this.userId, {
+              ipAddress: this.ipAddress,
+            })
             this.UserMock.verify()
           })
 
           it('should delete the user from mailchimp', async function () {
-            await this.UserDeleter.promises.deleteUser(this.userId, {})
+            await this.UserDeleter.promises.deleteUser(this.userId, {
+              ipAddress: this.ipAddress,
+            })
             expect(
               this.NewsletterManager.promises.unsubscribe
             ).to.have.been.calledWith(this.user, { delete: true })
           })
 
           it('should delete all the projects of a user', async function () {
-            await this.UserDeleter.promises.deleteUser(this.userId, {})
+            await this.UserDeleter.promises.deleteUser(this.userId, {
+              ipAddress: this.ipAddress,
+            })
             expect(
               this.ProjectDeleter.promises.deleteUsersProjects
             ).to.have.been.calledWith(this.userId)
           })
 
           it("should cancel the user's subscription", async function () {
-            await this.UserDeleter.promises.deleteUser(this.userId, {})
+            await this.UserDeleter.promises.deleteUser(this.userId, {
+              ipAddress: this.ipAddress,
+            })
             expect(
               this.SubscriptionHandler.promises.cancelSubscription
             ).to.have.been.calledWith(this.user)
           })
 
           it('should delete user affiliations', async function () {
-            await this.UserDeleter.promises.deleteUser(this.userId, {})
+            await this.UserDeleter.promises.deleteUser(this.userId, {
+              ipAddress: this.ipAddress,
+            })
             expect(
               this.InstitutionsApi.promises.deleteAffiliations
             ).to.have.been.calledWith(this.userId)
           })
 
           it('should fire the deleteUser hook for modules', async function () {
-            await this.UserDeleter.promises.deleteUser(this.userId, {})
+            await this.UserDeleter.promises.deleteUser(this.userId, {
+              ipAddress: this.ipAddress,
+            })
             expect(this.Modules.promises.hooks.fire).to.have.been.calledWith(
               'deleteUser',
               this.userId
@@ -219,21 +247,27 @@ describe('UserDeleter', function () {
           })
 
           it('should stop the user sessions', async function () {
-            await this.UserDeleter.promises.deleteUser(this.userId, {})
+            await this.UserDeleter.promises.deleteUser(this.userId, {
+              ipAddress: this.ipAddress,
+            })
             expect(
-              this.UserSessionsManager.promises.revokeAllUserSessions
-            ).to.have.been.calledWith(this.userId, [])
+              this.UserSessionsManager.promises.removeSessionsFromRedis
+            ).to.have.been.calledWith(this.user)
           })
 
           it('should remove user from group subscriptions', async function () {
-            await this.UserDeleter.promises.deleteUser(this.userId, {})
+            await this.UserDeleter.promises.deleteUser(this.userId, {
+              ipAddress: this.ipAddress,
+            })
             expect(
               this.SubscriptionUpdater.promises.removeUserFromAllGroups
             ).to.have.been.calledWith(this.userId)
           })
 
           it('should remove user memberships', async function () {
-            await this.UserDeleter.promises.deleteUser(this.userId, {})
+            await this.UserDeleter.promises.deleteUser(this.userId, {
+              ipAddress: this.ipAddress,
+            })
             expect(
               this.UserMembershipsHandler.promises.removeUserFromAllEntities
             ).to.have.been.calledWith(this.userId)
@@ -248,8 +282,38 @@ describe('UserDeleter', function () {
           })
 
           it('should create a deletedUser', async function () {
-            await this.UserDeleter.promises.deleteUser(this.userId, {})
+            await this.UserDeleter.promises.deleteUser(this.userId, {
+              ipAddress: this.ipAddress,
+            })
             this.DeletedUserMock.verify()
+          })
+
+          it('should email the user', async function () {
+            await this.UserDeleter.promises.deleteUser(this.userId, {
+              ipAddress: this.ipAddress,
+            })
+            const emailOptions = {
+              to: 'bob@bob.com',
+              action: 'account deleted',
+              actionDescribed: 'your Overleaf account was deleted',
+            }
+            expect(
+              this.EmailHandler.promises.sendEmail
+            ).to.have.been.calledWith('securityAlert', emailOptions)
+          })
+
+          it('should add an audit log entry', async function () {
+            await this.UserDeleter.promises.deleteUser(this.userId, {
+              ipAddress: this.ipAddress,
+            })
+            expect(
+              this.UserAuditLogHandler.promises.addEntry
+            ).to.have.been.calledWith(
+              this.userId,
+              'delete-account',
+              this.userId,
+              this.ipAddress
+            )
           })
         })
 
@@ -261,8 +325,11 @@ describe('UserDeleter', function () {
           })
 
           it('should return an error and not delete the user', async function () {
-            await expect(this.UserDeleter.promises.deleteUser(this.userId, {}))
-              .to.be.rejected
+            await expect(
+              this.UserDeleter.promises.deleteUser(this.userId, {
+                ipAddress: this.ipAddress,
+              })
+            ).to.be.rejected
             this.UserMock.verify()
           })
         })
@@ -276,12 +343,16 @@ describe('UserDeleter', function () {
           })
 
           it('should delete the user', function (done) {
-            this.UserDeleter.deleteUser(this.userId, {}, err => {
-              expect(err).not.to.exist
-              this.UserMock.verify()
-              this.DeletedUserMock.verify()
-              done()
-            })
+            this.UserDeleter.deleteUser(
+              this.userId,
+              { ipAddress: this.ipAddress },
+              err => {
+                expect(err).not.to.exist
+                this.UserMock.verify()
+                this.DeletedUserMock.verify()
+                done()
+              }
+            )
           })
         })
       })
@@ -314,6 +385,21 @@ describe('UserDeleter', function () {
             ipAddress: this.ipAddress,
           })
           this.DeletedUserMock.verify()
+        })
+
+        it('should add an audit log entry', async function () {
+          await this.UserDeleter.promises.deleteUser(this.userId, {
+            deleterUser: { _id: this.deleterId },
+            ipAddress: this.ipAddress,
+          })
+          expect(
+            this.UserAuditLogHandler.promises.addEntry
+          ).to.have.been.calledWith(
+            this.userId,
+            'delete-account',
+            this.deleterId,
+            this.ipAddress
+          )
         })
 
         describe('when called as a callback', function () {

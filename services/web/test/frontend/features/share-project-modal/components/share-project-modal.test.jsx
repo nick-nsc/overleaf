@@ -88,10 +88,10 @@ describe('<ShareProjectModal/>', function () {
   beforeEach(function () {
     this.locationStub = sinon.stub(useLocationModule, 'useLocation').returns({
       assign: sinon.stub(),
+      replace: sinon.stub(),
       reload: sinon.stub(),
     })
     fetchMock.get('/user/contacts', { contacts })
-    window.metaAttributesCache = new Map()
     window.metaAttributesCache.set('ol-user', { allowedFreeTrial: true })
     window.metaAttributesCache.set('ol-showUpgradePrompt', true)
   })
@@ -100,7 +100,6 @@ describe('<ShareProjectModal/>', function () {
     this.locationStub.restore()
     fetchMock.restore()
     cleanUpContext()
-    window.metaAttributesCache = new Map()
   })
 
   it('renders the modal', async function () {
@@ -458,7 +457,7 @@ describe('<ShareProjectModal/>', function () {
 
     expect(screen.queryAllByText('member-viewer@example.com')).to.have.length(1)
 
-    const select = screen.getByDisplayValue('Read Only')
+    const select = screen.getByDisplayValue('Read only')
     await fireEvent.change(select, { target: { value: 'readAndWrite' } })
 
     const changeButton = screen.getByRole('button', { name: 'Change' })
@@ -535,7 +534,7 @@ describe('<ShareProjectModal/>', function () {
 
     expect(screen.queryAllByText('member-viewer@example.com')).to.have.length(1)
 
-    const select = screen.getByDisplayValue('Read Only')
+    const select = screen.getByDisplayValue('Read only')
     fireEvent.change(select, { target: { value: 'owner' } })
 
     const changeButton = screen.getByRole('button', { name: 'Change' })
@@ -616,7 +615,7 @@ describe('<ShareProjectModal/>', function () {
       },
     })
 
-    const privilegesElement = screen.getByDisplayValue('Can Edit')
+    const privilegesElement = screen.getByDisplayValue('Can edit')
     fireEvent.change(privilegesElement, { target: { value: 'readOnly' } })
 
     const submitButton = screen.getByRole('button', { name: 'Share' })
@@ -743,20 +742,10 @@ describe('<ShareProjectModal/>', function () {
   it('handles switching between access levels', async function () {
     fetchMock.post('express:/project/:projectId/settings/admin', 204)
 
-    const watchCallbacks = {}
-
-    const scopeWithProject = project => {
-      return {
-        $watch: (path, callback) => {
-          watchCallbacks[path] = callback
-          return () => {}
-        },
-        project,
-      }
-    }
-
     renderWithEditorContext(<ShareProjectModal {...modalProps} />, {
-      scope: scopeWithProject({ ...project, publicAccesLevel: 'private' }),
+      scope: {
+        project: { ...project, publicAccesLevel: 'private' },
+      },
     })
 
     await screen.findByText(
@@ -776,7 +765,11 @@ describe('<ShareProjectModal/>', function () {
 
     // NOTE: updating the scoped project data manually,
     // as the project data is usually updated via the websocket connection
-    watchCallbacks.project({ ...project, publicAccesLevel: 'tokenBased' })
+    window.overleaf.unstable.store.set('project', {
+      ...project,
+      publicAccesLevel: 'tokenBased',
+    })
+    // watchCallbacks.project({ ...project, publicAccesLevel: 'tokenBased' })
 
     await screen.findByText('Link sharing is on')
     const disableButton = await screen.findByRole('button', {
@@ -792,7 +785,11 @@ describe('<ShareProjectModal/>', function () {
 
     // NOTE: updating the scoped project data manually,
     // as the project data is usually updated via the websocket connection
-    watchCallbacks.project({ ...project, publicAccesLevel: 'private' })
+    window.overleaf.unstable.store.set('project', {
+      ...project,
+      publicAccesLevel: 'private',
+    })
+    // watchCallbacks.project({ ...project, publicAccesLevel: 'private' })
 
     await screen.findByText(
       'Link sharing is off, only invited users can view this project.'
@@ -880,6 +877,98 @@ describe('<ShareProjectModal/>', function () {
 
     // No items should be added yet
     expect(screen.queryByRole('button', { name: 'Remove' })).to.be.null
+
+    // Click anywhere on the form to blur the input
+    await userEvent.click(screen.getByRole('dialog'))
+
+    // The contact should be added
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Remove' })).to.have.length(
+        1
+      )
+    })
+  })
+
+  it('selects contact by typing a partial email and selecting the suggestion', async function () {
+    renderWithEditorContext(<ShareProjectModal {...modalProps} />, {
+      scope: { project },
+    })
+
+    const [inputElement] = await screen.findAllByLabelText(
+      'Share with your collaborators'
+    )
+
+    // Wait for contacts to load
+    await waitFor(() => {
+      expect(fetchMock.called('express:/user/contacts')).to.be.true
+    })
+
+    // Enter a prefix that matches a contact
+    await userEvent.type(inputElement, 'pto')
+
+    // The matching contact should now be present and selected
+    await userEvent.click(
+      screen.getByRole('option', {
+        name: `Claudius Ptolemy <ptolemy@example.com>`,
+        selected: true,
+      })
+    )
+
+    // Click anywhere on the form to blur the input
+    await userEvent.click(screen.getByRole('dialog'))
+
+    // The contact should be added
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Remove' })).to.have.length(
+        1
+      )
+    })
+  })
+
+  it('allows an email address to be selected, removed, then re-added', async function () {
+    renderWithEditorContext(<ShareProjectModal {...modalProps} />, {
+      scope: { project },
+    })
+
+    const [inputElement] = await screen.findAllByLabelText(
+      'Share with your collaborators'
+    )
+
+    // Wait for contacts to load
+    await waitFor(() => {
+      expect(fetchMock.called('express:/user/contacts')).to.be.true
+    })
+
+    // Enter a prefix that matches a contact
+    await userEvent.type(inputElement, 'pto')
+
+    // Select the suggested contact
+    await userEvent.click(
+      screen.getByRole('option', {
+        name: `Claudius Ptolemy <ptolemy@example.com>`,
+        selected: true,
+      })
+    )
+
+    // Click anywhere on the form to blur the input
+    await userEvent.click(screen.getByRole('dialog'))
+
+    // Remove the just-added collaborator
+    await userEvent.click(screen.getByRole('button', { name: 'Remove' }))
+
+    // Remove button should now be gone
+    expect(screen.queryByRole('button', { name: 'Remove' })).to.be.null
+
+    // Add the same collaborator again
+    await userEvent.type(inputElement, 'pto')
+
+    // Click the suggested contact again
+    await userEvent.click(
+      screen.getByRole('option', {
+        name: `Claudius Ptolemy <ptolemy@example.com>`,
+        selected: true,
+      })
+    )
 
     // Click anywhere on the form to blur the input
     await userEvent.click(screen.getByRole('dialog'))

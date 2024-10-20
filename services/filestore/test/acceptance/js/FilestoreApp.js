@@ -23,7 +23,7 @@ class FilestoreApp {
     }
 
     if (this.initing) {
-      return this.waitForInit()
+      return await this.waitForInit()
     }
     this.initing = true
 
@@ -32,7 +32,7 @@ class FilestoreApp {
     await new Promise((resolve, reject) => {
       this.server = this.app.listen(
         Settings.internal.filestore.port,
-        'localhost',
+        '127.0.0.1',
         err => {
           if (err) {
             return reject(err)

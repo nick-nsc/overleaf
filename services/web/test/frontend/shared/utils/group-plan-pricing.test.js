@@ -1,9 +1,9 @@
 import { expect } from 'chai'
 import { createLocalizedGroupPlanPrice } from '../../../../frontend/js/features/plans/utils/group-plan-pricing'
+import { formatCurrencyLocalized } from '@/shared/utils/currency'
 
 describe('group-plan-pricing', function () {
   beforeEach(function () {
-    window.metaAttributesCache = window.metaAttributesCache || new Map()
     window.metaAttributesCache.set('ol-groupPlans', {
       enterprise: {
         professional: {
@@ -30,10 +30,7 @@ describe('group-plan-pricing', function () {
       DKK: 'kr',
       USD: '$',
     })
-  })
-
-  afterEach(function () {
-    window.metaAttributesCache = new Map()
+    window.metaAttributesCache.set('ol-i18n', { currentLangCode: 'en' })
   })
 
   describe('createLocalizedGroupPlanPrice', function () {
@@ -44,11 +41,12 @@ describe('group-plan-pricing', function () {
           currency: 'CHF',
           licenseSize: '2',
           usage: 'enterprise',
+          formatCurrency: formatCurrencyLocalized,
         })
 
         expect(localizedGroupPlanPrice).to.deep.equal({
-          localizedPrice: 'Fr 100',
-          localizedPerUserPrice: 'Fr 50',
+          localizedPrice: 'CHF 100',
+          localizedPerUserPrice: 'CHF 50',
         })
       })
     })
@@ -59,11 +57,12 @@ describe('group-plan-pricing', function () {
           currency: 'DKK',
           licenseSize: '2',
           usage: 'enterprise',
+          formatCurrency: formatCurrencyLocalized,
         })
 
         expect(localizedGroupPlanPrice).to.deep.equal({
-          localizedPrice: '200 kr',
-          localizedPerUserPrice: '100 kr',
+          localizedPrice: 'kr 200',
+          localizedPerUserPrice: 'kr 100',
         })
       })
     })
@@ -74,6 +73,7 @@ describe('group-plan-pricing', function () {
           currency: 'USD',
           licenseSize: '2',
           usage: 'enterprise',
+          formatCurrency: formatCurrencyLocalized,
         })
 
         expect(localizedGroupPlanPrice).to.deep.equal({

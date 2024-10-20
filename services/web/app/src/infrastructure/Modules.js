@@ -1,57 +1,90 @@
 const fs = require('fs')
 const Path = require('path')
-const pug = require('pug')
 const async = require('async')
 const { promisify } = require('util')
 const Settings = require('@overleaf/settings')
+const Views = require('./Views')
+const _ = require('lodash')
 
 const MODULE_BASE_PATH = Path.join(__dirname, '/../../../modules')
 
 const _modules = []
 let _modulesLoaded = false
 const _hooks = {}
+const _middleware = {}
 let _viewIncludes = {}
 
-function modules() {
+async function modules() {
   if (!_modulesLoaded) {
-    loadModules()
+    await loadModules()
   }
   return _modules
 }
 
-function loadModules() {
-  const settingsCheckModule = Path.join(
+async function loadModulesImpl() {
+  const settingsCheckModuleCjs = Path.join(
     MODULE_BASE_PATH,
     'settings-check',
     'index.js'
   )
-  if (fs.existsSync(settingsCheckModule)) {
-    require(settingsCheckModule)
+  const settingsCheckModuleEsm = Path.join(
+    MODULE_BASE_PATH,
+    'settings-check',
+    'index.mjs'
+  )
+  if (fs.existsSync(settingsCheckModuleCjs)) {
+    await import(settingsCheckModuleCjs)
+  } else if (fs.existsSync(settingsCheckModuleEsm)) {
+    await import(settingsCheckModuleEsm)
   }
-
   for (const moduleName of Settings.moduleImportSequence || []) {
-    const loadedModule = require(Path.join(
-      MODULE_BASE_PATH,
-      moduleName,
-      'index.js'
-    ))
+    let path
+    if (fs.existsSync(Path.join(MODULE_BASE_PATH, moduleName, 'index.mjs'))) {
+      path = Path.join(MODULE_BASE_PATH, moduleName, 'index.mjs')
+    } else {
+      path = Path.join(MODULE_BASE_PATH, moduleName, 'index.js')
+    }
+    const module = await import(path)
+    const loadedModule = module.default || module
+
     loadedModule.name = moduleName
     _modules.push(loadedModule)
+    if (loadedModule.viewIncludes) {
+      throw new Error(
+        `${moduleName}: module.viewIncludes moved into Settings.viewIncludes`
+      )
+    }
+    if (loadedModule.dependencies) {
+      for (const dependency of loadedModule.dependencies) {
+        if (!Settings.moduleImportSequence.includes(dependency)) {
+          throw new Error(
+            `Module '${dependency}' listed as a dependency of '${moduleName}' is missing in the moduleImportSequence. Please also verify that it is available in the current environment.`
+          )
+        }
+      }
+    }
   }
   _modulesLoaded = true
-  attachHooks()
+  await attachHooks()
+  await attachMiddleware()
 }
 
-function applyRouter(webRouter, privateApiRouter, publicApiRouter) {
-  for (const module of modules()) {
+const loadModules = _.memoize(loadModulesImpl)
+
+async function applyRouter(webRouter, privateApiRouter, publicApiRouter) {
+  for (const module of await modules()) {
     if (module.router && module.router.apply) {
-      module.router.apply(webRouter, privateApiRouter, publicApiRouter)
+      await module.router.apply(webRouter, privateApiRouter, publicApiRouter)
     }
   }
 }
 
-function applyNonCsrfRouter(webRouter, privateApiRouter, publicApiRouter) {
-  for (const module of modules()) {
+async function applyNonCsrfRouter(
+  webRouter,
+  privateApiRouter,
+  publicApiRouter
+) {
+  for (const module of await modules()) {
     if (module.nonCsrfRouter != null) {
       module.nonCsrfRouter.apply(webRouter, privateApiRouter, publicApiRouter)
     }
@@ -65,35 +98,25 @@ function applyNonCsrfRouter(webRouter, privateApiRouter, publicApiRouter) {
   }
 }
 
-function loadViewIncludes(app) {
-  _viewIncludes = {}
-  for (const module of modules()) {
-    const object = module.viewIncludes || {}
-    for (const view in object) {
-      const partial = object[view]
-      if (!_viewIncludes[view]) {
-        _viewIncludes[view] = []
-      }
-      const filePath = Path.join(
-        MODULE_BASE_PATH,
-        module.name,
-        'app/views',
-        partial + '.pug'
-      )
-      _viewIncludes[view].push(
-        pug.compileFile(filePath, {
-          doctype: 'html',
-          compileDebug: Settings.debugPugTemplates,
-        })
-      )
-    }
+async function start() {
+  for (const module of await modules()) {
+    await module.start?.()
   }
 }
 
-function registerAppMiddleware(app) {
-  for (const module of modules()) {
-    if (module.appMiddleware) {
-      module.appMiddleware(app)
+function loadViewIncludes(app) {
+  _viewIncludes = Views.compileViewIncludes(app)
+}
+
+async function applyMiddleware(appOrRouter, middlewareName, options) {
+  if (!middlewareName) {
+    throw new Error(
+      'middleware name must be provided to register module middleware'
+    )
+  }
+  for (const module of await modules()) {
+    if (module[middlewareName]) {
+      module[middlewareName](appOrRouter, options)
     }
   }
 }
@@ -111,9 +134,9 @@ function moduleIncludesAvailable(view) {
   return (_viewIncludes[view] || []).length > 0
 }
 
-function linkedFileAgentsIncludes() {
+async function linkedFileAgentsIncludes() {
   const agents = {}
-  for (const module of modules()) {
+  for (const module of await modules()) {
     for (const name in module.linkedFileAgents) {
       const agentFunction = module.linkedFileAgents[name]
       agents[name] = agentFunction()
@@ -122,13 +145,11 @@ function linkedFileAgentsIncludes() {
   return agents
 }
 
-function attachHooks() {
-  for (const module of modules()) {
-    if (module.hooks != null) {
-      for (const hook in module.hooks) {
-        const method = module.hooks[hook]
-        attachHook(hook, method)
-      }
+async function attachHooks() {
+  for (const module of await modules()) {
+    for (const hook in module.hooks || {}) {
+      const method = module.hooks[hook]
+      attachHook(hook, method)
     }
   }
 }
@@ -140,23 +161,52 @@ function attachHook(name, method) {
   _hooks[name].push(method)
 }
 
+async function attachMiddleware() {
+  for (const module of await modules()) {
+    for (const middleware in module.middleware || {}) {
+      const method = module.middleware[middleware]
+      if (_middleware[middleware] == null) {
+        _middleware[middleware] = []
+      }
+      _middleware[middleware].push(method)
+    }
+  }
+}
+
 function fireHook(name, ...rest) {
+  const adjustedLength = Math.max(rest.length, 1)
+  const args = rest.slice(0, adjustedLength - 1)
+  const callback = rest[adjustedLength - 1]
+  function fire() {
+    const methods = _hooks[name] || []
+    const callMethods = methods.map(method => cb => method(...args, cb))
+    async.series(callMethods, function (error, results) {
+      if (error) {
+        return callback(error)
+      }
+      callback(null, results)
+    })
+  }
+
   // ensure that modules are loaded if we need to fire a hook
   // this can happen if a script calls a method that fires a hook
   if (!_modulesLoaded) {
     loadModules()
+      .then(() => {
+        fire()
+      })
+      .catch(err => callback(err))
+  } else {
+    fire()
   }
-  const adjustedLength = Math.max(rest.length, 1)
-  const args = rest.slice(0, adjustedLength - 1)
-  const callback = rest[adjustedLength - 1]
-  const methods = _hooks[name] || []
-  const callMethods = methods.map(method => cb => method(...args, cb))
-  async.series(callMethods, function (error, results) {
-    if (error) {
-      return callback(error)
-    }
-    callback(null, results)
-  })
+}
+
+async function getMiddleware(name) {
+  // ensure that modules are loaded if we need to call a middleware
+  if (!_modulesLoaded) {
+    await loadModules()
+  }
+  return _middleware[name] || []
 }
 
 module.exports = {
@@ -166,11 +216,13 @@ module.exports = {
   loadViewIncludes,
   moduleIncludes,
   moduleIncludesAvailable,
-  registerAppMiddleware,
+  applyMiddleware,
+  start,
   hooks: {
     attach: attachHook,
     fire: fireHook,
   },
+  middleware: getMiddleware,
   promises: {
     hooks: {
       fire: promisify(fireHook),

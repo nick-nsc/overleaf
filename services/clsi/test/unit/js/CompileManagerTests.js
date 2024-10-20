@@ -35,6 +35,7 @@ describe('CompileManager', function () {
         build: 1234,
       },
     ]
+    this.buildId = 'build-id-123'
     this.commandOutput = 'Dummy output'
     this.compileBaseDir = '/compile/dir'
     this.outputBaseDir = '/output/dir'
@@ -61,7 +62,9 @@ describe('CompileManager', function () {
     }
     this.OutputCacheManager = {
       promises: {
-        saveOutputFiles: sinon.stub().resolves(this.buildFiles),
+        saveOutputFiles: sinon
+          .stub()
+          .resolves({ outputFiles: this.buildFiles, buildId: this.buildId }),
       },
     }
     this.Settings = {
@@ -175,7 +178,9 @@ describe('CompileManager', function () {
         compileGroup: (this.compileGroup = 'compile-group'),
         stopOnFirstError: false,
       }
-      this.env = {}
+      this.env = {
+        OVERLEAF_PROJECT_ID: this.projectId,
+      }
     })
 
     describe('when the project is locked', function () {
@@ -285,6 +290,7 @@ describe('CompileManager', function () {
               CHKTEX_OPTIONS: '-nall -e9 -e10 -w15 -w16',
               CHKTEX_EXIT_ON_ERROR: 1,
               CHKTEX_ULIMIT_OPTIONS: '-t 5 -v 64000',
+              OVERLEAF_PROJECT_ID: this.projectId,
             },
             compileGroup: this.compileGroup,
             stopOnFirstError: this.request.stopOnFirstError,

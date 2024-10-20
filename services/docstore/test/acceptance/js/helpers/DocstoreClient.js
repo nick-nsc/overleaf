@@ -5,7 +5,7 @@ const Persistor = require('../../../../app/js/PersistorManager')
 
 async function streamToString(stream) {
   const chunks = []
-  return new Promise((resolve, reject) => {
+  return await new Promise((resolve, reject) => {
     stream.on('data', chunk => chunks.push(chunk))
     stream.on('error', reject)
     stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
@@ -15,7 +15,7 @@ async function streamToString(stream) {
 async function getStringFromPersistor(persistor, bucket, key) {
   const stream = await persistor.getObjectStream(bucket, key, {})
   stream.resume()
-  return streamToString(stream)
+  return await streamToString(stream)
 }
 
 module.exports = DocstoreClient = {
@@ -33,7 +33,7 @@ module.exports = DocstoreClient = {
   getDoc(projectId, docId, qs, callback) {
     request.get(
       {
-        url: `http://localhost:${settings.internal.docstore.port}/project/${projectId}/doc/${docId}`,
+        url: `http://127.0.0.1:${settings.internal.docstore.port}/project/${projectId}/doc/${docId}`,
         json: true,
         qs,
       },
@@ -44,7 +44,7 @@ module.exports = DocstoreClient = {
   peekDoc(projectId, docId, qs, callback) {
     request.get(
       {
-        url: `http://localhost:${settings.internal.docstore.port}/project/${projectId}/doc/${docId}/peek`,
+        url: `http://127.0.0.1:${settings.internal.docstore.port}/project/${projectId}/doc/${docId}/peek`,
         json: true,
         qs,
       },
@@ -55,7 +55,7 @@ module.exports = DocstoreClient = {
   isDocDeleted(projectId, docId, callback) {
     request.get(
       {
-        url: `http://localhost:${settings.internal.docstore.port}/project/${projectId}/doc/${docId}/deleted`,
+        url: `http://127.0.0.1:${settings.internal.docstore.port}/project/${projectId}/doc/${docId}/deleted`,
         json: true,
       },
       callback
@@ -65,7 +65,7 @@ module.exports = DocstoreClient = {
   getAllDocs(projectId, callback) {
     request.get(
       {
-        url: `http://localhost:${settings.internal.docstore.port}/project/${projectId}/doc`,
+        url: `http://127.0.0.1:${settings.internal.docstore.port}/project/${projectId}/doc`,
         json: true,
       },
       (req, res, body) => {
@@ -77,7 +77,7 @@ module.exports = DocstoreClient = {
   getAllDeletedDocs(projectId, callback) {
     request.get(
       {
-        url: `http://localhost:${settings.internal.docstore.port}/project/${projectId}/doc-deleted`,
+        url: `http://127.0.0.1:${settings.internal.docstore.port}/project/${projectId}/doc-deleted`,
         json: true,
       },
       (error, res, body) => {
@@ -93,7 +93,7 @@ module.exports = DocstoreClient = {
   getAllRanges(projectId, callback) {
     request.get(
       {
-        url: `http://localhost:${settings.internal.docstore.port}/project/${projectId}/ranges`,
+        url: `http://127.0.0.1:${settings.internal.docstore.port}/project/${projectId}/ranges`,
         json: true,
       },
       callback
@@ -103,7 +103,7 @@ module.exports = DocstoreClient = {
   updateDoc(projectId, docId, lines, version, ranges, callback) {
     return request.post(
       {
-        url: `http://localhost:${settings.internal.docstore.port}/project/${projectId}/doc/${docId}`,
+        url: `http://127.0.0.1:${settings.internal.docstore.port}/project/${projectId}/doc/${docId}`,
         json: {
           lines,
           version,
@@ -147,7 +147,7 @@ module.exports = DocstoreClient = {
   deleteDocWithDateAndName(projectId, docId, deletedAt, name, callback) {
     request.patch(
       {
-        url: `http://localhost:${settings.internal.docstore.port}/project/${projectId}/doc/${docId}`,
+        url: `http://127.0.0.1:${settings.internal.docstore.port}/project/${projectId}/doc/${docId}`,
         json: { name, deleted: true, deletedAt },
       },
       callback
@@ -157,7 +157,7 @@ module.exports = DocstoreClient = {
   archiveAllDoc(projectId, callback) {
     request.post(
       {
-        url: `http://localhost:${settings.internal.docstore.port}/project/${projectId}/archive`,
+        url: `http://127.0.0.1:${settings.internal.docstore.port}/project/${projectId}/archive`,
       },
       callback
     )
@@ -166,7 +166,7 @@ module.exports = DocstoreClient = {
   archiveDoc(projectId, docId, callback) {
     request.post(
       {
-        url: `http://localhost:${settings.internal.docstore.port}/project/${projectId}/doc/${docId}/archive`,
+        url: `http://127.0.0.1:${settings.internal.docstore.port}/project/${projectId}/doc/${docId}/archive`,
       },
       callback
     )
@@ -175,7 +175,7 @@ module.exports = DocstoreClient = {
   destroyAllDoc(projectId, callback) {
     request.post(
       {
-        url: `http://localhost:${settings.internal.docstore.port}/project/${projectId}/destroy`,
+        url: `http://127.0.0.1:${settings.internal.docstore.port}/project/${projectId}/destroy`,
       },
       callback
     )

@@ -83,6 +83,10 @@ function getAllDeletedDocs(projectId, callback) {
   })
 }
 
+/**
+ * @param {string} projectId
+ * @param {Callback} callback
+ */
 function getAllRanges(projectId, callback) {
   const url = `${settings.apis.docstore.url}/project/${projectId}/ranges`
   request.get(
@@ -215,6 +219,31 @@ function updateDoc(projectId, docId, lines, version, ranges, callback) {
   )
 }
 
+/**
+ * Asks docstore whether any doc in the project has ranges
+ *
+ * @param {string} proejctId
+ * @param {Callback} callback
+ */
+function projectHasRanges(projectId, callback) {
+  const url = `${settings.apis.docstore.url}/project/${projectId}/has-ranges`
+  request.get({ url, timeout: TIMEOUT, json: true }, (err, res, body) => {
+    if (err) {
+      return callback(err)
+    }
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      callback(null, body.projectHasRanges)
+    } else {
+      callback(
+        new OError(
+          `docstore api responded with non-success code: ${res.statusCode}`,
+          { projectId }
+        )
+      )
+    }
+  })
+}
+
 function archiveProject(projectId, callback) {
   _operateOnProject(projectId, 'archive', callback)
 }
@@ -262,6 +291,7 @@ module.exports = {
   getDoc,
   isDocDeleted,
   updateDoc,
+  projectHasRanges,
   archiveProject,
   unarchiveProject,
   destroyProject,
@@ -273,6 +303,7 @@ module.exports = {
     getDoc: promisifyMultiResult(getDoc, ['lines', 'rev', 'version', 'ranges']),
     isDocDeleted: promisify(isDocDeleted),
     updateDoc: promisifyMultiResult(updateDoc, ['modified', 'rev']),
+    projectHasRanges: promisify(projectHasRanges),
     archiveProject: promisify(archiveProject),
     unarchiveProject: promisify(unarchiveProject),
     destroyProject: promisify(destroyProject),

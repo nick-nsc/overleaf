@@ -9,12 +9,10 @@ const config = require('config')
 const Events = require('events')
 const BPromise = require('bluebird')
 const express = require('express')
-const cors = require('cors')
 const helmet = require('helmet')
 const HTTPStatus = require('http-status')
 const logger = require('@overleaf/logger')
 const Metrics = require('@overleaf/metrics')
-const cookieParser = require('cookie-parser')
 const bodyParser = require('body-parser')
 const swaggerTools = require('swagger-tools')
 const swaggerDoc = require('./api/swagger')
@@ -36,14 +34,12 @@ Metrics.leaked_sockets.monitor(logger)
 // We may have fairly large JSON bodies when receiving large Changes. Clients
 // may have to handle 413 status codes and try creating files instead of sending
 // text content in changes.
-app.use(bodyParser.json({ limit: '4MB' }))
+app.use(bodyParser.json({ limit: '6MB' }))
 app.use(
   bodyParser.urlencoded({
     extended: false,
   })
 )
-app.use(cookieParser())
-app.use(cors())
 
 security.setupSSL(app)
 security.setupBasicHttpAuthForSwaggerDocs(app)

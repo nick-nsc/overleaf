@@ -8,9 +8,7 @@ const { ReadableString } = require('@overleaf/stream-utils')
 const RangeManager = require('./RangeManager')
 const PersistorManager = require('./PersistorManager')
 const pMap = require('p-map')
-
-const Bson = require('bson')
-const BSON = new Bson()
+const { BSON } = require('mongodb-legacy')
 
 const PARALLEL_JOBS = Settings.parallelArchiveJobs
 const UN_ARCHIVE_BATCH_SIZE = Settings.unArchiveBatchSize
@@ -203,7 +201,7 @@ async function _streamToBuffer(projectId, docId, stream) {
     )
     logged = true
   }
-  return new Promise((resolve, reject) => {
+  return await new Promise((resolve, reject) => {
     stream.on('data', chunk => {
       size += chunk.byteLength
       logIfTooLarge(false)

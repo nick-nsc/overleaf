@@ -1,7 +1,7 @@
 .input-suggestions {
   position: relative;
-  height: @input-height-base;
 }
+
 .input-suggestions-main {
   position: absolute;
   top: 0;
@@ -9,13 +9,6 @@
 }
 
 .input-suggestions-shadow {
-  background-color: @input-bg;
-  padding-top: @input-suggestion-v-offset;
-}
-.input-suggestions-shadow-existing {
-  color: transparent;
-}
-
-.input-suggestions-shadow-suggested {
+  background-color: @input-bg !important;
   color: lighten(@input-color, 25%);
 }

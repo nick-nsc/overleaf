@@ -1,6 +1,6 @@
 extends ../layout-marketing
 
-block vars
+block entrypointVar
 	- entrypoint = 'pages/user/subscription/plans-v2/plans-v2-main'
 
 block append meta
@@ -9,39 +9,32 @@ block append meta
 	meta(name="ol-currencySymbols" data-type="json" content=groupPlanModalOptions.currencySymbols)
 	meta(name="ol-itm_content" content=itm_content)
 	meta(name="ol-currentView" content=currentView)
+	meta(name="ol-countryCode" content=countryCode)
+	meta(name="ol-websiteRedesignPlansVariant" content=websiteRedesignPlansVariant)
 
 block content
 	main.content.content-alt#main-content
 		.content-page
 			.plans
-				.container(ng-cloak)
+				.container
 					if showInrGeoBanner
 						div.notification.notification-type-success.text-centered
 							div.notification-content !{translate("inr_discount_offer_plans_page_banner", {flag: '🇮🇳'})}
 					if showBrlGeoBanner
 						div.notification.notification-type-success.text-centered
 							div.notification-content !{translate("brl_discount_offer_plans_page_banner", {flag: '🇧🇷'})}
+					if showLATAMBanner
+						div.notification.notification-type-success.text-centered
+							div.notification-content !{translate("latam_discount_offer_plans_page_banner", {flag: latamCountryBannerDetails.latamCountryFlag, country: latamCountryBannerDetails.country, currency: latamCountryBannerDetails.currency, discount: latamCountryBannerDetails.discount })}
 
 					.row
 						.col-md-12
 							.page-header.centered.plans-header.text-centered.top-page-header
-								h1.text-capitalize(ng-non-bindable) #{translate('choose_your_plan')}
+								h1.text-capitalize #{translate('choose_your_plan')}
 
 					include ./plans/_cards_controls_tables
-					.row.row-spaced-large.text-centered
-						.col-xs-12
-							p.text-centered
-								strong #{translate("all_prices_displayed_are_in_currency", {recommendedCurrency})}
-								| &nbsp;
-								span #{translate("subject_to_additional_vat")}
-							i.fa.fa-cc-mastercard.fa-2x(aria-hidden="true") &nbsp;
-							span.sr-only #{translate('payment_method_accepted', { paymentMethod: 'Mastercard' })}
-							i.fa.fa-cc-visa.fa-2x(aria-hidden="true") &nbsp;
-							span.sr-only #{translate('payment_method_accepted', { paymentMethod: 'Visa' })}
-							i.fa.fa-cc-amex.fa-2x(aria-hidden="true") &nbsp;
-							span.sr-only #{translate('payment_method_accepted', { paymentMethod: 'Amex' })}
-							i.fa.fa-cc-paypal.fa-2x(aria-hidden="true") &nbsp;
-							span.sr-only #{translate('payment_method_accepted', { paymentMethod: 'Paypal' })}
+					
+					+currency_and_payment_methods()
 
 					include ./plans/_university_info
 
@@ -51,14 +44,14 @@ block content
 
 					.row.row-spaced-large
 						.col-md-12
-							.plans-header.plans-subheader.text-centered
+							.plans-header.text-centered
 								hr
-								h2.header-with-btn #{translate('still_have_questions')}
+								h2 #{translate('still_have_questions')}
 								button.btn.plans-v2-btn-header.text-capitalize(
 									data-ol-open-contact-form-modal="general"
 								) #{translate('contact_us')}
 
-					.row.row-spaced
+					.row.row-spaced-large
 
 	include ./plans/_group_plan_modal
 	!= moduleIncludes("contactModalGeneral-marketing", locals)

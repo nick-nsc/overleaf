@@ -6,7 +6,8 @@ import FileViewHeader from './file-view-header'
 import FileViewImage from './file-view-image'
 import FileViewPdf from './file-view-pdf'
 import FileViewText from './file-view-text'
-import Icon from '../../../shared/components/icon'
+import LoadingSpinner from '@/shared/components/loading-spinner'
+import getMeta from '@/utils/meta'
 
 const imageExtensions = ['png', 'jpg', 'jpeg', 'gif']
 
@@ -16,7 +17,7 @@ export default function FileView({ file }) {
 
   const { t } = useTranslation()
 
-  const { textExtensions, editableFilenames } = window.ExposedSettings
+  const { textExtensions, editableFilenames } = getMeta('ol-ExposedSettings')
 
   const extension = file.name.split('.').pop().toLowerCase()
 
@@ -43,12 +44,7 @@ export default function FileView({ file }) {
     <>
       <FileViewHeader file={file} />
       {isImageFile && (
-        <FileViewImage
-          fileName={file.name}
-          fileId={file.id}
-          onLoad={handleLoad}
-          onError={handleError}
-        />
+        <FileViewImage file={file} onLoad={handleLoad} onError={handleError} />
       )}
       {isEditableTextFile && (
         <FileViewText file={file} onLoad={handleLoad} onError={handleError} />
@@ -75,13 +71,12 @@ export default function FileView({ file }) {
 }
 
 function FileViewLoadingIndicator() {
-  const { t } = useTranslation()
   return (
-    <div className="loading-panel loading-panel-file-view">
-      <span>
-        <Icon type="refresh" spin />
-        &nbsp;&nbsp;{t('loading')}…
-      </span>
+    <div
+      className="loading-panel loading-panel-file-view"
+      data-testid="loading-panel-file-view"
+    >
+      <LoadingSpinner />
     </div>
   )
 }
@@ -90,5 +85,6 @@ FileView.propTypes = {
   file: PropTypes.shape({
     id: PropTypes.string,
     name: PropTypes.string,
+    hash: PropTypes.string,
   }).isRequired,
 }

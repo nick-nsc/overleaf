@@ -34,7 +34,7 @@ describe('UpdateTranslator', function () {
               ts: this.timestamp,
             },
           },
-          blobHash: this.mockBlobHash,
+          blobHashes: { file: this.mockBlobHash },
         },
       ]
 
@@ -72,7 +72,7 @@ describe('UpdateTranslator', function () {
               ts: this.timestamp,
             },
           },
-          blobHash: this.mockBlobHash,
+          blobHashes: { file: this.mockBlobHash },
         },
       ]
 
@@ -180,7 +180,7 @@ describe('UpdateTranslator', function () {
               ts: this.timestamp,
             },
           },
-          blobHash: this.mockBlobHash,
+          blobHashes: { file: this.mockBlobHash },
         },
         {
           update: {
@@ -192,7 +192,7 @@ describe('UpdateTranslator', function () {
               ts: this.timestamp,
             },
           },
-          blobHash: this.mockBlobHash,
+          blobHashes: { file: this.mockBlobHash },
         },
       ]
 
@@ -291,7 +291,7 @@ describe('UpdateTranslator', function () {
             },
             url: 'filestore.example.com/test*test.png',
           },
-          blobHash: this.mockBlobHash,
+          blobHashes: { file: this.mockBlobHash },
         },
       ]
 
@@ -329,7 +329,7 @@ describe('UpdateTranslator', function () {
             },
             url: 'filestore.example.com/test.png',
           },
-          blobHash: this.mockBlobHash,
+          blobHashes: { file: this.mockBlobHash },
         },
       ]
 
@@ -367,7 +367,7 @@ describe('UpdateTranslator', function () {
             },
             url: 'filestore.example.com/folder/test.png',
           },
-          blobHash: this.mockBlobHash,
+          blobHashes: { file: this.mockBlobHash },
         },
       ]
 
@@ -405,7 +405,7 @@ describe('UpdateTranslator', function () {
               ts: this.timestamp,
             },
           },
-          blobHash: this.mockBlobHash,
+          blobHashes: { file: this.mockBlobHash },
         },
       ]
 
@@ -442,7 +442,7 @@ describe('UpdateTranslator', function () {
               ts: this.timestamp,
             },
           },
-          blobHash: this.mockBlobHash,
+          blobHashes: { file: this.mockBlobHash },
         },
       ]
 
@@ -476,7 +476,7 @@ describe('UpdateTranslator', function () {
               doc: this.doc_id,
               op: [
                 { p: 3, i: 'foo' },
-                { p: 15, i: 'bar' },
+                { p: 15, i: 'bar', commentIds: ['comment1'] },
               ],
               v: this.version,
               meta: {
@@ -501,7 +501,13 @@ describe('UpdateTranslator', function () {
             operations: [
               {
                 pathname: 'main.tex',
-                textOperation: [3, 'foo', 9, 'bar', 8],
+                textOperation: [
+                  3,
+                  'foo',
+                  9,
+                  { i: 'bar', commentIds: ['comment1'] },
+                  8,
+                ],
               },
             ],
             v2Authors: [this.user_id],
@@ -548,6 +554,110 @@ describe('UpdateTranslator', function () {
               {
                 pathname: 'main.tex',
                 textOperation: [3, -2, 7, -3, 5],
+              },
+            ],
+            v2Authors: [this.user_id],
+            timestamp: this.timestamp,
+            v2DocVersions: {
+              '59bfd450e3028c4d40a1e9ab': {
+                pathname: 'main.tex',
+                v: 0,
+              },
+            },
+          },
+        ])
+      })
+
+      it('should translate retains without tracking data', function () {
+        const updates = [
+          {
+            update: {
+              doc: this.doc_id,
+              op: [
+                {
+                  p: 3,
+                  r: 'lo',
+                },
+              ],
+              v: this.version,
+              meta: {
+                user_id: this.user_id,
+                ts: new Date(this.timestamp).getTime(),
+                pathname: '/main.tex',
+                doc_length: 20,
+              },
+            },
+          },
+        ]
+
+        const changes = this.UpdateTranslator.convertToChanges(
+          this.project_id,
+          updates
+        ).map(change => change.toRaw())
+
+        expect(changes).to.deep.equal([
+          {
+            authors: [],
+            operations: [
+              {
+                pathname: 'main.tex',
+                textOperation: [20],
+              },
+            ],
+            v2Authors: [this.user_id],
+            timestamp: this.timestamp,
+            v2DocVersions: {
+              [this.doc_id]: {
+                pathname: 'main.tex',
+                v: 0,
+              },
+            },
+          },
+        ])
+      })
+
+      it('can translate retains with tracking data', function () {
+        const updates = [
+          {
+            update: {
+              doc: this.doc_id,
+              op: [
+                {
+                  p: 3,
+                  r: 'lo',
+                  tracking: { type: 'none' },
+                },
+              ],
+              v: this.version,
+              meta: {
+                user_id: this.user_id,
+                ts: new Date(this.timestamp).getTime(),
+                pathname: '/main.tex',
+                doc_length: 20,
+              },
+            },
+          },
+        ]
+
+        const changes = this.UpdateTranslator.convertToChanges(
+          this.project_id,
+          updates
+        ).map(change => change.toRaw())
+
+        expect(changes).to.deep.equal([
+          {
+            authors: [],
+            operations: [
+              {
+                pathname: 'main.tex',
+                textOperation: [
+                  3,
+                  {
+                    r: 2,
+                    tracking: { type: 'none' },
+                  },
+                  15,
+                ],
               },
             ],
             v2Authors: [this.user_id],
@@ -666,6 +776,7 @@ describe('UpdateTranslator', function () {
                 { p: 3, d: 'bar' },
                 { p: 5, c: 'comment this', t: 'comment-id-1' },
                 { p: 7, c: 'another comment', t: 'comment-id-2' },
+                { p: 9, c: '', t: 'comment-id-3' },
                 { p: 10, i: 'baz' },
               ],
               v: this.version,
@@ -696,13 +807,16 @@ describe('UpdateTranslator', function () {
                 pathname: 'main.tex',
                 commentId: 'comment-id-1',
                 ranges: [{ pos: 5, length: 12 }],
-                resolved: false,
               },
               {
                 pathname: 'main.tex',
                 commentId: 'comment-id-2',
                 ranges: [{ pos: 7, length: 15 }],
-                resolved: false,
+              },
+              {
+                pathname: 'main.tex',
+                commentId: 'comment-id-3',
+                ranges: [],
               },
               {
                 pathname: 'main.tex',
@@ -829,6 +943,272 @@ describe('UpdateTranslator', function () {
         expect(() => {
           this.UpdateTranslator.convertToChanges(this.project_id, updates)
         }).to.throw('unexpected op type')
+      })
+    })
+
+    describe('text updates with history metadata', function () {
+      it('handles deletes over tracked deletes', function () {
+        const updates = [
+          {
+            update: {
+              doc: this.doc_id,
+              op: [
+                { i: 'foo', p: 3, hpos: 5 },
+                {
+                  d: 'quux',
+                  p: 10,
+                  hpos: 15,
+                  trackedChanges: [
+                    { type: 'delete', offset: 2, length: 3 },
+                    { type: 'delete', offset: 3, length: 1 },
+                  ],
+                },
+                { c: 'noteworthy', p: 8, t: 'comment-id', hpos: 11, hlen: 14 },
+              ],
+              v: this.version,
+              meta: {
+                user_id: this.user_id,
+                ts: new Date(this.timestamp).getTime(),
+                pathname: '/main.tex',
+                doc_length: 20,
+                history_doc_length: 30,
+                source: 'some-editor-id',
+              },
+            },
+          },
+        ]
+
+        const changes = this.UpdateTranslator.convertToChanges(
+          this.project_id,
+          updates
+        ).map(change => change.toRaw())
+
+        expect(changes).to.deep.equal([
+          {
+            authors: [],
+            operations: [
+              {
+                pathname: 'main.tex',
+                textOperation: [5, 'foo', 7, -2, 3, -1, 1, -1, 10],
+              },
+              {
+                pathname: 'main.tex',
+                commentId: 'comment-id',
+                ranges: [{ pos: 11, length: 14 }],
+              },
+            ],
+            v2Authors: [this.user_id],
+            timestamp: this.timestamp,
+            v2DocVersions: {
+              '59bfd450e3028c4d40a1e9ab': {
+                pathname: 'main.tex',
+                v: 0,
+              },
+            },
+          },
+        ])
+      })
+
+      it('handles tracked delete rejections specially', function () {
+        const updates = [
+          {
+            update: {
+              doc: this.doc_id,
+              op: [{ i: 'foo', p: 3, trackedDeleteRejection: true }],
+              v: this.version,
+              meta: {
+                user_id: this.user_id,
+                ts: new Date(this.timestamp).getTime(),
+                pathname: '/main.tex',
+                doc_length: 20,
+                source: 'some-editor-id',
+              },
+            },
+          },
+        ]
+
+        const changes = this.UpdateTranslator.convertToChanges(
+          this.project_id,
+          updates
+        ).map(change => change.toRaw())
+
+        expect(changes).to.deep.equal([
+          {
+            authors: [],
+            operations: [
+              {
+                pathname: 'main.tex',
+                textOperation: [
+                  3,
+                  {
+                    r: 3,
+                    tracking: { type: 'none' },
+                  },
+                  14,
+                ],
+              },
+            ],
+            v2Authors: [this.user_id],
+            timestamp: this.timestamp,
+            v2DocVersions: {
+              '59bfd450e3028c4d40a1e9ab': {
+                pathname: 'main.tex',
+                v: 0,
+              },
+            },
+          },
+        ])
+      })
+
+      it('handles tracked changes', function () {
+        const updates = [
+          {
+            update: {
+              doc: this.doc_id,
+              op: [
+                { i: 'inserted', p: 5 },
+                { d: 'deleted', p: 20 },
+                { i: 'rejected deletion', p: 30, trackedDeleteRejection: true },
+                {
+                  d: 'rejected insertion',
+                  p: 50,
+                  trackedChanges: [{ type: 'insert', offset: 0, length: 18 }],
+                },
+              ],
+              v: this.version,
+              meta: {
+                tc: 'tracked-change-id',
+                user_id: this.user_id,
+                ts: new Date(this.timestamp).getTime(),
+                pathname: '/main.tex',
+                doc_length: 70,
+                source: 'some-editor-id',
+              },
+            },
+          },
+        ]
+
+        const changes = this.UpdateTranslator.convertToChanges(
+          this.project_id,
+          updates
+        ).map(change => change.toRaw())
+
+        expect(changes).to.deep.equal([
+          {
+            authors: [],
+            operations: [
+              {
+                pathname: 'main.tex',
+                textOperation: [
+                  5,
+                  {
+                    i: 'inserted',
+                    tracking: {
+                      type: 'insert',
+                      userId: this.user_id,
+                      ts: new Date(this.timestamp).toISOString(),
+                    },
+                  },
+                  7,
+                  {
+                    r: 7,
+                    tracking: {
+                      type: 'delete',
+                      userId: this.user_id,
+                      ts: new Date(this.timestamp).toISOString(),
+                    },
+                  },
+                  3,
+                  {
+                    r: 17,
+                    tracking: { type: 'none' },
+                  },
+                  3,
+                  -18,
+                  10,
+                ],
+              },
+            ],
+            v2Authors: [this.user_id],
+            timestamp: this.timestamp,
+            v2DocVersions: {
+              '59bfd450e3028c4d40a1e9ab': {
+                pathname: 'main.tex',
+                v: 0,
+              },
+            },
+          },
+        ])
+      })
+
+      it('handles a delete over a mix of tracked inserts and tracked deletes', function () {
+        const updates = [
+          {
+            update: {
+              doc: this.doc_id,
+              op: [
+                {
+                  d: 'abcdef',
+                  p: 10,
+                  trackedChanges: [
+                    { type: 'insert', offset: 0, length: 3 },
+                    { type: 'delete', offset: 2, length: 10 },
+                    { type: 'insert', offset: 2, length: 2 },
+                  ],
+                },
+              ],
+              v: this.version,
+              meta: {
+                tc: 'tracking-id',
+                user_id: this.user_id,
+                ts: new Date(this.timestamp).getTime(),
+                pathname: '/main.tex',
+                doc_length: 20,
+                history_doc_length: 30,
+                source: 'some-editor-id',
+              },
+            },
+          },
+        ]
+
+        const changes = this.UpdateTranslator.convertToChanges(
+          this.project_id,
+          updates
+        ).map(change => change.toRaw())
+
+        expect(changes).to.deep.equal([
+          {
+            authors: [],
+            operations: [
+              {
+                pathname: 'main.tex',
+                textOperation: [
+                  10,
+                  -3,
+                  10,
+                  -2,
+                  {
+                    r: 1,
+                    tracking: {
+                      type: 'delete',
+                      userId: this.user_id,
+                      ts: this.timestamp,
+                    },
+                  },
+                  4,
+                ],
+              },
+            ],
+            v2Authors: [this.user_id],
+            timestamp: this.timestamp,
+            v2DocVersions: {
+              '59bfd450e3028c4d40a1e9ab': {
+                pathname: 'main.tex',
+                v: 0,
+              },
+            },
+          },
+        ])
       })
     })
   })

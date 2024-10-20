@@ -1,9 +1,9 @@
-import { Button } from 'react-bootstrap'
 import { Trans, useTranslation } from 'react-i18next'
 import { MemberGroupSubscription } from '../../../../../../types/subscription/dashboard/subscription'
 import { useSubscriptionDashboardContext } from '../../context/subscription-dashboard-context'
 import { LEAVE_GROUP_MODAL_ID } from './leave-group-modal'
 import getMeta from '../../../../utils/meta'
+import OLButton from '@/features/ui/components/ol/ol-button'
 
 type GroupSubscriptionMembershipProps = {
   subscription: MemberGroupSubscription
@@ -22,9 +22,7 @@ export default function GroupSubscriptionMembership({
   }
 
   // Hide leave group button for managed users
-  const hideLeaveButton = getMeta(
-    'ol-cannot-leave-group-subscription'
-  ) as boolean
+  const hideLeaveButton = getMeta('ol-cannot-leave-group-subscription')
 
   return (
     <div>
@@ -54,9 +52,9 @@ export default function GroupSubscriptionMembership({
         </span>
       ) : (
         <span>
-          <Button bsStyle="danger" onClick={leaveGroup}>
+          <OLButton variant="danger" onClick={leaveGroup}>
             {t('leave_group')}
-          </Button>
+          </OLButton>
         </span>
       )}
       <hr />

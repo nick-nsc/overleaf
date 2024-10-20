@@ -1,10 +1,8 @@
 // @ts-check
+const _ = require('lodash')
 
 /**
- * @typedef {import('./types').CommentOp} CommentOp
- * @typedef {import('./types').DeleteOp} DeleteOp
- * @typedef {import('./types').InsertOp} InsertOp
- * @typedef {import('./types').Op} Op
+ * @import { CommentOp, DeleteOp, InsertOp, Op, TrackedChange } from './types'
  */
 
 /**
@@ -37,4 +35,72 @@ function isComment(op) {
   return 'c' in op && op.c != null
 }
 
-module.exports = { isInsert, isDelete, isComment }
+/**
+ * Get the length of a document from its lines
+ *
+ * @param {string[]} lines
+ * @returns {number}
+ */
+function getDocLength(lines) {
+  let docLength = _.reduce(lines, (chars, line) => chars + line.length, 0)
+  // Add newline characters. Lines are joined by newlines, but the last line
+  // doesn't include a newline. We must make a special case for an empty list
+  // so that it doesn't report a doc length of -1.
+  docLength += Math.max(lines.length - 1, 0)
+
+  return docLength
+}
+
+/**
+ * Adds given tracked deletes to the given content.
+ *
+ * The history system includes tracked deletes in the document content.
+ *
+ * @param {string} content
+ * @param {TrackedChange[]} trackedChanges
+ * @return {string} content for the history service
+ */
+function addTrackedDeletesToContent(content, trackedChanges) {
+  let cursor = 0
+  let result = ''
+  for (const change of trackedChanges) {
+    if (isDelete(change.op)) {
+      // Add the content before the tracked delete
+      result += content.slice(cursor, change.op.p)
+      cursor = change.op.p
+      // Add the content of the tracked delete
+      result += change.op.d
+    }
+  }
+
+  // Add the content after all tracked deletes
+  result += content.slice(cursor)
+
+  return result
+}
+
+/**
+ * checks if the given originOrSource should be treated as a source or origin
+ * TODO: remove this hack and remove all "source" references
+ */
+function extractOriginOrSource(originOrSource) {
+  let source = null
+  let origin = null
+
+  if (typeof originOrSource === 'string') {
+    source = originOrSource
+  } else if (originOrSource && typeof originOrSource === 'object') {
+    origin = originOrSource
+  }
+
+  return { source, origin }
+}
+
+module.exports = {
+  isInsert,
+  isDelete,
+  isComment,
+  addTrackedDeletesToContent,
+  getDocLength,
+  extractOriginOrSource,
+}

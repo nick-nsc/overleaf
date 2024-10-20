@@ -7,23 +7,20 @@
     "url": "https://github.com/overleaf/overleaf"
   },
   "main": "index.js",
-  "types": "types/index.d.ts",
   "license": "AGPL-3.0-only",
   "version": "3.1.1",
   "scripts": {
     "test": "npm run lint && npm run format && npm run types:check && npm run test:unit",
-    "format": "prettier --list-different $PWD/'**/*.{js,cjs}'",
-    "format:fix": "prettier --write $PWD/'**/*.{js,cjs}'",
-    "lint": "eslint --ext .js --ext .cjs --max-warnings 0 --format unix .",
-    "lint:fix": "eslint --fix --ext .js --ext .cjs .",
+    "format": "prettier --list-different $PWD/'**/*.{js,cjs,ts}'",
+    "format:fix": "prettier --write $PWD/'**/*.{js,cjs,ts}'",
+    "lint": "eslint --ext .js --ext .cjs --ext .ts --max-warnings 0 --format unix .",
+    "lint:fix": "eslint --fix --ext .js --ext .cjs --ext .ts .",
     "test:ci": "npm run test:unit",
     "test:unit": "mocha --exit test/**/*.{js,cjs}",
-    "types:build": "[ -d types ] || tsc --noEmit false --emitDeclarationOnly",
-    "types:check": "tsc --noEmit",
-    "types:rebuild": "rm -rf types && npm run types:build"
+    "types:check": "tsc --noEmit"
   },
   "dependencies": {
-    "@google-cloud/logging-bunyan": "^5.0.0",
+    "@google-cloud/logging-bunyan": "^5.1.0",
     "@overleaf/fetch-utils": "*",
     "@overleaf/o-error": "*",
     "@sentry/node": "^6.13.2",

@@ -1,13 +1,13 @@
 // @ts-check
 const core = require('../../index')
 const Comment = require('../comment')
+const Range = require('../range')
 const EditOperation = require('./edit_operation')
 
 /**
- * @typedef {import('./delete_comment_operation')} DeleteCommentOperation
- * @typedef {import('../types').CommentRawData} CommentRawData
- * @typedef {import('../types').RawAddCommentOperation} RawAddCommentOperation
- * @typedef {import('../file_data/string_file_data')} StringFileData
+ * @import DeleteCommentOperation from './delete_comment_operation'
+ * @import { CommentRawData, RawAddCommentOperation } from '../types'
+ * @import StringFileData from '../file_data/string_file_data'
  */
 
 /**
@@ -16,12 +16,26 @@ const EditOperation = require('./edit_operation')
 class AddCommentOperation extends EditOperation {
   /**
    * @param {string} commentId
-   * @param {Comment} comment
+   * @param {ReadonlyArray<Range>} ranges
+   * @param {boolean} resolved
    */
-  constructor(commentId, comment) {
+  constructor(commentId, ranges, resolved = false) {
     super()
+
+    for (const range of ranges) {
+      if (range.isEmpty()) {
+        throw new Error("AddCommentOperation can't be built with empty ranges")
+      }
+    }
+
+    /** @readonly */
     this.commentId = commentId
-    this.comment = comment
+
+    /** @readonly */
+    this.ranges = ranges
+
+    /** @readonly */
+    this.resolved = resolved
   }
 
   /**
@@ -29,25 +43,42 @@ class AddCommentOperation extends EditOperation {
    * @returns {RawAddCommentOperation}
    */
   toJSON() {
-    return {
-      ...this.comment.toRaw(),
+    /** @type RawAddCommentOperation */
+    const raw = {
       commentId: this.commentId,
+      ranges: this.ranges.map(range => range.toRaw()),
     }
+    if (this.resolved) {
+      raw.resolved = true
+    }
+    return raw
   }
 
   /**
    * @param {StringFileData} fileData
    */
   apply(fileData) {
-    fileData.comments.add(this.commentId, this.comment)
+    fileData.comments.add(
+      new Comment(this.commentId, this.ranges, this.resolved)
+    )
   }
 
   /**
-   *
-   * @returns {DeleteCommentOperation}
+   * @inheritdoc
+   * @param {StringFileData} previousState
+   * @returns {EditOperation}
    */
-  invert() {
-    return new core.DeleteCommentOperation(this.commentId)
+  invert(previousState) {
+    const comment = previousState.comments.getComment(this.commentId)
+    if (!comment) {
+      return new core.DeleteCommentOperation(this.commentId)
+    }
+
+    return new core.AddCommentOperation(
+      comment.id,
+      comment.ranges.slice(),
+      comment.resolved
+    )
   }
 
   /**
@@ -90,8 +121,11 @@ class AddCommentOperation extends EditOperation {
       other instanceof core.SetCommentStateOperation &&
       other.commentId === this.commentId
     ) {
-      const comment = new Comment(this.comment.ranges, other.resolved)
-      return new AddCommentOperation(this.commentId, comment)
+      return new AddCommentOperation(
+        this.commentId,
+        this.ranges,
+        other.resolved
+      )
     }
 
     throw new Error(
@@ -105,7 +139,11 @@ class AddCommentOperation extends EditOperation {
    * @returns {AddCommentOperation}
    */
   static fromJSON(raw) {
-    return new AddCommentOperation(raw.commentId, Comment.fromRaw(raw))
+    return new AddCommentOperation(
+      raw.commentId,
+      raw.ranges.map(Range.fromRaw),
+      raw.resolved ?? false
+    )
   }
 }
 

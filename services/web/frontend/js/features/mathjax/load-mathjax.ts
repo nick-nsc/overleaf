@@ -64,6 +64,19 @@ export const loadMathJax = async (options?: {
               .findID('Renderer')
               .disable()
           },
+          ready() {
+            window.MathJax.startup.defaultReady()
+
+            // remove anything from the "font-family" attribute after a semicolon
+            // so it's not added to the style attribute
+            // https://github.com/mathjax/MathJax/issues/3129#issuecomment-1807225345
+            const { safe } = window.MathJax.startup.document
+            safe.filterAttributes.set('fontfamily', 'filterFontFamily')
+            safe.filterMethods.filterFontFamily = (
+              _safe: any,
+              family: string
+            ) => family.split(/;/)[0]
+          },
         },
       }
 

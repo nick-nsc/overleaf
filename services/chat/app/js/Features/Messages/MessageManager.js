@@ -19,11 +19,15 @@ export async function getMessages(roomId, limit, before) {
     query.timestamp = { $lt: before }
   }
   query = _ensureIdsAreObjectIds(query)
-  return db.messages.find(query).sort({ timestamp: -1 }).limit(limit).toArray()
+  return await db.messages
+    .find(query)
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .toArray()
 }
 
 export async function findAllMessagesInRooms(roomIds) {
-  return db.messages
+  return await db.messages
     .find({
       room_id: { $in: roomIds },
     })
@@ -84,4 +88,17 @@ function _ensureIdsAreObjectIds(query) {
     query._id = new ObjectId(query._id)
   }
   return query
+}
+
+export async function duplicateRoomToOtherRoom(sourceRoomId, targetRoomId) {
+  const sourceMessages = await findAllMessagesInRooms([sourceRoomId])
+  const targetMessages = sourceMessages.map(comment => {
+    return _ensureIdsAreObjectIds({
+      room_id: targetRoomId,
+      content: comment.content,
+      timestamp: comment.timestamp,
+      user_id: comment.user_id,
+    })
+  })
+  await db.messages.insertMany(targetMessages)
 }

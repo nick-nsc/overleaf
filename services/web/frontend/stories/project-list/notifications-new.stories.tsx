@@ -13,6 +13,7 @@ import {
   setReconfirmAffiliationMeta,
   setReconfirmationMeta,
 } from './helpers/emails'
+import { bsVersionDecorator } from '../../../.storybook/utils/with-bootstrap-switcher'
 
 export const ProjectInvite = (args: any) => {
   useFetchMock(commonSetupMocks)
@@ -25,7 +26,6 @@ export const ProjectInvite = (args: any) => {
       token: 'abcdef',
     },
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -44,7 +44,6 @@ export const ProjectInviteNetworkError = (args: any) => {
       token: 'abcdef',
     },
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -58,7 +57,6 @@ export const Wfh2020UpgradeOffer = (args: any) => {
     _id: 1,
     templateKey: 'wfh_2020_upgrade_offer',
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -77,7 +75,6 @@ export const IPMatchedAffiliationSsoEnabled = (args: any) => {
       ssoEnabled: true,
     },
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -96,7 +93,6 @@ export const IPMatchedAffiliationSsoDisabled = (args: any) => {
       ssoEnabled: false,
     },
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -113,7 +109,6 @@ export const TpdsFileLimit = (args: any) => {
       projectName: 'Abc Project',
     },
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -130,7 +125,6 @@ export const DropBoxDuplicateProjectNames = (args: any) => {
       projectName: 'Abc Project',
     },
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -144,7 +138,6 @@ export const DropBoxUnlinkedDueToLapsedReconfirmation = (args: any) => {
     _id: 1,
     templateKey: 'notification_dropbox_unlinked_due_to_lapsed_reconfirmation',
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -161,7 +154,6 @@ export const NotificationGroupInvitation = (args: any) => {
       inviterName: 'John Doe',
     },
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -178,7 +170,6 @@ export const NotificationGroupInvitationCancelSubscription = (args: any) => {
       inviterName: 'John Doe',
     },
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   window.metaAttributesCache.set('ol-hasIndividualRecurlySubscription', true)
   return (
     <ProjectListProvider>
@@ -190,7 +181,6 @@ export const NotificationGroupInvitationCancelSubscription = (args: any) => {
 export const NonSpecificMessage = (args: any) => {
   useFetchMock(commonSetupMocks)
   setCommonMeta({ _id: 1, html: 'Non specific message' })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -204,7 +194,6 @@ export const InstitutionSsoAvailable = (args: any) => {
     _id: 1,
     templateKey: 'notification_institution_sso_available',
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -218,7 +207,6 @@ export const InstitutionSsoLinked = (args: any) => {
     _id: 1,
     templateKey: 'notification_institution_sso_linked',
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -232,7 +220,6 @@ export const InstitutionSsoNonCanonical = (args: any) => {
     _id: 1,
     templateKey: 'notification_institution_sso_non_canonical',
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -246,7 +233,6 @@ export const InstitutionSsoAlreadyRegistered = (args: any) => {
     _id: 1,
     templateKey: 'notification_institution_sso_already_registered',
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -264,7 +250,6 @@ export const InstitutionSsoError = (args: any) => {
       tryAgain: true,
     },
   })
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -275,7 +260,6 @@ export const InstitutionSsoError = (args: any) => {
 export const ResendConfirmationEmail = (args: any) => {
   useFetchMock(reconfirmationSetupMocks)
   setReconfirmationMeta()
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -286,7 +270,6 @@ export const ResendConfirmationEmail = (args: any) => {
 export const ResendConfirmationEmailNetworkError = (args: any) => {
   useFetchMock(errorsMocks)
   setReconfirmationMeta()
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -300,7 +283,6 @@ export const ReconfirmAffiliation = (args: any) => {
   window.metaAttributesCache.set('ol-allInReconfirmNotificationPeriods', [
     fakeReconfirmationUsersData,
   ])
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -314,7 +296,6 @@ export const ReconfirmAffiliationNetworkError = (args: any) => {
   window.metaAttributesCache.set('ol-allInReconfirmNotificationPeriods', [
     fakeReconfirmationUsersData,
   ])
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -326,7 +307,6 @@ export const ReconfirmedAffiliationSuccess = (args: any) => {
   useFetchMock(reconfirmAffiliationSetupMocks)
   setReconfirmAffiliationMeta()
   window.metaAttributesCache.set('ol-userEmails', [fakeReconfirmationUsersData])
-  window.metaAttributesCache.set('ol-newNotificationStyle', true)
   return (
     <ProjectListProvider>
       <UserNotifications {...args} />
@@ -337,4 +317,7 @@ export const ReconfirmedAffiliationSuccess = (args: any) => {
 export default {
   title: 'Project List / Notifications New Style',
   component: UserNotifications,
+  argTypes: {
+    ...bsVersionDecorator.argTypes,
+  },
 }

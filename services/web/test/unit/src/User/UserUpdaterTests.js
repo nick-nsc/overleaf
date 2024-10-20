@@ -2,7 +2,7 @@ const { setTimeout } = require('timers/promises')
 const SandboxedModule = require('sandboxed-module')
 const path = require('path')
 const sinon = require('sinon')
-const { ObjectId } = require('mongodb')
+const { ObjectId } = require('mongodb-legacy')
 const tk = require('timekeeper')
 const { expect } = require('chai')
 const { normalizeQuery } = require('../../../../app/src/Features/Helpers/Mongo')
@@ -65,7 +65,7 @@ describe('UserUpdater', function () {
       },
     }
     this.AnalyticsManager = {
-      recordEventForUser: sinon.stub(),
+      recordEventForUserInBackground: sinon.stub(),
     }
     this.InstitutionsAPI = {
       promises: {

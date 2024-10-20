@@ -14,6 +14,7 @@ const Metrics = require('@overleaf/metrics')
 const smokeTest = require('./test/smoke/js/SmokeTests')
 const ContentTypeMapper = require('./app/js/ContentTypeMapper')
 const Errors = require('./app/js/Errors')
+const { createOutputZip } = require('./app/js/OutputController')
 
 const Path = require('path')
 
@@ -168,6 +169,20 @@ const staticOutputServer = ForbidSymlinks(
       res.set('Content-Type', ContentTypeMapper.map(path))
     },
   }
+)
+
+// This needs to be before GET /project/:project_id/build/:build_id/output/*
+app.get(
+  '/project/:project_id/build/:build_id/output/output.zip',
+  bodyParser.json(),
+  createOutputZip
+)
+
+// This needs to be before GET /project/:project_id/user/:user_id/build/:build_id/output/*
+app.get(
+  '/project/:project_id/user/:user_id/build/:build_id/output/output.zip',
+  bodyParser.json(),
+  createOutputZip
 )
 
 app.get(
@@ -368,8 +383,8 @@ loadHttpServer.post('/state/maint', function (req, res, next) {
   res.sendStatus(204)
 })
 
-const port = Settings.internal?.clsi?.port || 3013
-const host = Settings.internal?.clsi?.host || 'localhost'
+const port = Settings.internal.clsi.port
+const host = Settings.internal.clsi.host
 
 const loadTcpPort = Settings.internal.load_balancer_agent.load_port
 const loadHttpPort = Settings.internal.load_balancer_agent.local_port

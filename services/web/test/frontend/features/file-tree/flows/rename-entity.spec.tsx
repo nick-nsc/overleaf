@@ -1,7 +1,7 @@
-// @ts-ignore
-import MockedSocket from 'socket.io-mock'
+import '../../../helpers/bootstrap-3'
 import FileTreeRoot from '../../../../../frontend/js/features/file-tree/components/file-tree-root'
 import { EditorProviders } from '../../../helpers/editor-providers'
+import { SocketIOMock } from '@/ide/connection/SocketIoShim'
 
 describe('FileTree Rename Entity Flow', function () {
   beforeEach(function () {
@@ -10,7 +10,9 @@ describe('FileTree Rename Entity Flow', function () {
     })
   })
 
+  let socket: SocketIOMock
   beforeEach(function () {
+    socket = new SocketIOMock()
     const rootFolder = [
       {
         _id: 'root-folder-id',
@@ -37,11 +39,10 @@ describe('FileTree Rename Entity Flow', function () {
         <EditorProviders
           rootFolder={rootFolder as any}
           projectId="123abc"
-          socket={new MockedSocket()}
+          socket={socket}
         >
           <FileTreeRoot
             refProviders={{}}
-            reindexReferences={cy.stub()}
             setRefProviderEnabled={cy.stub()}
             setStartedFreeTrial={cy.stub()}
             onSelect={cy.stub().as('onSelect')}
@@ -146,13 +147,8 @@ describe('FileTree Rename Entity Flow', function () {
     it('renames doc', function () {
       cy.findByRole('treeitem', { name: 'a.tex' })
 
-      cy.window().then(win => {
-        // @ts-ignore
-        win._ide.socket.socketClient.emit(
-          'reciveEntityRename',
-          '456def',
-          'socket.tex'
-        )
+      cy.then(() => {
+        socket.emitToClient('reciveEntityRename', '456def', 'socket.tex')
       })
 
       cy.findByRole('treeitem', { name: 'socket.tex' })
@@ -161,7 +157,7 @@ describe('FileTree Rename Entity Flow', function () {
 
   function renameItem(from: string, to: string) {
     cy.findByRole('treeitem', { name: from }).click()
-    cy.findByRole('button', { name: 'Menu' }).click()
+    cy.findByRole('button', { name: `Open ${from} action menu` }).click()
     cy.findByRole('menuitem', { name: 'Rename' }).click()
     cy.findByRole('textbox').clear()
     cy.findByRole('textbox').type(to + '{enter}')

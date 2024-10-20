@@ -1,4 +1,4 @@
-import { JSXElementConstructor, useState } from 'react'
+import { JSXElementConstructor, useState, ElementType } from 'react'
 import Common from './groups/common'
 import Institution from './groups/institution'
 import ConfirmEmail from './groups/confirm-email'
@@ -6,38 +6,35 @@ import ReconfirmationInfo from './groups/affiliation/reconfirmation-info'
 import GroupsAndEnterpriseBanner from './groups-and-enterprise-banner'
 import WritefullPremiumPromoBanner from './writefull-premium-promo-banner'
 import GroupSsoSetupSuccess from './groups/group-sso-setup-success'
-import INRBanner from './ads/inr-banner'
 import getMeta from '../../../../utils/meta'
 import importOverleafModules from '../../../../../macros/import-overleaf-module.macro'
 import customLocalStorage from '../../../../infrastructure/local-storage'
 import { sendMB } from '../../../../infrastructure/event-tracking'
-import classNames from 'classnames'
-import BRLBanner from './ads/brl-banner'
-
-type Subscription = {
-  groupId: string
-  groupName: string
-}
+import GeoBanners from './geo-banners'
+import AccessibilitySurveyBanner from './accessibility-survey-banner'
 
 const [enrollmentNotificationModule] = importOverleafModules(
   'managedGroupSubscriptionEnrollmentNotification'
 )
+
+const [usGovBannerModule] = importOverleafModules('usGovBanner')
+
+const moduleNotifications = importOverleafModules('userNotifications') as {
+  import: { default: ElementType }
+  path: string
+}[]
+
 const EnrollmentNotification: JSXElementConstructor<{
   groupId: string
   groupName: string
 }> = enrollmentNotificationModule?.import.default
 
+const USGovBanner: JSXElementConstructor<Record<string, never>> =
+  usGovBannerModule?.import.default
+
 function UserNotifications() {
-  const newNotificationStyle = getMeta(
-    'ol-newNotificationStyle',
-    false
-  ) as boolean
-  const groupSubscriptionsPendingEnrollment: Subscription[] = getMeta(
-    'ol-groupSubscriptionsPendingEnrollment',
-    []
-  )
-  const showInrGeoBanner = getMeta('ol-showInrGeoBanner', false)
-  const showBrlGeoBanner = getMeta('ol-showBrlGeoBanner', false)
+  const groupSubscriptionsPendingEnrollment =
+    getMeta('ol-groupSubscriptionsPendingEnrollment') || []
   const user = getMeta('ol-user')
 
   // Temporary workaround to prevent also showing groups/enterprise banner
@@ -66,11 +63,7 @@ function UserNotifications() {
   const [dismissedWritefull, setDismissedWritefull] = useState(false)
 
   return (
-    <div
-      className={classNames('user-notifications', {
-        'notification-list': newNotificationStyle,
-      })}
-    >
+    <div className="user-notifications notification-list">
       <ul className="list-unstyled">
         {EnrollmentNotification &&
           groupSubscriptionsPendingEnrollment.map(subscription => (
@@ -85,8 +78,11 @@ function UserNotifications() {
         <Institution />
         <ConfirmEmail />
         <ReconfirmationInfo />
+        <GeoBanners />
         {!showWritefull && !dismissedWritefull && <GroupsAndEnterpriseBanner />}
-        {showInrGeoBanner && <INRBanner />}
+        {USGovBanner && <USGovBanner />}
+
+        <AccessibilitySurveyBanner />
 
         <WritefullPremiumPromoBanner
           show={showWritefull}
@@ -95,7 +91,9 @@ function UserNotifications() {
             setDismissedWritefull(true)
           }}
         />
-        {showBrlGeoBanner && <BRLBanner />}
+        {moduleNotifications.map(({ import: { default: Component }, path }) => (
+          <Component key={path} />
+        ))}
       </ul>
     </div>
   )

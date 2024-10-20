@@ -1,9 +1,9 @@
+import { promisify } from 'util'
 import fs from 'fs'
 import request from 'request'
 import stream from 'stream'
 import logger from '@overleaf/logger'
 import _ from 'lodash'
-import BPromise from 'bluebird'
 import { URL } from 'url'
 import OError from '@overleaf/o-error'
 import Settings from '@overleaf/settings'
@@ -16,8 +16,9 @@ import * as Versions from './Versions.js'
 import * as Errors from './Errors.js'
 import * as LocalFileWriter from './LocalFileWriter.js'
 import * as HashManager from './HashManager.js'
+import * as HistoryBlobTranslator from './HistoryBlobTranslator.js'
 
-const HTTP_REQUEST_TIMEOUT = Settings.apis.history_v1.requestTimeout
+const HTTP_REQUEST_TIMEOUT = Settings.overleaf.history.requestTimeout
 
 /**
  * Container for functions that need to be mocked in tests
@@ -36,10 +37,16 @@ _mocks.getMostRecentChunk = (projectId, historyId, callback) => {
   _requestChunk({ path, json: true }, callback)
 }
 
-export function getMostRecentChunk(...args) {
-  _mocks.getMostRecentChunk(...args)
+/**
+ * @param {Callback} callback
+ */
+export function getMostRecentChunk(projectId, historyId, callback) {
+  _mocks.getMostRecentChunk(projectId, historyId, callback)
 }
 
+/**
+ * @param {Callback} callback
+ */
 export function getChunkAtVersion(projectId, historyId, version, callback) {
   const path = `projects/${historyId}/versions/${version}/history`
   logger.debug(
@@ -172,6 +179,9 @@ export function getProjectBlob(historyId, blobHash, callback) {
   )
 }
 
+/**
+ * @param {Callback} callback
+ */
 export function getProjectBlobStream(historyId, blobHash, callback) {
   const url = `${Settings.overleaf.history.host}/projects/${historyId}/blobs/${blobHash}`
   logger.debug(
@@ -221,22 +231,60 @@ export function sendChanges(
   )
 }
 
+function createBlobFromString(historyId, data, fileId, callback) {
+  const stringStream = new StringStream()
+  stringStream.push(data)
+  stringStream.push(null)
+  LocalFileWriter.bufferOnDisk(
+    stringStream,
+    '',
+    fileId,
+    (fsPath, cb) => {
+      _createBlob(historyId, fsPath, cb)
+    },
+    callback
+  )
+}
+
 export function createBlobForUpdate(projectId, historyId, update, callback) {
   callback = _.once(callback)
 
   if (update.doc != null && update.docLines != null) {
-    const stringStream = new StringStream()
-    stringStream.push(update.docLines)
-    stringStream.push(null)
-
-    LocalFileWriter.bufferOnDisk(
-      stringStream,
-      '',
+    let ranges
+    try {
+      ranges = HistoryBlobTranslator.createRangeBlobDataFromUpdate(update)
+    } catch (error) {
+      return callback(error)
+    }
+    createBlobFromString(
+      historyId,
+      update.docLines,
       `project-${projectId}-doc-${update.doc}`,
-      (fsPath, cb) => {
-        _createBlob(historyId, fsPath, cb)
-      },
-      callback
+      (err, fileHash) => {
+        if (err) {
+          return callback(err)
+        }
+        if (ranges) {
+          createBlobFromString(
+            historyId,
+            JSON.stringify(ranges),
+            `project-${projectId}-doc-${update.doc}-ranges`,
+            (err, rangesHash) => {
+              if (err) {
+                return callback(err)
+              }
+              logger.debug(
+                { fileHash, rangesHash },
+                'created blobs for both ranges and content'
+              )
+              return callback(null, { file: fileHash, ranges: rangesHash })
+            }
+          )
+        } else {
+          logger.debug({ fileHash }, 'created blob for content')
+          return callback(null, { file: fileHash })
+        }
+      }
     )
   } else if (update.file != null && update.url != null) {
     // Rewrite the filestore url to point to the location in the local
@@ -265,7 +313,19 @@ export function createBlobForUpdate(projectId, historyId, update, callback) {
           (fsPath, cb) => {
             _createBlob(historyId, fsPath, cb)
           },
-          callback
+          (err, fileHash) => {
+            if (err) {
+              return callback(err)
+            }
+            if (update.hash && update.hash !== fileHash) {
+              logger.warn(
+                { projectId, fileId, webHash: update.hash, fileHash },
+                'hash mismatch between web and project-history'
+              )
+            }
+            logger.debug({ fileHash }, 'created blob for file')
+            callback(null, { file: fileHash })
+          }
         )
       })
       .catch(err => {
@@ -282,7 +342,13 @@ export function createBlobForUpdate(projectId, historyId, update, callback) {
             (fsPath, cb) => {
               _createBlob(historyId, fsPath, cb)
             },
-            callback
+            (err, fileHash) => {
+              if (err) {
+                return callback(err)
+              }
+              logger.debug({ fileHash }, 'created empty blob for file')
+              callback(null, { file: fileHash })
+            }
           )
           emptyStream.push(null) // send an EOF signal
         } else {
@@ -354,15 +420,20 @@ export function deleteProject(projectId, callback) {
   )
 }
 
-const getProjectBlobAsync = BPromise.promisify(getProjectBlob)
+const getProjectBlobAsync = promisify(getProjectBlob)
 
 class BlobStore {
   constructor(projectId) {
     this.projectId = projectId
   }
 
-  getString(hash) {
-    return getProjectBlobAsync(this.projectId, hash)
+  async getString(hash) {
+    return await getProjectBlobAsync(this.projectId, hash)
+  }
+
+  async getObject(hash) {
+    const string = await this.getString(hash)
+    return JSON.parse(string)
   }
 }
 
@@ -429,4 +500,16 @@ function _requestHistoryService(options, callback) {
       callback(error)
     }
   })
+}
+
+export const promises = {
+  getMostRecentChunk: promisify(getMostRecentChunk),
+  getChunkAtVersion: promisify(getChunkAtVersion),
+  getMostRecentVersion: promisify(getMostRecentVersion),
+  getProjectBlob: promisify(getProjectBlob),
+  getProjectBlobStream: promisify(getProjectBlobStream),
+  sendChanges: promisify(sendChanges),
+  createBlobForUpdate: promisify(createBlobForUpdate),
+  initializeProject: promisify(initializeProject),
+  deleteProject: promisify(deleteProject),
 }

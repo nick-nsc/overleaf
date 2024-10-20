@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { Button } from 'react-bootstrap'
 import { Trans, useTranslation } from 'react-i18next'
 import { DomainInfo } from './input'
-import { ExposedSettings } from '../../../../../../../types/exposed-settings'
 import getMeta from '../../../../../utils/meta'
 import { useLocation } from '../../../../../shared/hooks/use-location'
+import OLButton from '@/features/ui/components/ol/ol-button'
 
 type SSOLinkingInfoProps = {
   domainInfo: DomainInfo
@@ -12,7 +11,7 @@ type SSOLinkingInfoProps = {
 }
 
 function SsoLinkingInfo({ domainInfo, email }: SSOLinkingInfoProps) {
-  const { samlInitPath } = getMeta('ol-ExposedSettings') as ExposedSettings
+  const { samlInitPath } = getMeta('ol-ExposedSettings')
   const { t } = useTranslation()
   const location = useLocation()
 
@@ -54,14 +53,15 @@ function SsoLinkingInfo({ domainInfo, email }: SSOLinkingInfoProps) {
           {t('find_out_more_about_institution_login')}.
         </a>
       </p>
-      <Button
-        bsStyle="primary"
-        className="btn-sm btn-link-accounts"
+      <OLButton
+        variant="primary"
+        className="btn-link-accounts"
+        size="sm"
         disabled={linkAccountsButtonDisabled}
         onClick={handleLinkAccountsButtonClick}
       >
         {t('link_accounts_and_add_email')}
-      </Button>
+      </OLButton>
     </>
   )
 }

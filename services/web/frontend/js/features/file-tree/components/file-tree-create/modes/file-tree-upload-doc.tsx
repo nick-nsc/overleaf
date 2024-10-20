@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Uppy from '@uppy/core'
 import XHRUpload from '@uppy/xhr-upload'
 import { Dashboard } from '@uppy/react'
@@ -12,10 +12,17 @@ import { refreshProjectMetadata } from '../../../util/api'
 import ErrorMessage from '../error-message'
 import { debugConsole } from '@/utils/debugging'
 import { isAcceptableFile } from '@/features/file-tree/util/is-acceptable-file'
-import { findByNameInFolder } from '@/features/file-tree/util/is-name-unique-in-folder'
+import {
+  findFileByNameInFolder,
+  findFolderByNameInFolder,
+} from '@/features/file-tree/util/is-name-unique-in-folder'
 import { useFileTreeData } from '@/shared/context/file-tree-data-context'
-import { FileTreeEntity } from '../../../../../../../types/file-tree-entity'
-import { UploadConflicts } from '@/features/file-tree/components/file-tree-create/file-tree-upload-conflicts'
+import {
+  Conflict,
+  FileUploadConflicts,
+  FolderUploadConflicts,
+} from '@/features/file-tree/components/file-tree-create/file-tree-upload-conflicts'
+import getMeta from '@/utils/meta'
 
 export default function FileTreeUploadDoc() {
   const { parentFolderId, cancel, droppedFiles, setDroppedFiles } =
@@ -25,55 +32,88 @@ export default function FileTreeUploadDoc() {
 
   const [error, setError] = useState<string>()
 
-  const [conflicts, setConflicts] = useState<FileTreeEntity[]>([])
-  const [folderConflicts, setFolderConflicts] = useState<FileTreeEntity[]>([])
+  const [conflicts, setConflicts] = useState<Conflict[]>([])
+  const [folderConflicts, setFolderConflicts] = useState<Conflict[]>([])
   const [overwrite, setOverwrite] = useState(false)
 
-  const maxNumberOfFiles = 40
-  const maxFileSize = window.ExposedSettings.maxUploadSize
+  const maxNumberOfFiles = 180
+  const maxFileSize = getMeta('ol-ExposedSettings').maxUploadSize
 
   // calculate conflicts
   const buildConflicts = (files: Record<string, any>) => {
-    const conflicts = new Set<FileTreeEntity>()
+    const conflicts: Conflict[] = []
 
     for (const file of Object.values(files)) {
       const { name, relativePath } = file.meta
 
       if (!relativePath) {
         const targetFolderId = file.meta.targetFolderId ?? parentFolderId
-        const duplicate = findByNameInFolder(fileTreeData, targetFolderId, name)
-        if (duplicate) {
-          conflicts.add(duplicate)
+        const duplicateFile = findFileByNameInFolder(
+          fileTreeData,
+          targetFolderId,
+          name
+        )
+        if (duplicateFile) {
+          conflicts.push({
+            entity: duplicateFile,
+            type: 'file',
+          })
+        }
+
+        const duplicateFolder = findFolderByNameInFolder(
+          fileTreeData,
+          targetFolderId,
+          name
+        )
+        if (duplicateFolder) {
+          conflicts.push({
+            entity: duplicateFolder,
+            type: 'folder',
+          })
         }
       }
     }
 
-    return [...conflicts]
+    return conflicts
   }
 
   const buildFolderConflicts = (files: Record<string, any>) => {
-    const conflicts = new Set<FileTreeEntity>()
+    const conflicts: Conflict[] = []
 
     for (const file of Object.values(files)) {
       const { relativePath } = file.meta
 
       if (relativePath) {
         const [rootName] = relativePath.replace(/^\//, '').split('/')
-        if (!conflicts.has(rootName)) {
-          const targetFolderId = file.meta.targetFolderId ?? parentFolderId
-          const duplicateEntity = findByNameInFolder(
-            fileTreeData,
-            targetFolderId,
-            rootName
-          )
-          if (duplicateEntity) {
-            conflicts.add(duplicateEntity)
-          }
+
+        const targetFolderId = file.meta.targetFolderId ?? parentFolderId
+        const duplicateFile = findFileByNameInFolder(
+          fileTreeData,
+          targetFolderId,
+          rootName
+        )
+        if (duplicateFile) {
+          conflicts.push({
+            entity: duplicateFile,
+            type: 'file',
+          })
+        }
+
+        const duplicateFolder = findFolderByNameInFolder(
+          fileTreeData,
+          targetFolderId,
+          rootName
+        )
+        if (duplicateFolder) {
+          conflicts.push({
+            entity: duplicateFolder,
+            type: 'folder',
+          })
         }
       }
     }
 
-    return [...conflicts]
+    return conflicts
   }
 
   const buildEndpoint = (projectId: string, targetFolderId: string) => {
@@ -85,11 +125,6 @@ export default function FileTreeUploadDoc() {
 
     return endpoint
   }
-
-  const overwriteRef = useRef(overwrite)
-  useEffect(() => {
-    overwriteRef.current = overwrite
-  }, [overwrite])
 
   // initialise the Uppy object
   const [uppy] = useState(() => {
@@ -114,15 +149,11 @@ export default function FileTreeUploadDoc() {
           }
         },
         onBeforeUpload(files) {
-          if (overwriteRef.current) {
-            return true
-          } else {
-            const conflicts = buildConflicts(files)
-            const folderConflicts = buildFolderConflicts(files)
-            setConflicts(conflicts)
-            setFolderConflicts(folderConflicts)
-            return conflicts.length === 0 && folderConflicts.length === 0
-          }
+          const conflicts = buildConflicts(files)
+          const folderConflicts = buildFolderConflicts(files)
+          setConflicts(conflicts)
+          setFolderConflicts(folderConflicts)
+          return conflicts.length === 0 && folderConflicts.length === 0
         },
         autoProceed: true,
       })
@@ -130,7 +161,7 @@ export default function FileTreeUploadDoc() {
         .use(XHRUpload, {
           endpoint,
           headers: {
-            'X-CSRF-TOKEN': window.csrfToken,
+            'X-CSRF-TOKEN': getMeta('ol-csrfToken'),
           },
           // limit: maxConnections || 1,
           limit: 1,
@@ -145,7 +176,13 @@ export default function FileTreeUploadDoc() {
         })
         // broadcast doc metadata after each successful upload
         .on('upload-success', (file, response) => {
-          eventTracking.sendMB('new-file-created', { method: 'upload' })
+          eventTracking.sendMB('new-file-created', {
+            method: 'upload',
+            extension:
+              file?.name && file?.name.split('.').length > 1
+                ? file?.name.split('.').pop()
+                : '',
+          })
           if (response.body.entity_type === 'doc') {
             window.setTimeout(() => {
               refreshProjectMetadata(projectId, response.body.entity_id)
@@ -207,30 +244,41 @@ export default function FileTreeUploadDoc() {
   // handle forced overwriting of conflicting files
   const handleOverwrite = useCallback(() => {
     setOverwrite(true)
-    window.setTimeout(() => {
-      uppy.upload()
-    }, 10)
+    uppy.setOptions({
+      onBeforeUpload() {
+        // don't check for file conflicts
+        return true
+      },
+    })
+    uppy.upload()
   }, [uppy])
 
-  // whether to show a message about conflicting files
-  const showConflicts =
-    !overwrite && (conflicts.length > 0 || folderConflicts.length > 0)
+  const showFolderUploadConflicts = !overwrite && folderConflicts.length > 0
+  const showFileUploadConfilcts =
+    !overwrite && !showFolderUploadConflicts && conflicts.length > 0
+  const showDashboard = !showFileUploadConfilcts && !showFolderUploadConflicts
 
   return (
     <>
       {error && (
         <UploadErrorMessage error={error} maxNumberOfFiles={maxNumberOfFiles} />
       )}
-
-      {showConflicts ? (
-        <UploadConflicts
+      {showFolderUploadConflicts && (
+        <FolderUploadConflicts
           cancel={cancel}
-          conflicts={conflicts}
-          folderConflicts={folderConflicts}
+          conflicts={folderConflicts}
           handleOverwrite={handleOverwrite}
           setError={setError}
         />
-      ) : (
+      )}
+      {showFileUploadConfilcts && (
+        <FileUploadConflicts
+          cancel={cancel}
+          conflicts={conflicts}
+          handleOverwrite={handleOverwrite}
+        />
+      )}
+      {showDashboard && (
         <Dashboard
           uppy={uppy}
           showProgressDetails

@@ -68,9 +68,8 @@ async function getUserFullEmails(userId) {
     return decorateFullEmails(user.email, user.emails, [], [])
   }
 
-  const affiliationsData = await InstitutionsAPIPromises.getUserAffiliations(
-    userId
-  )
+  const affiliationsData =
+    await InstitutionsAPIPromises.getUserAffiliations(userId)
 
   return decorateFullEmails(
     user.email,
@@ -78,6 +77,18 @@ async function getUserFullEmails(userId) {
     affiliationsData,
     user.samlIdentifiers || []
   )
+}
+
+async function getUserConfirmedEmails(userId) {
+  const user = await UserGetter.promises.getUser(userId, {
+    emails: 1,
+  })
+
+  if (!user) {
+    throw new Error('User not Found')
+  }
+
+  return user.emails.filter(email => !!email.confirmedAt)
 }
 
 async function getSsoUsersAtInstitution(institutionId, projection) {
@@ -124,6 +135,8 @@ const UserGetter = {
   },
 
   getUserFullEmails: callbackify(getUserFullEmails),
+
+  getUserConfirmedEmails: callbackify(getUserConfirmedEmails),
 
   getUserByMainEmail(email, projection, callback) {
     email = email.trim()

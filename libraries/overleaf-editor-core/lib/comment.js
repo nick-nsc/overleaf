@@ -3,8 +3,8 @@ const { RetainOp, InsertOp, RemoveOp } = require('./operation/scan_op')
 const Range = require('./range')
 
 /**
- * @typedef {import("./types").CommentRawData} CommentRawData
- * @typedef {import("./operation/text_operation")} TextOperation
+ * @import { CommentRawData } from "./types"
+ * @import TextOperation from "./operation/text_operation"
  */
 
 class Comment {
@@ -21,10 +21,12 @@ class Comment {
   resolved = false
 
   /**
+   * @param {string} id
    * @param {ReadonlyArray<Range>} ranges
    * @param {boolean} [resolved]
    */
-  constructor(ranges, resolved = false) {
+  constructor(id, ranges, resolved = false) {
+    this.id = id
     this.resolved = resolved
     this.ranges = this.mergeRanges(ranges)
   }
@@ -87,7 +89,7 @@ class Comment {
       newRanges.push(new Range(cursor, length))
     }
 
-    return new Comment(newRanges, this.resolved)
+    return new Comment(this.id, newRanges, this.resolved)
   }
 
   /**
@@ -108,7 +110,7 @@ class Comment {
       }
     }
 
-    return new Comment(newRanges, this.resolved)
+    return new Comment(this.id, newRanges, this.resolved)
   }
 
   /**
@@ -147,10 +149,15 @@ class Comment {
    * @returns {CommentRawData}
    */
   toRaw() {
-    return {
-      resolved: this.resolved,
+    /** @type CommentRawData */
+    const raw = {
+      id: this.id,
       ranges: this.ranges.map(range => range.toRaw()),
     }
+    if (this.resolved) {
+      raw.resolved = true
+    }
+    return raw
   }
 
   /**
@@ -167,7 +174,12 @@ class Comment {
         continue
       }
       const lastMerged = mergedRanges[mergedRanges.length - 1]
-
+      if (lastMerged?.overlaps(range)) {
+        throw new Error('Ranges cannot overlap')
+      }
+      if (range.isEmpty()) {
+        throw new Error('Comment range cannot be empty')
+      }
       if (lastMerged?.canMerge(range)) {
         mergedRanges[mergedRanges.length - 1] = lastMerged.merge(range)
       } else {
@@ -184,6 +196,7 @@ class Comment {
    */
   static fromRaw(rawComment) {
     return new Comment(
+      rawComment.id,
       rawComment.ranges.map(range => Range.fromRaw(range)),
       rawComment.resolved
     )

@@ -24,7 +24,6 @@ export function setDefaultMeta() {
   window.metaAttributesCache.set('ol-thirdPartyIds', {
     collabratec: 'collabratec-id',
     google: 'google-id',
-    twitter: 'twitter-id',
   })
 
   window.metaAttributesCache.set('ol-oauthProviders', {
@@ -50,14 +49,8 @@ export function setDefaultMeta() {
       name: 'ORCID',
       linkPath: '/auth/orcid',
     },
-    twitter: {
-      hideWhenNotLinked: true,
-      name: 'Twitter',
-      linkPath: '/auth/twitter',
-    },
   })
-  window.metaAttributesCache.delete('integrationLinkingWidgets')
-  window.metaAttributesCache.delete('referenceLinkingWidgets')
+  window.metaAttributesCache.set('ol-hideLinkingWidgets', true)
   window.metaAttributesCache.delete('ol-ssoErrorMessage')
 }
 
@@ -82,5 +75,4 @@ export function setPersonalAccessTokensMeta() {
   }
 
   window.metaAttributesCache.set('ol-personalAccessTokens', tokens)
-  window.metaAttributesCache.set('ol-showPersonalAccessToken', true)
 }

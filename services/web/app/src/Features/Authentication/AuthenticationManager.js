@@ -10,7 +10,10 @@ const {
   PasswordMustBeDifferentError,
   PasswordReusedError,
 } = require('./AuthenticationErrors')
-const { callbackify } = require('util')
+const {
+  callbackify,
+  callbackifyMultiResult,
+} = require('@overleaf/promise-utils')
 const HaveIBeenPwned = require('./HaveIBeenPwned')
 const UserAuditLogHandler = require('../User/UserAuditLogHandler')
 const logger = require('@overleaf/logger')
@@ -111,14 +114,14 @@ const AuthenticationManager = {
     return { user, match }
   },
 
-  async authenticate(query, password, auditLog, { skipHIBPCheck = false }) {
+  async authenticate(query, password, auditLog, { enforceHIBPCheck = true }) {
     const { user, match } = await AuthenticationManager._checkUserPassword(
       query,
       password
     )
 
     if (!user) {
-      return null
+      return { user: null }
     }
 
     const update = { $inc: { loginEpoch: 1 } }
@@ -138,7 +141,7 @@ const AuthenticationManager = {
 
     if (!match) {
       if (!auditLog) {
-        return null
+        return { user: null }
       } else {
         try {
           await UserAuditLogHandler.promises.addEntry(
@@ -154,30 +157,24 @@ const AuthenticationManager = {
             'Error while adding AuditLog entry for failed-password-match'
           )
         }
-        return null
+        return { user: null }
       }
     }
     await AuthenticationManager.checkRounds(user, user.hashedPassword, password)
 
-    if (skipHIBPCheck) {
-      HaveIBeenPwned.checkPasswordForReuseInBackground(password)
-      return user
-    }
-
     let isPasswordReused
     try {
-      isPasswordReused = await HaveIBeenPwned.promises.checkPasswordForReuse(
-        password
-      )
+      isPasswordReused =
+        await HaveIBeenPwned.promises.checkPasswordForReuse(password)
     } catch (err) {
       logger.err({ err }, 'cannot check password for re-use')
     }
 
-    if (isPasswordReused) {
+    if (isPasswordReused && enforceHIBPCheck) {
       throw new PasswordReusedError()
     }
 
-    return user
+    return { user, isPasswordReused }
   },
 
   validateEmail(email) {
@@ -333,9 +330,8 @@ const AuthenticationManager = {
 
     let isPasswordReused
     try {
-      isPasswordReused = await HaveIBeenPwned.promises.checkPasswordForReuse(
-        password
-      )
+      isPasswordReused =
+        await HaveIBeenPwned.promises.checkPasswordForReuse(password)
     } catch (error) {
       logger.err({ error }, 'cannot check password for re-use')
     }
@@ -473,7 +469,10 @@ module.exports = {
   validatePassword: AuthenticationManager.validatePassword,
   getMessageForInvalidPasswordError:
     AuthenticationManager.getMessageForInvalidPasswordError,
-  authenticate: callbackify(AuthenticationManager.authenticate),
+  authenticate: callbackifyMultiResult(AuthenticationManager.authenticate, [
+    'user',
+    'isPasswordReused',
+  ]),
   setUserPassword: callbackify(AuthenticationManager.setUserPassword),
   checkRounds: callbackify(AuthenticationManager.checkRounds),
   hashPassword: callbackify(AuthenticationManager.hashPassword),

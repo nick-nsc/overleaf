@@ -1,12 +1,15 @@
-import { ListGroupItem } from 'react-bootstrap'
 import { ToolbarButtonMenu } from './button-menu'
-import Icon from '../../../../shared/components/icon'
+import Icon from '@/shared/components/icon'
+import BootstrapVersionSwitcher from '@/features/ui/components/bootstrap-5/bootstrap-version-switcher'
+import MaterialIcon from '@/shared/components/material-icon'
+import OLListGroupItem from '@/features/ui/components/ol/ol-list-group-item'
 import { memo, useCallback } from 'react'
 import { FigureModalSource } from '../figure-modal/figure-modal-context'
 import { useTranslation } from 'react-i18next'
 import { emitToolbarEvent } from '../../extensions/toolbar/utils/analytics'
-import { useCodeMirrorViewContext } from '../codemirror-editor'
+import { useCodeMirrorViewContext } from '../codemirror-context'
 import { insertFigure } from '../../extensions/toolbar/commands'
+import getMeta from '@/utils/meta'
 
 export const InsertFigureDropdown = memo(function InsertFigureDropdown() {
   const { t } = useTranslation()
@@ -16,7 +19,7 @@ export const InsertFigureDropdown = memo(function InsertFigureDropdown() {
       emitToolbarEvent(view, `toolbar-figure-modal-${sourceName}`)
       window.dispatchEvent(
         new CustomEvent('figure-modal:open', {
-          detail: source,
+          detail: { source },
         })
       )
     },
@@ -26,45 +29,66 @@ export const InsertFigureDropdown = memo(function InsertFigureDropdown() {
     hasLinkedProjectFileFeature,
     hasLinkedProjectOutputFileFeature,
     hasLinkUrlFeature,
-  } = window.ExposedSettings
+  } = getMeta('ol-ExposedSettings')
   return (
     <ToolbarButtonMenu
       id="toolbar-figure"
       label={t('toolbar_insert_figure')}
-      icon="picture-o"
+      icon={
+        <BootstrapVersionSwitcher
+          bs3={<Icon fw type="picture-o" />}
+          bs5={<MaterialIcon type="add_photo_alternate" />}
+        />
+      }
       altCommand={insertFigure}
     >
-      <ListGroupItem
+      <OLListGroupItem
         onClick={() =>
           openFigureModal(FigureModalSource.FILE_UPLOAD, 'file-upload')
         }
       >
-        <Icon type="upload" fw /> Upload from computer
-      </ListGroupItem>
-      <ListGroupItem
+        <BootstrapVersionSwitcher
+          bs3={<Icon type="upload" fw />}
+          bs5={<MaterialIcon type="upload" />}
+        />
+        {t('upload_from_computer')}
+      </OLListGroupItem>
+      <OLListGroupItem
         onClick={() =>
           openFigureModal(FigureModalSource.FILE_TREE, 'current-project')
         }
       >
-        <Icon type="archive" fw /> From project files
-      </ListGroupItem>
+        <BootstrapVersionSwitcher
+          bs3={<Icon type="archive" fw />}
+          bs5={<MaterialIcon type="inbox" />}
+        />
+        {t('from_project_files')}
+      </OLListGroupItem>
       {(hasLinkedProjectFileFeature || hasLinkedProjectOutputFileFeature) && (
-        <ListGroupItem
+        <OLListGroupItem
           onClick={() =>
             openFigureModal(FigureModalSource.OTHER_PROJECT, 'other-project')
           }
         >
-          <Icon type="folder-open" fw /> From another project
-        </ListGroupItem>
+          <BootstrapVersionSwitcher
+            bs3={<Icon type="folder-open" fw />}
+            bs5={<MaterialIcon type="folder_open" />}
+          />
+          {t('from_another_project')}
+        </OLListGroupItem>
       )}
       {hasLinkUrlFeature && (
-        <ListGroupItem
+        <OLListGroupItem
           onClick={() =>
             openFigureModal(FigureModalSource.FROM_URL, 'from-url')
           }
         >
-          <Icon type="globe" fw /> From URL
-        </ListGroupItem>
+          <BootstrapVersionSwitcher
+            bs3={<Icon type="globe" fw />}
+            bs5={<MaterialIcon type="public" />}
+          />
+          {t('from_url')}
+        </OLListGroupItem>
       )}
     </ToolbarButtonMenu>
   )

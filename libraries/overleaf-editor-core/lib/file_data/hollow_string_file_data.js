@@ -1,12 +1,14 @@
 // @ts-check
 'use strict'
 
-/**
- * @typedef {import('../operation/edit_operation')} EditOperation
- */
 const assert = require('check-types').assert
 
 const FileData = require('./')
+
+/**
+ * @import { RawHollowStringFileData } from '../types'
+ * @import EditOperation from '../operation/edit_operation'
+ */
 
 class HollowStringFileData extends FileData {
   /**
@@ -24,11 +26,18 @@ class HollowStringFileData extends FileData {
     this.stringLength = stringLength
   }
 
+  /**
+   * @param {RawHollowStringFileData} raw
+   * @returns {HollowStringFileData}
+   */
   static fromRaw(raw) {
     return new HollowStringFileData(raw.stringLength)
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   * @returns {RawHollowStringFileData}
+   */
   toRaw() {
     return { stringLength: this.stringLength }
   }

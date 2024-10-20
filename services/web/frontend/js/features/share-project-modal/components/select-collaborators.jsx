@@ -6,6 +6,12 @@ import { useCombobox } from 'downshift'
 import classnames from 'classnames'
 
 import Icon from '../../../shared/components/icon'
+import MaterialIcon from '@/shared/components/material-icon'
+import Tag from '@/features/ui/components/bootstrap-5/tag'
+import { DropdownItem } from '@/features/ui/components/bootstrap-5/dropdown-menu'
+import BootstrapVersionSwitcher from '@/features/ui/components/bootstrap-5/bootstrap-version-switcher'
+import { bsVersion } from '@/features/utils/bootstrap-5'
+import { Spinner } from 'react-bootstrap-5'
 
 // Unicode characters in these Unicode groups:
 //  "General Punctuation — Spaces"
@@ -77,6 +83,15 @@ export default function SelectCollaborators({
     return true
   }, [inputValue, selectedItems])
 
+  function stateReducer(state, actionAndChanges) {
+    const { type, changes } = actionAndChanges
+    // force selected item to be null so that adding, removing, then re-adding the same collaborator is recognised as a selection change
+    if (type === useCombobox.stateChangeTypes.InputChange) {
+      return { ...changes, selectedItem: null }
+    }
+    return changes
+  }
+
   const {
     isOpen,
     getLabelProps,
@@ -91,6 +106,7 @@ export default function SelectCollaborators({
     defaultHighlightedIndex: 0,
     items: filteredOptions,
     itemToString: item => item && item.name,
+    stateReducer,
     onStateChange: ({ inputValue, type, selectedItem }) => {
       switch (type) {
         // add a selected item on Enter (keypress), click or blur
@@ -144,12 +160,28 @@ export default function SelectCollaborators({
       <label className="small" {...getLabelProps()}>
         {t('share_with_your_collabs')}
         &nbsp;
-        {loading && <Icon type="refresh" spin />}
+        {loading && (
+          <BootstrapVersionSwitcher
+            bs3={<Icon type="refresh" spin />}
+            bs5={
+              <Spinner
+                animation="border"
+                aria-hidden="true"
+                size="sm"
+                role="status"
+              />
+            }
+          />
+        )}
       </label>
 
       <div className="host">
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
-        <div {...getComboboxProps()} className="tags" onClick={focusInput}>
+        <div
+          {...getComboboxProps()}
+          className="tags form-control"
+          onClick={focusInput}
+        >
           {selectedItems.map((selectedItem, index) => (
             <SelectedItem
               key={`selected-item-${index}`}
@@ -164,8 +196,7 @@ export default function SelectCollaborators({
           <input
             {...getInputProps(
               getDropdownProps({
-                className: classnames({
-                  input: true,
+                className: classnames('input', {
                   'invalid-tag': !isValidInput,
                 }),
                 type: 'email',
@@ -231,8 +262,20 @@ export default function SelectCollaborators({
           />
         </div>
 
-        <div className={classnames({ autocomplete: isOpen })}>
-          <ul {...getMenuProps()} className="suggestion-list">
+        <div
+          className={bsVersion({ bs3: classnames({ autocomplete: isOpen }) })}
+        >
+          <ul
+            {...getMenuProps()}
+            className={classnames(
+              bsVersion({
+                bs3: 'suggestion-list',
+                bs5: classnames('dropdown-menu select-dropdown-menu', {
+                  show: isOpen,
+                }),
+              })
+            )}
+          >
             {isOpen &&
               filteredOptions.map((item, index) => (
                 <Option
@@ -265,15 +308,36 @@ SelectCollaborators.propTypes = {
 function Option({ selected, item, getItemProps, index }) {
   return (
     <li
-      className={classnames('suggestion-item', { selected })}
+      className={bsVersion({
+        bs3: classnames('suggestion-item', { selected }),
+      })}
       {...getItemProps({ item, index })}
     >
-      <Icon type="user" fw />
-      &nbsp;
-      {item.display}
+      <BootstrapVersionSwitcher
+        bs3={
+          <>
+            <Icon type="user" fw />
+            &nbsp;
+            {item.display}
+          </>
+        }
+        bs5={
+          <DropdownItem
+            as="span"
+            role={undefined}
+            leadingIcon="person"
+            className={classnames({
+              active: selected,
+            })}
+          >
+            {item.display}
+          </DropdownItem>
+        }
+      />
     </li>
   )
 }
+
 Option.propTypes = {
   selected: PropTypes.bool.isRequired,
   item: PropTypes.shape({
@@ -303,23 +367,44 @@ function SelectedItem({
   )
 
   return (
-    <span
-      className="tag-item"
-      {...getSelectedItemProps({ selectedItem, index })}
-    >
-      <Icon type="user" fw />
-      <span>{selectedItem.display}</span>
-      <button
-        type="button"
-        className="remove-button btn-inline-link"
-        aria-label={t('remove')}
-        onClick={handleClick}
-      >
-        <Icon type="close" fw />
-      </button>
-    </span>
+    <BootstrapVersionSwitcher
+      bs3={
+        <span
+          className="tag-item"
+          {...getSelectedItemProps({ selectedItem, index })}
+        >
+          <Icon type="user" fw />
+          <span>{selectedItem.display}</span>
+          <button
+            type="button"
+            className="remove-button btn-inline-link"
+            aria-label={t('remove')}
+            onClick={handleClick}
+          >
+            <Icon type="close" fw />
+          </button>
+        </span>
+      }
+      bs5={
+        <Tag
+          prepend={
+            <BootstrapVersionSwitcher
+              bs3={<Icon type="user" fw />}
+              bs5={<MaterialIcon type="person" />}
+            />
+          }
+          closeBtnProps={{
+            onClick: handleClick,
+          }}
+          {...getSelectedItemProps({ selectedItem, index })}
+        >
+          {selectedItem.display}
+        </Tag>
+      }
+    />
   )
 }
+
 SelectedItem.propTypes = {
   focusInput: PropTypes.func.isRequired,
   removeSelectedItem: PropTypes.func.isRequired,

@@ -8,8 +8,11 @@ import {
 } from '@/features/ide-react/types/permissions'
 import useScopeValue from '@/shared/hooks/use-scope-value'
 import { DeepReadonly } from '../../../../../types/utils'
+import useViewerPermissions from '@/shared/hooks/use-viewer-permissions'
 
-const PermissionsContext = createContext<Permissions | undefined>(undefined)
+export const PermissionsContext = createContext<Permissions | undefined>(
+  undefined
+)
 
 const permissionsMap: DeepReadonly<Record<PermissionsLevel, Permissions>> = {
   readOnly: {
@@ -38,6 +41,12 @@ const anonymousPermissionsMap: typeof permissionsMap = {
   owner: { ...permissionsMap.owner, comment: false },
 }
 
+const linkSharingWarningPermissionsMap: typeof permissionsMap = {
+  readOnly: { ...permissionsMap.readOnly, comment: false },
+  readAndWrite: permissionsMap.readAndWrite,
+  owner: permissionsMap.owner,
+}
+
 export const PermissionsProvider: React.FC = ({ children }) => {
   const [permissions, setPermissions] =
     useScopeValue<Readonly<Permissions>>('permissions')
@@ -45,14 +54,20 @@ export const PermissionsProvider: React.FC = ({ children }) => {
   const { permissionsLevel } = useEditorContext() as {
     permissionsLevel: PermissionsLevel
   }
-  const anonymous = getMeta('ol-anonymous') as boolean | undefined
+  const hasViewerPermissions = useViewerPermissions()
+  const anonymous = getMeta('ol-anonymous')
 
   useEffect(() => {
-    const activePermissionsMap = anonymous
-      ? anonymousPermissionsMap
-      : permissionsMap
+    let activePermissionsMap
+    if (hasViewerPermissions) {
+      activePermissionsMap = linkSharingWarningPermissionsMap
+    } else {
+      activePermissionsMap = anonymous
+        ? anonymousPermissionsMap
+        : permissionsMap
+    }
     setPermissions(activePermissionsMap[permissionsLevel])
-  }, [anonymous, permissionsLevel, setPermissions])
+  }, [anonymous, permissionsLevel, setPermissions, hasViewerPermissions])
 
   useEffect(() => {
     if (connectionState.forceDisconnected) {

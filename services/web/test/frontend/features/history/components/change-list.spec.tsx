@@ -1,3 +1,4 @@
+import '../../../helpers/bootstrap-3'
 import { useState } from 'react'
 import ToggleSwitch from '../../../../../frontend/js/features/history/components/change-list/toggle-switch'
 import ChangeList from '../../../../../frontend/js/features/history/components/change-list/change-list'
@@ -30,7 +31,7 @@ const mountWithEditorProviders = (
   )
 }
 
-describe('change list', function () {
+describe('change list (Bootstrap 3)', function () {
   const scope = {
     ui: { view: 'history', pdfLayout: 'sideBySide', chatOpen: true },
   }
@@ -319,7 +320,7 @@ describe('change list', function () {
       cy.findByLabelText(/labels/i).click({ force: true })
     })
 
-    it('does not show the dropdown menu item for adding new labels', function () {
+    it('shows the dropdown menu item for adding new labels', function () {
       cy.findAllByTestId('history-version-details')
         .eq(1)
         .within(() => {
@@ -327,7 +328,7 @@ describe('change list', function () {
           cy.findByRole('menu').within(() => {
             cy.findByRole('menuitem', {
               name: /label this version/i,
-            }).should('not.exist')
+            }).should('exist')
           })
         })
     })
@@ -362,7 +363,7 @@ describe('change list', function () {
       cy.findAllByTestId('history-version-details')
         .eq(1)
         .within(() => {
-          cy.findByRole('button', { name: /compare drop down/i }).click()
+          cy.findByRole('button', { name: /compare/i }).click()
           cy.findByRole('menu').within(() => {
             cy.findByRole('menuitem', {
               name: /compare up to this version/i,

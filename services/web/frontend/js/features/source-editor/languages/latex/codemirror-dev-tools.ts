@@ -19,8 +19,7 @@ export const codemirrorDevTools = () => {
 }
 
 const devToolsButton = ViewPlugin.define(view => {
-  const getContainer = () =>
-    document.querySelector('.formatting-buttons-wrapper')
+  const getContainer = () => document.querySelector('.ol-cm-toolbar-end')
 
   const removeButton = () => {
     getContainer()?.querySelector('#cm6-dev-tools-button')?.remove()
@@ -28,7 +27,7 @@ const devToolsButton = ViewPlugin.define(view => {
 
   const addButton = () => {
     const button = document.createElement('button')
-    button.classList.add('btn', 'formatting-btn', 'formatting-btn--icon')
+    button.classList.add('btn', 'formatting-btn', 'formatting-btn-icon')
     button.id = 'cm6-dev-tools-button'
     button.textContent = '🦧'
     button.style.border = 'none'
@@ -38,7 +37,7 @@ const devToolsButton = ViewPlugin.define(view => {
       view.dispatch(toggleDevTools())
     })
 
-    getContainer()?.prepend(button)
+    getContainer()?.append(button)
   }
 
   window.setTimeout(() => {

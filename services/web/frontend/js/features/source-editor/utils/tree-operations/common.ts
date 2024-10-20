@@ -58,35 +58,47 @@ export const getOptionalArgumentText = (
 ): string | undefined => {
   const shortArgNode = optionalArgumentNode.getChild('ShortOptionalArg')
   if (shortArgNode) {
-    const shortArgNodeText = state.doc.sliceString(
-      shortArgNode.from,
-      shortArgNode.to
-    )
-    return shortArgNodeText
+    return state.doc.sliceString(shortArgNode.from, shortArgNode.to)
   }
 }
 
-export const resolveNodeAtPos = (
-  state: EditorState,
-  pos: number,
-  side?: -1 | 0 | 1
-) => ensureSyntaxTree(state, pos, HUNDRED_MS)?.resolveInner(pos, side) ?? null
+export const nodeHasError = (node: SyntaxNode): boolean => {
+  let hasError = false
 
-export const isUnknownCommandWithName = (
+  node.cursor().iterate(({ type }) => {
+    if (hasError) return false
+
+    if (type.isError) {
+      hasError = true
+      return false
+    }
+
+    return true
+  })
+
+  return hasError
+}
+
+export const childOfNodeWithType = (
   node: SyntaxNode,
-  command: string,
-  state: EditorState
-): boolean => {
-  if (!node.type.is('UnknownCommand')) {
-    return false
-  }
-  const commandNameNode = node.getChild('CtrlSeq')
-  if (!commandNameNode) {
-    return false
-  }
-  const commandName = state.doc.sliceString(
-    commandNameNode.from,
-    commandNameNode.to
-  )
-  return commandName === command
+  ...types: (string | number)[]
+): SyntaxNode | null => {
+  let childOfType: SyntaxNode | null = null
+
+  node.cursor().iterate(child => {
+    if (childOfType !== null) {
+      return false
+    }
+
+    for (const type of types) {
+      if (child.type.is(type)) {
+        childOfType = child.node
+        return false
+      }
+    }
+
+    return true
+  })
+
+  return childOfType
 }

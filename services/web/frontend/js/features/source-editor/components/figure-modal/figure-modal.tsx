@@ -1,5 +1,9 @@
-import { Modal } from 'react-bootstrap'
-import AccessibleModal from '../../../../shared/components/accessible-modal'
+import OLModal, {
+  OLModalBody,
+  OLModalFooter,
+  OLModalHeader,
+  OLModalTitle,
+} from '@/features/ui/components/ol/ol-modal'
 import {
   FigureModalProvider,
   FigureModalSource,
@@ -8,8 +12,9 @@ import {
 } from './figure-modal-context'
 import { FigureModalFooter } from './figure-modal-footer'
 import { lazy, memo, Suspense, useCallback, useEffect } from 'react'
-import { useCodeMirrorViewContext } from '../codemirror-editor'
+import { useCodeMirrorViewContext } from '../codemirror-context'
 import { ChangeSpec } from '@codemirror/state'
+import { snippet } from '@codemirror/autocomplete'
 import {
   FigureData,
   PastedImageData,
@@ -69,8 +74,16 @@ const FigureModalContent = () => {
 
   const listener = useCallback(
     (event: Event) => {
-      const { detail: source } = event as CustomEvent<FigureModalSource>
-      dispatch({ source })
+      const { detail } = event as CustomEvent<{
+        source: FigureModalSource
+        fileId?: string
+        filePath?: string
+      }>
+      dispatch({
+        source: detail.source,
+        selectedItemId: detail.fileId,
+        getPath: detail.filePath ? async () => detail.filePath! : undefined,
+      })
     },
     [dispatch]
   )
@@ -206,29 +219,26 @@ const FigureModalContent = () => {
         effects: editFigureDataEffect.of(null),
       })
     } else {
-      view.dispatch(
-        view.state.changeByRange(range => {
-          const { pos, suffix } = ensureEmptyLine(view.state, range)
-          const widthArgument =
-            width !== undefined ? `[width=${width}\\linewidth]` : ''
-          const changes: ChangeSpec = view.state.changes({
-            insert: prepareLines(
-              [
-                '\\begin{figure}',
-                '\t\\centering',
-                `\t\\includegraphics${widthArgument}{${path}}`,
-                `\t${captionCommand}`,
-                `\t${labelCommand}`,
-                `\\end{figure}${suffix}`,
-              ],
-              view.state,
-              pos
-            ),
-            from: pos,
-          })
+      const { pos, suffix } = ensureEmptyLine(
+        view.state,
+        view.state.selection.main
+      )
 
-          return { range: range.map(changes), changes }
-        })
+      const widthArgument =
+        width !== undefined ? `[width=${width}\\linewidth]` : ''
+      const caption = includeCaption ? `\n\t\\caption{\${Enter Caption}}` : ''
+      const label = includeLabel ? `\n\t\\label{\${fig:enter-label}}` : ''
+
+      snippet(
+        `\\begin{figure}
+\t\\centering
+\t\\includegraphics${widthArgument}{${path}}${caption}${label}
+\\end{figure}${suffix}\${}`
+      )(
+        { state: view.state, dispatch: view.dispatch },
+        { label: 'figure' },
+        pos,
+        pos
       )
     }
     hide()
@@ -262,35 +272,35 @@ const FigureModalContent = () => {
     return null
   }
   return (
-    <AccessibleModal onHide={hide} className="figure-modal" show>
-      <Modal.Header closeButton>
-        <Modal.Title>
+    <OLModal onHide={hide} className="figure-modal" show>
+      <OLModalHeader closeButton>
+        <OLModalTitle>
           {helpShown
             ? t('help')
             : sourcePickerShown
-            ? t('replace_figure')
-            : getTitle(source)}{' '}
+              ? t('replace_figure')
+              : getTitle(source)}{' '}
           <FeedbackBadge
             id="figure-modal-feedback"
             url="https://forms.gle/PfEtwceYBNQ32DF4A"
             text="Please click to give feedback about editing figures."
           />
-        </Modal.Title>
-      </Modal.Header>
+        </OLModalTitle>
+      </OLModalHeader>
 
-      <Modal.Body>
+      <OLModalBody>
         <Suspense fallback={<FullSizeLoadingSpinner minHeight="15rem" />}>
           <FigureModalBody />
         </Suspense>
-      </Modal.Body>
+      </OLModalBody>
 
-      <Modal.Footer>
+      <OLModalFooter>
         <FigureModalFooter
           onInsert={insert}
           onCancel={onCancel}
           onDelete={onDelete}
         />
-      </Modal.Footer>
-    </AccessibleModal>
+      </OLModalFooter>
+    </OLModal>
   )
 }

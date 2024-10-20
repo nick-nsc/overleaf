@@ -1,4 +1,3 @@
-import { Form } from 'react-bootstrap'
 import { useTranslation } from 'react-i18next'
 import getMeta from '../../../utils/meta'
 import SettingsAutoCloseBrackets from './settings/settings-auto-close-brackets'
@@ -16,27 +15,42 @@ import SettingsOverallTheme from './settings/settings-overall-theme'
 import SettingsPdfViewer from './settings/settings-pdf-viewer'
 import SettingsSpellCheckLanguage from './settings/settings-spell-check-language'
 import SettingsSyntaxValidation from './settings/settings-syntax-validation'
+import SettingsMathPreview from './settings/settings-math-preview'
+import { useFeatureFlag } from '@/shared/context/split-test-context'
+import importOverleafModules from '../../../../macros/import-overleaf-module.macro'
+import { ElementType } from 'react'
+import OLForm from '@/features/ui/components/ol/ol-form'
+
+const moduleSettings: Array<{
+  import: { default: ElementType }
+  path: string
+}> = importOverleafModules('settingsEntries')
 
 export default function SettingsMenu() {
   const { t } = useTranslation()
-  const anonymous = getMeta('ol-anonymous') as boolean | undefined
+  const anonymous = getMeta('ol-anonymous')
+  const enableMathPreview = useFeatureFlag('math-preview')
 
-  if (anonymous === true || anonymous === undefined) {
+  if (anonymous) {
     return null
   }
 
   return (
     <>
       <h4>{t('settings')}</h4>
-      <Form className="settings">
+      <OLForm id="left-menu-setting" className="settings">
         <SettingsCompiler />
         <SettingsImageName />
         <SettingsDocument />
         <SettingsSpellCheckLanguage />
         <SettingsDictionary />
+        {moduleSettings.map(({ import: { default: Component }, path }) => (
+          <Component key={path} />
+        ))}
         <SettingsAutoComplete />
         <SettingsAutoCloseBrackets />
         <SettingsSyntaxValidation />
+        {enableMathPreview && <SettingsMathPreview />}
         <SettingsEditorTheme />
         <SettingsOverallTheme />
         <SettingsKeybindings />
@@ -44,7 +58,7 @@ export default function SettingsMenu() {
         <SettingsFontFamily />
         <SettingsLineHeight />
         <SettingsPdfViewer />
-      </Form>
+      </OLForm>
     </>
   )
 }

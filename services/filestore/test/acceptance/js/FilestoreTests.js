@@ -36,7 +36,7 @@ const BackendSettings = require('./TestConfig')
 
 describe('Filestore', function () {
   this.timeout(1000 * 10)
-  const filestoreUrl = `http://localhost:${Settings.internal.filestore.port}`
+  const filestoreUrl = `http://127.0.0.1:${Settings.internal.filestore.port}`
 
   const seenSockets = []
   async function expectNoSockets() {
@@ -88,10 +88,8 @@ describe('Filestore', function () {
 
       const BUCKET_NAMES = [
         process.env.GCS_USER_FILES_BUCKET_NAME,
-        process.env.GCS_PUBLIC_FILES_BUCKET_NAME,
         process.env.GCS_TEMPLATE_FILES_BUCKET_NAME,
         `${process.env.GCS_USER_FILES_BUCKET_NAME}-deleted`,
-        `${process.env.GCS_PUBLIC_FILES_BUCKET_NAME}-deleted`,
         `${process.env.GCS_TEMPLATE_FILES_BUCKET_NAME}-deleted`,
       ]
 
@@ -332,7 +330,7 @@ describe('Filestore', function () {
         ]
 
         before(async function () {
-          return Promise.all([
+          return await Promise.all([
             fsWriteFile(localFileReadPaths[0], constantFileContents[0]),
             fsWriteFile(localFileReadPaths[1], constantFileContents[1]),
             fsWriteFile(localFileReadPaths[2], constantFileContents[2]),

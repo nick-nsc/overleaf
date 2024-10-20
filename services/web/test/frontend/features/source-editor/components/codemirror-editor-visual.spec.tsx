@@ -1,20 +1,19 @@
 // Needed since eslint gets confused by mocha-each
 /* eslint-disable mocha/prefer-arrow-callback */
+import '../../../helpers/bootstrap-3'
 import { FC } from 'react'
 import { EditorProviders } from '../../../helpers/editor-providers'
 import CodemirrorEditor from '../../../../../frontend/js/features/source-editor/components/codemirror-editor'
 import { mockScope } from '../helpers/mock-scope'
 import forEach from 'mocha-each'
 import { FileTreePathContext } from '@/features/file-tree/contexts/file-tree-path'
-
-const Container: FC = ({ children }) => (
-  <div style={{ width: 785, height: 785 }}>{children}</div>
-)
+import { TestContainer } from '../helpers/test-container'
 
 describe('<CodeMirrorEditor/> in Visual mode', function () {
   beforeEach(function () {
     window.metaAttributesCache.set('ol-preventCompileOnLoad', true)
     cy.interceptEvents()
+    cy.interceptMetadata()
     cy.interceptSpelling()
     cy.interceptMathJax()
 
@@ -41,11 +40,11 @@ describe('<CodeMirrorEditor/> in Visual mode', function () {
     )
 
     cy.mount(
-      <Container>
+      <TestContainer>
         <EditorProviders scope={scope} providers={{ FileTreePathProvider }}>
           <CodemirrorEditor />
         </EditorProviders>
-      </Container>
+      </TestContainer>
     )
 
     // wait for the content to be parsed and revealed
@@ -125,20 +124,17 @@ describe('<CodeMirrorEditor/> in Visual mode', function () {
     cy.get('.cm-content').should('have.text', ' testtest')
   })
 
-  forEach(['textbf', 'textit', 'underline']).it(
-    'handles \\%s text',
-    function (command) {
-      cy.get('@first-line').type(`\\${command}{`)
-      cy.get('@first-line').should('have.text', `{}`)
-      cy.get('@first-line').type('{rightArrow} ')
-      cy.get('@first-line').should('have.text', '{} ')
-      cy.get('@first-line').type('{Backspace}{leftArrow}test text')
-      cy.get('@first-line').should('have.text', '{test text}')
-      cy.get('@first-line').type('{rightArrow} foo')
-      cy.get('@first-line').should('have.text', 'test text foo') // no braces
-      cy.get('@first-line').find(`.ol-cm-command-${command}`)
-    }
-  )
+  forEach(['textbf', 'textit']).it('handles \\%s text', function (command) {
+    cy.get('@first-line').type(`\\${command}{`)
+    cy.get('@first-line').should('have.text', `{}`)
+    cy.get('@first-line').type('{rightArrow} ')
+    cy.get('@first-line').should('have.text', '{} ')
+    cy.get('@first-line').type('{Backspace}{leftArrow}test text')
+    cy.get('@first-line').should('have.text', '{test text}')
+    cy.get('@first-line').type('{rightArrow} foo')
+    cy.get('@first-line').should('have.text', 'test text foo') // no braces
+    cy.get('@first-line').find(`.ol-cm-command-${command}`)
+  })
 
   forEach([
     'part',
@@ -172,6 +168,7 @@ describe('<CodeMirrorEditor/> in Visual mode', function () {
     'textsuperscript',
     'sout',
     'emph',
+    'underline',
     'url',
     'caption',
   ]).it('handles \\%s text', function (command) {
@@ -209,16 +206,19 @@ describe('<CodeMirrorEditor/> in Visual mode', function () {
     cy.get('@first-line').should('have.text', `${icon}key `)
   })
 
-  forEach([['ref', '🏷']]).it('handles \\%s commands', function (command, icon) {
-    cy.get('@first-line').type(`\\${command}{} `)
-    cy.get('@first-line').should('have.text', `${icon} `)
-    cy.get('@first-line').type('{Backspace}{leftArrow}key')
-    cy.get('@first-line').should('have.text', `${icon}{key}`)
-    cy.get('@first-line').type('{rightArrow}')
-    cy.get('@first-line').should('have.text', `${icon}{key}`)
-    cy.get('@first-line').type(' ')
-    cy.get('@first-line').should('have.text', `${icon}key `)
-  })
+  forEach([['ref', '🏷']]).it(
+    'handles \\%s commands',
+    function (command, icon) {
+      cy.get('@first-line').type(`\\${command}{} `)
+      cy.get('@first-line').should('have.text', `${icon} `)
+      cy.get('@first-line').type('{Backspace}{leftArrow}key')
+      cy.get('@first-line').should('have.text', `${icon}{key}`)
+      cy.get('@first-line').type('{rightArrow}')
+      cy.get('@first-line').should('have.text', `${icon}{key}`)
+      cy.get('@first-line').type(' ')
+      cy.get('@first-line').should('have.text', `${icon}key `)
+    }
+  )
 
   it('handles \\href command', function () {
     cy.get('@first-line').type('\\href{{}https://overleaf.com} ')
@@ -248,8 +248,8 @@ describe('<CodeMirrorEditor/> in Visual mode', function () {
       cy.get('@third-line').type('path/to/image')
 
       cy.get('@third-line').should(
-        'have.text',
-        '    \\includegraphics{path/to/image}'
+        'contain.text',
+        '    \\includegraphics[width=0.5\\linewidth]{path/to/image}'
       )
 
       // move the cursor out of the figure
@@ -257,8 +257,8 @@ describe('<CodeMirrorEditor/> in Visual mode', function () {
 
       // Should be removed from dom when line is hidden
       cy.get('.cm-content').should(
-        'not.contain',
-        '\\includegraphics{path/to/image}'
+        'not.contain.text',
+        '\\includegraphics[width=0.5\\linewidth]{path/to/image}'
       )
 
       cy.get('img.ol-cm-graphics').should('have.attr', 'src', 'path/to/image')
@@ -640,6 +640,22 @@ describe('<CodeMirrorEditor/> in Visual mode', function () {
       cy.get('@first-line').type('Test \\\\ test')
       cy.get('@second-line').click()
       cy.get('@first-line').should('have.text', 'Test ↩ test')
+    })
+
+    it('decorates spacing commands', function () {
+      cy.get('@first-line').type('\\thinspace')
+      cy.get('@second-line').click()
+      cy.get('@first-line')
+        .find('.ol-cm-space')
+        .should('have.attr', 'style', 'width: calc(0.166667em);')
+    })
+
+    it('decorates spacing symbols', function () {
+      cy.get('@first-line').type('\\,')
+      cy.get('@second-line').click()
+      cy.get('@first-line')
+        .find('.ol-cm-space')
+        .should('have.attr', 'style', 'width: calc(0.166667em);')
     })
   })
 

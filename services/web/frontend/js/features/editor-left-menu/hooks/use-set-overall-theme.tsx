@@ -5,6 +5,8 @@ import type { OverallThemeMeta } from '../../../../../types/project-settings'
 import { saveUserSettings } from '../utils/api'
 import { UserSettings } from '../../../../../types/user-settings'
 import { useUserSettingsContext } from '@/shared/context/user-settings-context'
+import getMeta from '@/utils/meta'
+import { isBootstrap5 } from '@/features/utils/bootstrap-5'
 
 export default function useSetOverallTheme() {
   const [chosenTheme, setChosenTheme] = useState<OverallThemeMeta | null>(null)
@@ -22,7 +24,19 @@ export default function useSetOverallTheme() {
     [setUserSettings]
   )
 
+  const skipLoadingStyleSheet = isBootstrap5()
+
   useEffect(() => {
+    // Sets `data-theme` attribute to the body element, needed for Bootstrap 5 theming
+    const theme = overallTheme === 'light-' ? 'light' : 'default'
+    document.body.dataset.theme = theme
+  }, [overallTheme])
+
+  useEffect(() => {
+    if (skipLoadingStyleSheet) {
+      return
+    }
+
     const docHeadEl = document.querySelector('head')
     const oldStyleSheetEl = document.getElementById('main-stylesheet')
 
@@ -50,24 +64,31 @@ export default function useSetOverallTheme() {
     return () => {
       newStyleSheetEl.removeEventListener('load', loadEventCallback)
     }
-  }, [loadingStyleSheet, setLoadingStyleSheet, chosenTheme?.path])
+  }, [
+    loadingStyleSheet,
+    setLoadingStyleSheet,
+    skipLoadingStyleSheet,
+    chosenTheme?.path,
+  ])
 
   return useCallback(
     (newOverallTheme: UserSettings['overallTheme']) => {
       if (overallTheme !== newOverallTheme) {
         const chosenTheme = _.find(
-          window.overallThemes,
+          getMeta('ol-overallThemes'),
           theme => theme.val === newOverallTheme
         )
 
         if (chosenTheme) {
-          setLoadingStyleSheet(true)
+          if (!skipLoadingStyleSheet) {
+            setLoadingStyleSheet(true)
+          }
           setChosenTheme(chosenTheme)
           setOverallTheme(newOverallTheme)
           saveUserSettings('overallTheme', newOverallTheme)
         }
       }
     },
-    [overallTheme, setLoadingStyleSheet, setOverallTheme]
+    [overallTheme, setLoadingStyleSheet, skipLoadingStyleSheet, setOverallTheme]
   )
 }

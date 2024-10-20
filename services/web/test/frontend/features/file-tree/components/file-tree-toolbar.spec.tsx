@@ -1,3 +1,4 @@
+import '../../../helpers/bootstrap-3'
 import FileTreeToolbar from '../../../../../frontend/js/features/file-tree/components/file-tree-toolbar'
 import { EditorProviders } from '../../../helpers/editor-providers'
 import { FileTreeProvider } from '../helpers/file-tree-provider'
@@ -12,8 +13,8 @@ describe('<FileTreeToolbar/>', function () {
       </EditorProviders>
     )
 
-    cy.findAllByRole('button', { name: 'New File' })
-    cy.findAllByRole('button', { name: 'New Folder' })
+    cy.findAllByRole('button', { name: 'New file' })
+    cy.findAllByRole('button', { name: 'New folder' })
     cy.findAllByRole('button', { name: 'Upload' })
     cy.findAllByRole('button', { name: 'Rename' }).should('not.exist')
     cy.findAllByRole('button', { name: 'Delete' }).should('not.exist')
@@ -50,8 +51,8 @@ describe('<FileTreeToolbar/>', function () {
       </EditorProviders>
     )
 
-    cy.findAllByRole('button', { name: 'New File' })
-    cy.findAllByRole('button', { name: 'New Folder' })
+    cy.findAllByRole('button', { name: 'New file' })
+    cy.findAllByRole('button', { name: 'New folder' })
     cy.findAllByRole('button', { name: 'Upload' })
     cy.findAllByRole('button', { name: 'Rename' })
     cy.findAllByRole('button', { name: 'Delete' })

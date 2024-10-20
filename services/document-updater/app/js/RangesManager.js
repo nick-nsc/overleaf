@@ -5,22 +5,12 @@ const logger = require('@overleaf/logger')
 const OError = require('@overleaf/o-error')
 const Metrics = require('./Metrics')
 const _ = require('lodash')
-const { isInsert, isDelete, isComment } = require('./Utils')
+const { isInsert, isDelete, isComment, getDocLength } = require('./Utils')
 
 /**
- * @typedef {import('./types').Comment} Comment
- * @typedef {import('./types').CommentOp} CommentOp
- * @typedef {import('./types').DeleteOp} DeleteOp
- * @typedef {import('./types').HistoryCommentOp} HistoryCommentOp
- * @typedef {import('./types').HistoryDeleteOp} HistoryDeleteOp
- * @typedef {import('./types').HistoryInsertOp} HistoryInsertOp
- * @typedef {import('./types').HistoryOp} HistoryOp
- * @typedef {import('./types').HistoryUpdate} HistoryUpdate
- * @typedef {import('./types').InsertOp} InsertOp
- * @typedef {import('./types').Op} Op
- * @typedef {import('./types').Ranges} Ranges
- * @typedef {import('./types').TrackedChange} TrackedChange
- * @typedef {import('./types').Update} Update
+ * @import { Comment, CommentOp, InsertOp, DeleteOp, HistoryOp, Op } from './types'
+ * @import { HistoryCommentOp, HistoryDeleteOp, HistoryInsertOp, HistoryRetainOp } from './types'
+ * @import { HistoryDeleteTrackedChange, HistoryUpdate, Ranges, TrackedChange, Update } from './types'
  */
 
 const RANGE_DELTA_BUCKETS = [0, 1, 2, 3, 4, 5, 10, 20, 50]
@@ -54,22 +44,40 @@ const RangesManager = {
       RangesManager._emptyRangesCount(rangesTracker)
     const historyUpdates = []
     for (const update of updates) {
-      rangesTracker.track_changes = Boolean(update.meta?.tc)
+      const trackingChanges = Boolean(update.meta?.tc)
+      rangesTracker.track_changes = trackingChanges
       if (update.meta?.tc) {
         rangesTracker.setIdSeed(update.meta.tc)
       }
       const historyOps = []
       for (const op of update.op) {
+        let croppedCommentOps = []
         if (opts.historyRangesSupport) {
           historyOps.push(
             getHistoryOp(op, rangesTracker.comments, rangesTracker.changes)
           )
+          if (isDelete(op) && trackingChanges) {
+            // If a tracked delete overlaps a comment, the comment must be
+            // cropped. The extent of the cropping is calculated before the
+            // delete is applied, but the cropping operations are applied
+            // later, after the delete is applied.
+            croppedCommentOps = getCroppedCommentOps(op, rangesTracker.comments)
+          }
         } else if (isInsert(op) || isDelete(op)) {
           historyOps.push(op)
         }
         rangesTracker.applyOp(op, { user_id: update.meta?.user_id })
+        if (croppedCommentOps.length > 0) {
+          historyOps.push(
+            ...croppedCommentOps.map(op =>
+              getHistoryOpForComment(op, rangesTracker.changes)
+            )
+          )
+        }
       }
-      historyUpdates.push({ ...update, op: historyOps })
+      if (historyOps.length > 0) {
+        historyUpdates.push({ ...update, op: historyOps })
+      }
     }
 
     if (
@@ -135,6 +143,115 @@ const RangesManager = {
     rangesTracker.removeCommentId(commentId)
     const newRanges = RangesManager._getRanges(rangesTracker)
     return newRanges
+  },
+
+  /**
+   *
+   * @param {object} args
+   * @param {string} args.docId
+   * @param {string[]} args.acceptedChangeIds
+   * @param {TrackedChange[]} args.changes
+   * @param {string} args.pathname
+   * @param {string} args.projectHistoryId
+   * @param {string[]} args.lines
+   */
+  getHistoryUpdatesForAcceptedChanges({
+    docId,
+    acceptedChangeIds,
+    changes,
+    pathname,
+    projectHistoryId,
+    lines,
+  }) {
+    /** @type {(change: TrackedChange) => boolean} */
+    const isAccepted = change => acceptedChangeIds.includes(change.id)
+
+    const historyOps = []
+
+    // Keep ops in order of offset, with deletes before inserts
+    const sortedChanges = changes.slice().sort(function (c1, c2) {
+      const result = c1.op.p - c2.op.p
+      if (result !== 0) {
+        return result
+      } else if (isInsert(c1.op) && isDelete(c2.op)) {
+        return 1
+      } else if (isDelete(c1.op) && isInsert(c2.op)) {
+        return -1
+      } else {
+        return 0
+      }
+    })
+
+    const docLength = getDocLength(lines)
+    let historyDocLength = docLength
+    for (const change of sortedChanges) {
+      if (isDelete(change.op)) {
+        historyDocLength += change.op.d.length
+      }
+    }
+
+    let unacceptedDeletes = 0
+    for (const change of sortedChanges) {
+      /** @type {HistoryOp | undefined} */
+      let op
+
+      if (isDelete(change.op)) {
+        if (isAccepted(change)) {
+          op = {
+            p: change.op.p,
+            d: change.op.d,
+          }
+          if (unacceptedDeletes > 0) {
+            op.hpos = op.p + unacceptedDeletes
+          }
+        } else {
+          unacceptedDeletes += change.op.d.length
+        }
+      } else if (isInsert(change.op)) {
+        if (isAccepted(change)) {
+          op = {
+            p: change.op.p,
+            r: change.op.i,
+            tracking: { type: 'none' },
+          }
+          if (unacceptedDeletes > 0) {
+            op.hpos = op.p + unacceptedDeletes
+          }
+        }
+      }
+
+      if (!op) {
+        continue
+      }
+
+      /** @type {HistoryUpdate} */
+      const historyOp = {
+        doc: docId,
+        op: [op],
+        meta: {
+          ...change.metadata,
+          ts: Date.now(),
+          doc_length: docLength,
+          pathname,
+        },
+      }
+
+      if (projectHistoryId) {
+        historyOp.projectHistoryId = projectHistoryId
+      }
+
+      if (historyOp.meta && historyDocLength !== docLength) {
+        historyOp.meta.history_doc_length = historyDocLength
+      }
+
+      historyOps.push(historyOp)
+
+      if (isDelete(change.op) && isAccepted(change)) {
+        historyDocLength -= change.op.d.length
+      }
+    }
+
+    return historyOps
   },
 
   _getRanges(rangesTracker) {
@@ -277,22 +394,44 @@ function getHistoryOpForInsert(op, comments, changes) {
  */
 function getHistoryOpForDelete(op, changes, opts = {}) {
   let hpos = op.p
-  const hsplits = []
+  const opEnd = op.p + op.d.length
+  /** @type HistoryDeleteTrackedChange[] */
+  const changesInsideDelete = []
   for (const change of changes) {
-    if (!isDelete(change.op)) {
-      // We're only interested in tracked deletes
-      continue
-    }
-
     if (change.op.p <= op.p) {
-      // Tracked delete is before or at the position of the incoming delete.
-      // Move the op forward.
-      hpos += change.op.d.length
+      if (isDelete(change.op)) {
+        // Tracked delete is before or at the position of the incoming delete.
+        // Move the op forward.
+        hpos += change.op.d.length
+      } else if (isInsert(change.op)) {
+        const changeEnd = change.op.p + change.op.i.length
+        const endPos = Math.min(changeEnd, opEnd)
+        if (endPos > op.p) {
+          // Part of the tracked insert is inside the delete
+          changesInsideDelete.push({
+            type: 'insert',
+            offset: 0,
+            length: endPos - op.p,
+          })
+        }
+      }
     } else if (change.op.p < op.p + op.d.length) {
-      // Tracked delete inside the deleted text. Record a split for the history system.
-      hsplits.push({ offset: change.op.p - op.p, length: change.op.d.length })
+      // Tracked change inside the deleted text. Record it for the history system.
+      if (isDelete(change.op)) {
+        changesInsideDelete.push({
+          type: 'delete',
+          offset: change.op.p - op.p,
+          length: change.op.d.length,
+        })
+      } else if (isInsert(change.op)) {
+        changesInsideDelete.push({
+          type: 'insert',
+          offset: change.op.p - op.p,
+          length: Math.min(change.op.i.length, opEnd - change.op.p),
+        })
+      }
     } else {
-      // We've seen all tracked deletes before or inside the delete
+      // We've seen all tracked changes before or inside the delete
       break
     }
   }
@@ -302,8 +441,8 @@ function getHistoryOpForDelete(op, changes, opts = {}) {
   if (hpos !== op.p) {
     historyOp.hpos = hpos
   }
-  if (hsplits.length > 0) {
-    historyOp.hsplits = hsplits
+  if (changesInsideDelete.length > 0) {
+    historyOp.trackedChanges = changesInsideDelete
   }
   return historyOp
 }
@@ -350,6 +489,72 @@ function getHistoryOpForComment(op, changes) {
     historyOp.hlen = hlen
   }
   return historyOp
+}
+
+/**
+ * Return the ops necessary to properly crop comments when a tracked delete is
+ * received
+ *
+ * The editor treats a tracked delete as a proper delete and updates the
+ * comment range accordingly. The history doesn't do that and remembers the
+ * extent of the comment in the tracked delete. In order to keep the history
+ * consistent with the editor, we'll send ops that will crop the comment in
+ * the history.
+ *
+ * @param {DeleteOp} op
+ * @param {Comment[]} comments
+ * @returns {CommentOp[]}
+ */
+function getCroppedCommentOps(op, comments) {
+  const deleteStart = op.p
+  const deleteLength = op.d.length
+  const deleteEnd = deleteStart + deleteLength
+
+  /** @type {HistoryCommentOp[]} */
+  const historyCommentOps = []
+  for (const comment of comments) {
+    const commentStart = comment.op.p
+    const commentLength = comment.op.c.length
+    const commentEnd = commentStart + commentLength
+
+    if (deleteStart <= commentStart && deleteEnd > commentStart) {
+      // The comment overlaps the start of the comment or all of it.
+      const overlapLength = Math.min(deleteEnd, commentEnd) - commentStart
+
+      /** @type {CommentOp} */
+      const commentOp = {
+        p: deleteStart,
+        c: comment.op.c.slice(overlapLength),
+        t: comment.op.t,
+      }
+      if (comment.op.resolved) {
+        commentOp.resolved = true
+      }
+
+      historyCommentOps.push(commentOp)
+    } else if (
+      deleteStart > commentStart &&
+      deleteStart < commentEnd &&
+      deleteEnd >= commentEnd
+    ) {
+      // The comment overlaps the end of the comment.
+      const overlapLength = commentEnd - deleteStart
+
+      /** @type {CommentOp} */
+      const commentOp = {
+        p: commentStart,
+        c: comment.op.c.slice(0, -overlapLength),
+        t: comment.op.t,
+      }
+      if (comment.op.resolved) {
+        commentOp.resolved = true
+      }
+
+      historyCommentOps.push(commentOp)
+    }
+  }
+
+  return historyCommentOps
 }
 
 module.exports = RangesManager

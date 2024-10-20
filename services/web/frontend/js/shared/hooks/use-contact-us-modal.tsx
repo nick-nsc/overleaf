@@ -1,13 +1,19 @@
 import importOverleafModules from '../../../macros/import-overleaf-module.macro'
-import { JSXElementConstructor, useCallback, useState } from 'react'
+import {
+  JSXElementConstructor,
+  useCallback,
+  useState,
+  type UIEvent,
+} from 'react'
 
 const [contactUsModalModules] = importOverleafModules('contactUsModal')
 const ContactUsModal: JSXElementConstructor<{
   show: boolean
   handleHide: () => void
+  autofillProjectUrl: boolean
 }> = contactUsModalModules?.import.default
 
-export const useContactUsModal = () => {
+export const useContactUsModal = (options = { autofillProjectUrl: true }) => {
   const [show, setShow] = useState(false)
 
   const hideModal = useCallback((event?: Event) => {
@@ -15,13 +21,17 @@ export const useContactUsModal = () => {
     setShow(false)
   }, [])
 
-  const showModal = useCallback((event?: Event) => {
+  const showModal = useCallback((event?: Event | UIEvent) => {
     event?.preventDefault()
     setShow(true)
   }, [])
 
   const modal = ContactUsModal && (
-    <ContactUsModal show={show} handleHide={hideModal} />
+    <ContactUsModal
+      show={show}
+      handleHide={hideModal}
+      autofillProjectUrl={options.autofillProjectUrl}
+    />
   )
 
   return { modal, hideModal, showModal }

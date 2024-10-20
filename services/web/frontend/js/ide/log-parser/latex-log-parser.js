@@ -9,10 +9,6 @@ const LINES_REGEX = /lines? ([0-9]+)/
 const PACKAGE_REGEX = /^(?:Package|Class|Module) (\b.+\b) Warning/
 const FILE_LINE_ERROR_REGEX = /^([./].*):(\d+): (.*)/
 
-const LATEX_WARNING_REGEX_OLD = /^LaTeX Warning: (.*)$/
-const PACKAGE_WARNING_REGEX_OLD = /^(Package \b.+\b Warning:.*)$/
-const PACKAGE_REGEX_OLD = /^Package (\b.+\b) Warning/
-
 const STATE = {
   NORMAL: 0,
   ERROR: 1,
@@ -27,16 +23,9 @@ export default class LatexParser {
     this.fileStack = []
     this.currentFileList = this.rootFileList = []
     this.openParens = 0
-    // TODO: Needed only for beta release; remove when over. 20220530
-    if (options.oldRegexes) {
-      this.latexWarningRegex = LATEX_WARNING_REGEX_OLD
-      this.packageWarningRegex = PACKAGE_WARNING_REGEX_OLD
-      this.packageRegex = PACKAGE_REGEX_OLD
-    } else {
-      this.latexWarningRegex = LATEX_WARNING_REGEX
-      this.packageWarningRegex = PACKAGE_WARNING_REGEX
-      this.packageRegex = PACKAGE_REGEX
-    }
+    this.latexWarningRegex = LATEX_WARNING_REGEX
+    this.packageWarningRegex = PACKAGE_WARNING_REGEX
+    this.packageRegex = PACKAGE_REGEX
     this.log = new LogText(text)
   }
 
@@ -222,7 +211,7 @@ export default class LatexParser {
   // Check if we're entering or leaving a new file in this line
 
   parseParensForFilenames() {
-    const pos = this.currentLine.search(/\(|\)/)
+    const pos = this.currentLine.search(/[()]/)
     if (pos !== -1) {
       const token = this.currentLine[pos]
       this.currentLine = this.currentLine.slice(pos + 1)
@@ -262,12 +251,14 @@ export default class LatexParser {
 
   consumeFilePath() {
     // Our heuristic for detecting file names are rather crude
-    // A file may not contain a ')' in it
-    // To be a file path it must have at least one /
-    if (!this.currentLine.match(/^\/?([^ )]+\/)+/)) {
+
+    // To contain a file path this line must have at least one / before any '(', ')' or '\'
+    if (!this.currentLine.match(/^\/?([^ ()\\]+\/)+/)) {
       return false
     }
-    let endOfFilePath = this.currentLine.search(/ |\)/)
+
+    // A file may not contain a '(', ')' or '\'
+    let endOfFilePath = this.currentLine.search(/[ ()\\]/)
 
     // handle the case where there is a space in a filename
     while (endOfFilePath !== -1 && this.currentLine[endOfFilePath] === ' ') {

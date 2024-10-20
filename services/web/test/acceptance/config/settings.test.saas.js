@@ -7,18 +7,26 @@ const httpAuthPass = 'password'
 const httpAuthUsers = {}
 httpAuthUsers[httpAuthUser] = httpAuthPass
 
+const overleafHost =
+  process.env.V2_URL ||
+  `http://${process.env.HTTP_TEST_HOST || '127.0.0.1'}:23000`
+
 const overrides = {
+  appName: 'Overleaf',
+  siteUrl: overleafHost,
+
   enableSubscriptions: true,
 
   apis: {
     thirdPartyDataStore: {
-      url: `http://localhost:23002`,
+      url: `http://127.0.0.1:23002`,
+      dropboxApp: 'Overleaf',
     },
     analytics: {
-      url: `http://localhost:23050`,
+      url: `http://127.0.0.1:23050`,
     },
     recurly: {
-      url: 'http://localhost:26034',
+      url: 'http://127.0.0.1:26034',
       subdomain: 'test',
       apiKey: 'private-nonsense',
       webhookUser: 'recurly',
@@ -31,9 +39,12 @@ const overrides = {
     },
 
     v1: {
-      url: `http://localhost:25000`,
+      url: `http://127.0.0.1:25000`,
       user: 'overleaf',
       pass: 'password',
+    },
+    tags: {
+      url: 'http://127.0.0.1:25000',
     },
   },
 
@@ -51,8 +62,13 @@ const overrides = {
 
   saml: undefined,
 
-  // Disable contentful module.
-  contentful: undefined,
+  contentful: {
+    spaceId: 'a',
+    deliveryToken: 'b',
+    previewToken: 'c',
+    deliveryApiHost: 'cdn.contentful.com',
+    previewApiHost: 'preview.contentful.com',
+  },
 
   twoFactorAuthentication: {
     accessTokenEncryptorOptions: {
@@ -61,12 +77,24 @@ const overrides = {
       },
     },
   },
+
+  overleaf: {
+    host: 'http://127.0.0.1:25000',
+    oauth: {
+      clientID: 'mock-oauth-client-id',
+      clientSecret: 'mock-oauth-client-secret',
+    },
+  },
+
+  analytics: {
+    enabled: true,
+  },
 }
 
 module.exports = baseApp.mergeWith(baseTest.mergeWith(overrides))
 
 for (const redisKey of Object.keys(module.exports.redis)) {
-  module.exports.redis[redisKey].host = process.env.REDIS_HOST || 'localhost'
+  module.exports.redis[redisKey].host = process.env.REDIS_HOST || '127.0.0.1'
 }
 
 module.exports.mergeWith = function (overrides) {
